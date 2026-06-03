@@ -20,23 +20,27 @@ export function StoreProvider({ children }) {
   const DEFAULT_IMAGE =
     "https://images.unsplash.com/photo-1522338242592-cb0acf6f85a2?w=500";
 
-const adaptarProducto = (p) => ({
-  id: p.id ?? p.identificacion,
-  nombre: p.nombre,
-  precio: p.precio,
-  precio_emprendedor: p.precio_emprendedor ?? p.precioEmprendedor ?? null,
-  precio_mayorista: p.precio_mayorista ?? p.precioMayorista ?? null,
-  stock: p.stock ?? p.existencias ?? 0,
-  descripcion: p.descripcion,
-  categoria_id: p.categoria_id,
-  categoria: p.categorias?.nombre || p.categoria || "",
-  categorias: p.categorias ?? null,
-  imagenes: Array.isArray(p.imagenes) && p.imagenes.length > 0
-    ? p.imagenes
-    : p.imagen_url
-    ? [p.imagen_url]
-    : [DEFAULT_IMAGE],
-});
+const adaptarProducto = (p) => {
+  const imagenesDesdeColumnas = [p.imagen_url, p.imagen_url2, p.imagen_url3].filter(Boolean);
+  return {
+    id: p.id ?? p.identificacion,
+    nombre: p.nombre,
+    precio: p.precio,
+    precio_emprendedor: p.precio_emprendedor ?? p.precioEmprendedor ?? null,
+    precio_mayorista: p.precio_mayorista ?? p.precioMayorista ?? null,
+    stock: p.stock ?? p.existencias ?? 0,
+    descripcion: p.descripcion,
+    categoria_id: p.categoria_id,
+    categoria: p.categorias?.nombre || p.categoria || "",
+    categorias: p.categorias ?? null,
+    imagenes:
+      Array.isArray(p.imagenes) && p.imagenes.length > 0
+        ? p.imagenes
+        : imagenesDesdeColumnas.length > 0
+        ? imagenesDesdeColumnas
+        : [DEFAULT_IMAGE],
+  };
+};
 
   const adaptarPedido = (p, items = [], clientesData = []) => {
     const clienteId =
@@ -455,7 +459,9 @@ const cargarProductos = async () => {
     };
 
     if (imagenes.length > 0) {
-      productoInsert.imagen_url = imagenes[0];
+      productoInsert.imagen_url = imagenes[0] || null;
+      productoInsert.imagen_url2 = imagenes[1] || null;
+      productoInsert.imagen_url3 = imagenes[2] || null;
     }
 
     const { data, error } = await supabase
@@ -514,8 +520,10 @@ const cargarProductos = async () => {
     if (datos.precio_mayorista != null) datosActualizacion.precio_mayorista = datos.precio_mayorista !== "" ? Number(datos.precio_mayorista) : null;
     if (datos.stock != null) datosActualizacion.stock = Number(datos.stock);
     if (datos.descripcion != null) datosActualizacion.descripcion = datos.descripcion;
-    if (datos.imagenes != null && datos.imagenes.length > 0) {
-      datosActualizacion.imagen_url = datos.imagenes[0];
+    if (datos.imagenes != null) {
+      datosActualizacion.imagen_url = datos.imagenes[0] || null;
+      datosActualizacion.imagen_url2 = datos.imagenes[1] || null;
+      datosActualizacion.imagen_url3 = datos.imagenes[2] || null;
     }
 
     const { data, error } = await supabase
