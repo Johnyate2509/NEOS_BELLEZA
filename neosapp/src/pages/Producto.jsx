@@ -23,7 +23,7 @@ const CATEGORIAS_POR_DEFECTO = [
 const FORMAS_PAGO = ["Efectivo", "Crédito", "Abono"];
 
 export default function Producto() {
-  const { productos, categorias, setProductos, crearProducto, actualizarProducto, clientes } = useStore();
+  const { productos, categorias, setProductos, crearProducto, actualizarProducto, eliminarProducto, clientes } = useStore();
   const { esAdmin, esVendedor, obtenerDatosUsuario, user, getUserRole } = useAuth();
   const vendedorData = obtenerDatosUsuario();
 
@@ -210,6 +210,115 @@ export default function Producto() {
   const [editarVarianteId, setEditarVarianteId] = useState(null);
   const [mostrarModalSeleccionarVariante, setMostrarModalSeleccionarVariante] = useState(false);
   const [variantesProducto, setVariantesProducto] = useState([]);
+
+  const STORAGE_KEY = "neosapp_producto_state";
+
+  const cargarEstadoPersistente = () => {
+    if (typeof window === "undefined") return null;
+    try {
+      const data = window.localStorage.getItem(STORAGE_KEY);
+      return data ? JSON.parse(data) : null;
+    } catch (error) {
+      console.error("Error cargando estado persistente:", error);
+      return null;
+    }
+  };
+
+  const guardarEstadoPersistente = (estado) => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(estado));
+    } catch (error) {
+      console.error("Error guardando estado persistente:", error);
+    }
+  };
+
+  useEffect(() => {
+    const estadoGuardado = cargarEstadoPersistente();
+    if (!estadoGuardado) return;
+
+    if (estadoGuardado.carrito) setCarrito(estadoGuardado.carrito);
+    if (estadoGuardado.mostrarModalPedido) setMostrarModalPedido(estadoGuardado.mostrarModalPedido);
+    if (estadoGuardado.busquedaProducto) setBusquedaProducto(estadoGuardado.busquedaProducto);
+    if (estadoGuardado.categoriaSeleccionada) setCategoriaSeleccionada(estadoGuardado.categoriaSeleccionada);
+    if (estadoGuardado.tipoCatalogo) setTipoCatalogo(estadoGuardado.tipoCatalogo);
+    if (estadoGuardado.busquedaCliente) setBusquedaCliente(estadoGuardado.busquedaCliente);
+    if (estadoGuardado.clienteSeleccionado) setClienteSeleccionado(estadoGuardado.clienteSeleccionado);
+    if (estadoGuardado.mostrarListaClientes) setMostrarListaClientes(estadoGuardado.mostrarListaClientes);
+    if (estadoGuardado.datosCliente) setDatosCliente(estadoGuardado.datosCliente);
+    if (estadoGuardado.mostrarDetalles) setMostrarDetalles(estadoGuardado.mostrarDetalles);
+    if (estadoGuardado.indiceCarrusel != null) setIndiceCarrusel(estadoGuardado.indiceCarrusel);
+    if (estadoGuardado.cantidadDetalles != null) setCantidadDetalles(estadoGuardado.cantidadDetalles);
+    if (estadoGuardado.mostrarModalStock) setMostrarModalStock(estadoGuardado.mostrarModalStock);
+    if (estadoGuardado.productoSeleccionado) setProductoSeleccionado(estadoGuardado.productoSeleccionado);
+    if (estadoGuardado.productoEdicion) setProductoEdicion(estadoGuardado.productoEdicion);
+    if (estadoGuardado.mostrarModalVarianteNuevo) setMostrarModalVarianteNuevo(estadoGuardado.mostrarModalVarianteNuevo);
+    if (estadoGuardado.varianteTemp) setVarianteTemp(estadoGuardado.varianteTemp);
+    if (estadoGuardado.mostrarModalVarianteEdit) setMostrarModalVarianteEdit(estadoGuardado.mostrarModalVarianteEdit);
+    if (estadoGuardado.productoVarianteEditActivo) setProductoVarianteEditActivo(estadoGuardado.productoVarianteEditActivo);
+    if (estadoGuardado.varianteEditTemp) setVarianteEditTemp(estadoGuardado.varianteEditTemp);
+    if (estadoGuardado.editarVarianteId) setEditarVarianteId(estadoGuardado.editarVarianteId);
+    if (estadoGuardado.mostrarModalSeleccionarVariante) setMostrarModalSeleccionarVariante(estadoGuardado.mostrarModalSeleccionarVariante);
+    if (estadoGuardado.variantesProducto) setVariantesProducto(estadoGuardado.variantesProducto);
+    if (estadoGuardado.nuevo) setNuevo(estadoGuardado.nuevo);
+    if (estadoGuardado.imagenesVista) setImagenesVista(estadoGuardado.imagenesVista);
+  }, []);
+
+  useEffect(() => {
+    guardarEstadoPersistente({
+      carrito,
+      mostrarModalPedido,
+      busquedaProducto,
+      categoriaSeleccionada,
+      tipoCatalogo,
+      busquedaCliente,
+      clienteSeleccionado,
+      mostrarListaClientes,
+      datosCliente,
+      mostrarDetalles,
+      indiceCarrusel,
+      cantidadDetalles,
+      mostrarModalStock,
+      productoSeleccionado,
+      productoEdicion,
+      mostrarModalVarianteNuevo,
+      varianteTemp,
+      mostrarModalVarianteEdit,
+      productoVarianteEditActivo,
+      varianteEditTemp,
+      editarVarianteId,
+      mostrarModalSeleccionarVariante,
+      variantesProducto,
+      nuevo,
+      imagenesVista,
+    });
+  }, [
+    carrito,
+    mostrarModalPedido,
+    busquedaProducto,
+    categoriaSeleccionada,
+    tipoCatalogo,
+    busquedaCliente,
+    clienteSeleccionado,
+    mostrarListaClientes,
+    datosCliente,
+    mostrarDetalles,
+    indiceCarrusel,
+    cantidadDetalles,
+    mostrarModalStock,
+    productoSeleccionado,
+    productoEdicion,
+    mostrarModalVarianteNuevo,
+    varianteTemp,
+    mostrarModalVarianteEdit,
+    productoVarianteEditActivo,
+    varianteEditTemp,
+    editarVarianteId,
+    mostrarModalSeleccionarVariante,
+    variantesProducto,
+    nuevo,
+    imagenesVista,
+  ]);
 
   const crearProductoHandler = async () => {
     if (!nuevo.nombre || !nuevo.precio || !nuevo.stock) {
@@ -601,22 +710,34 @@ export default function Producto() {
   };
 
 
-  const eliminarDelCarrito = (productoId) => {
-    setCarrito(carrito.filter((p) => p.id !== productoId));
+  const obtenerCarritoKey = (item) =>
+    item.variante?.id ? `${item.id}-${item.variante.id}` : `${item.id}-base`;
+
+  const obtenerNombreCarrito = (item) => {
+    if (!item.variante) return item.nombre;
+    const varianteNombre = item.variante.nombre || item.variante.atributos || "Variante";
+    return `${item.nombre} (${varianteNombre})`;
   };
 
-  const actualizarCantidad = (productoId, cantidad) => {
+  const eliminarDelCarrito = (itemKey) => {
+    setCarrito(carrito.filter((p) => obtenerCarritoKey(p) !== itemKey));
+  };
+
+  const actualizarCantidad = (itemKey, cantidad) => {
+    const item = carrito.find((p) => obtenerCarritoKey(p) === itemKey);
+    if (!item) return;
+
     if (cantidad <= 0) {
-      eliminarDelCarrito(productoId);
+      eliminarDelCarrito(itemKey);
       return;
     }
 
-    const producto = productos.find((p) => p.id === productoId);
-    if (cantidad > producto.stock) return;
+    const stockDisponible = item.variante?.stock ?? item.stock;
+    if (cantidad > stockDisponible) return;
 
     setCarrito(
       carrito.map((p) =>
-        p.id === productoId ? { ...p, cantidad } : p
+        obtenerCarritoKey(p) === itemKey ? { ...p, cantidad } : p
       )
     );
   };
@@ -1005,11 +1126,16 @@ const obtenerProductosFiltrados = (categoria) => {
                             </button>
                             <button
                               className="btn-delete"
-                              onClick={(e) => {
+                              onClick={async (e) => {
                                 e.stopPropagation();
-                                setProductos(
-                                  productos.filter((x) => x.id !== p.id)
-                                );
+                                const confirmar = window.confirm("¿Eliminar este producto? Esta acción es irreversible.");
+                                if (!confirmar) return;
+
+                                const resultado = await eliminarProducto(p.id);
+                                if (resultado.error) {
+                                  alert(`Error eliminando producto: ${resultado.error}`);
+                                  return;
+                                }
                               }}
                             >
                               Eliminar
@@ -1106,11 +1232,16 @@ const obtenerProductosFiltrados = (categoria) => {
                               </button>
                               <button
                                 className="btn-delete"
-                                onClick={(e) => {
+                                onClick={async (e) => {
                                   e.stopPropagation();
-                                  setProductos(
-                                    productos.filter((x) => x.id !== p.id)
-                                  );
+                                  const confirmar = window.confirm("¿Eliminar este producto? Esta acción es irreversible.");
+                                  if (!confirmar) return;
+
+                                  const resultado = await eliminarProducto(p.id);
+                                  if (resultado.error) {
+                                    alert(`Error eliminando producto: ${resultado.error}`);
+                                    return;
+                                  }
                                 }}
                               >
                                 Eliminar
@@ -1782,45 +1913,48 @@ const obtenerProductosFiltrados = (categoria) => {
             <div className="modal-carrito">
               <h4>Productos en el carrito:</h4>
               <div className="carrito-items">
-                {carrito.map((item) => (
-                  <div key={item.id} className="carrito-item">
-                    <div>
-                      <p><strong>{item.nombre}</strong></p>
-                      <p>${item.precio.toLocaleString()}</p>
-                    </div>
-                    <div className="cantidad-control">
+                {carrito.map((item) => {
+                  const itemKey = obtenerCarritoKey(item);
+                  return (
+                    <div key={itemKey} className="carrito-item">
+                      <div>
+                        <p><strong>{obtenerNombreCarrito(item)}</strong></p>
+                        <p>${item.precio.toLocaleString()}</p>
+                      </div>
+                      <div className="cantidad-control">
+                        <button
+                          onClick={() =>
+                            actualizarCantidad(itemKey, item.cantidad - 1)
+                          }
+                        >
+                          −
+                        </button>
+                        <input
+                          type="number"
+                          min="0"
+                          value={item.cantidad}
+                          onChange={(e) =>
+                            actualizarCantidad(itemKey, Number(e.target.value))
+                          }
+                        />
+                        <button
+                          onClick={() =>
+                            actualizarCantidad(itemKey, item.cantidad + 1)
+                          }
+                        >
+                          +
+                        </button>
+                      </div>
+                      <p><strong>${(item.precio * item.cantidad).toLocaleString()}</strong></p>
                       <button
-                        onClick={() =>
-                          actualizarCantidad(item.id, item.cantidad - 1)
-                        }
+                        className="btn-delete-small"
+                        onClick={() => eliminarDelCarrito(itemKey)}
                       >
-                        −
-                      </button>
-                      <input
-                        type="number"
-                        min="0"
-                        value={item.cantidad}
-                        onChange={(e) =>
-                          actualizarCantidad(item.id, Number(e.target.value))
-                        }
-                      />
-                      <button
-                        onClick={() =>
-                          actualizarCantidad(item.id, item.cantidad + 1)
-                        }
-                      >
-                        +
+                        ✕
                       </button>
                     </div>
-                    <p><strong>${(item.precio * item.cantidad).toLocaleString()}</strong></p>
-                    <button
-                      className="btn-delete-small"
-                      onClick={() => eliminarDelCarrito(item.id)}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="carrito-total">

@@ -545,6 +545,44 @@ const cargarProductos = async () => {
     return { success: true, producto: productoActualizado };
   };
 
+  const eliminarProducto = async (productoId) => {
+    if (!productoId) {
+      return { error: "Producto no especificado" };
+    }
+
+    try {
+      // Eliminar variantes asociadas primero si existen
+      try {
+        const { error: errorVariantes } = await supabase
+          .from("producto_variantes")
+          .delete()
+          .eq("producto_id", productoId);
+
+        if (errorVariantes) {
+          console.warn("Error eliminando variantes del producto:", errorVariantes);
+        }
+      } catch (err) {
+        console.warn("No se pudo eliminar variantes asociadas o tabla no existe:", err);
+      }
+
+      const { data, error } = await supabase
+        .from("productos")
+        .delete()
+        .eq("id", productoId);
+
+      if (error) {
+        console.error("Error eliminando producto:", error);
+        return { error: error.message || String(error) };
+      }
+
+      setProductos((prev) => prev.filter((p) => p.id !== productoId));
+      return { success: true, data };
+    } catch (err) {
+      console.error("Excepción eliminando producto:", err);
+      return { error: err.message || String(err) };
+    }
+  };
+
   const agotarProducto = async (productoId) => {
     const producto = productos.find((p) => p.id === productoId);
     if (!producto) return false;
@@ -1821,6 +1859,7 @@ return (
       eliminarItemPedido,
       actualizarCantidadItemPedido,
       actualizarProducto,
+      eliminarProducto,
       eliminarVendedor,
       cargandoCategorias,
       vendedoresConUsuarios,
