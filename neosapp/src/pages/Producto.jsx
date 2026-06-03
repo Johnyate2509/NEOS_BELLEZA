@@ -85,6 +85,16 @@ export default function Producto() {
     return `Stock: ${cantidad}`;
   };
 
+  const obtenerPrecioProducto = (producto) => {
+    if (tipoCatalogo === "Emprendedor" && producto.precio_emprendedor != null && producto.precio_emprendedor !== "") {
+      return producto.precio_emprendedor;
+    }
+    if (tipoCatalogo === "Mayorista" && producto.precio_mayorista != null && producto.precio_mayorista !== "") {
+      return producto.precio_mayorista;
+    }
+    return producto.precio ?? 0;
+  };
+
   const obtenerClaseStockAdmin = (stock) => {
     const cantidad = Number(stock || 0);
 
@@ -110,6 +120,8 @@ export default function Producto() {
   const [nuevo, setNuevo] = useState({
     nombre: "",
     precio: "",
+    precioEmprendedor: "",
+    precioMayorista: "",
     categoria: CATEGORIAS_POR_DEFECTO[0],
     stock: "",
     descripcion: "",
@@ -122,6 +134,7 @@ export default function Producto() {
   const [mostrarModalPedido, setMostrarModalPedido] = useState(false);
   const [busquedaProducto, setBusquedaProducto] = useState("");
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState("Todas");
+  const [tipoCatalogo, setTipoCatalogo] = useState("General");
   const [busquedaCliente, setBusquedaCliente] = useState("");
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
   const [mostrarListaClientes, setMostrarListaClientes] = useState(false);
@@ -182,6 +195,8 @@ export default function Producto() {
   const [productoEdicion, setProductoEdicion] = useState({
     nombre: "",
     precio: "",
+    precio_emprendedor: "",
+    precio_mayorista: "",
     stock: "",
     descripcion: "",
     imagenes: [],
@@ -196,6 +211,8 @@ export default function Producto() {
     const resultado = await crearProducto(
       nuevo.nombre,
       nuevo.precio,
+      nuevo.precioEmprendedor,
+      nuevo.precioMayorista,
       nuevo.categoria,
       nuevo.stock,
       nuevo.descripcion,
@@ -207,7 +224,7 @@ export default function Producto() {
       return;
     }
 
-    setNuevo({ nombre: "", precio: "", categoria: CATEGORIAS_POR_DEFECTO[0], stock: "", descripcion: "", imagenes: [] });
+    setNuevo({ nombre: "", precio: "", precioEmprendedor: "", precioMayorista: "", categoria: CATEGORIAS_POR_DEFECTO[0], stock: "", descripcion: "", imagenes: [] });
     setImagenesVista([]);
     setMostrarModal(false);
     alert("✅ Producto creado exitosamente");
@@ -350,6 +367,8 @@ export default function Producto() {
     setProductoEdicion({
       nombre: producto.nombre || "",
       precio: producto.precio || "",
+      precio_emprendedor: producto.precio_emprendedor ?? "",
+      precio_mayorista: producto.precio_mayorista ?? "",
       stock: producto.stock != null ? producto.stock.toString() : "",
       descripcion: producto.descripcion || "",
       imagenes: producto.imagenes ? [...producto.imagenes] : [],
@@ -366,6 +385,8 @@ export default function Producto() {
     const resultado = await actualizarProducto(productoSeleccionado.id, {
       nombre: productoEdicion.nombre,
       precio: Number(productoEdicion.precio),
+      precio_emprendedor: productoEdicion.precio_emprendedor,
+      precio_mayorista: productoEdicion.precio_mayorista,
       stock: Number(productoEdicion.stock),
       descripcion: productoEdicion.descripcion,
       imagenes: productoEdicion.imagenes,
@@ -383,15 +404,17 @@ export default function Producto() {
   const agregarAlCarrito = (producto) => {
     if (producto.stock <= 0) return;
 
+    const precioSeleccionado = obtenerPrecioProducto(producto);
+
     // Verificar si ya está en el carrito
     const productoEnCarrito = carrito.find((p) => p.id === producto.id);
 
     if (!productoEnCarrito) {
       // Agregar con cantidad 0 para que el usuario la especifique en el carrito
-      setCarrito([...carrito, { ...producto, cantidad: 0 }]);
+      setCarrito([...carrito, { ...producto, precio: precioSeleccionado, cantidad: 0 }]);
+
     }
   };
-
 
 
   const eliminarDelCarrito = (productoId) => {
@@ -672,6 +695,20 @@ const obtenerProductosFiltrados = (categoria) => {
         </div>
       </div>
 
+      {/* Selector de tipo de catálogo */}
+      <div className="selector-catalogo-container">
+        <label htmlFor="tipoCatalogo">¿Qué tipo de catálogo desea consultar?</label>
+        <select
+          id="tipoCatalogo"
+          value={tipoCatalogo}
+          onChange={(e) => setTipoCatalogo(e.target.value)}
+        >
+          <option value="General">General</option>
+          <option value="Emprendedor">Emprendedor</option>
+          <option value="Mayorista">Mayorista</option>
+        </select>
+      </div>
+
       {/* IMAGEN INFORMATIVA PARA CLIENTES */}
       {!esAdmin() && !esVendedor() && (
         <div className="info-image-container">
@@ -747,7 +784,7 @@ const obtenerProductosFiltrados = (categoria) => {
                           {p.nombre}
                         </span>
                         <span className="producto-precio">
-                          ${p.precio.toLocaleString()}
+                          ${Number(obtenerPrecioProducto(p)).toLocaleString()}
                         </span>
                         {esAdmin() ? (
                           <span className={`producto-stock ${obtenerClaseStockAdmin(p.stock)}`}>
@@ -848,7 +885,7 @@ const obtenerProductosFiltrados = (categoria) => {
                             {p.nombre}
                           </span>
                           <span className="producto-precio">
-                            ${p.precio.toLocaleString()}
+                            ${Number(obtenerPrecioProducto(p)).toLocaleString()}
                           </span>
                           {esAdmin() ? (
                             <span className={`producto-stock ${obtenerClaseStockAdmin(p.stock)}`}>
@@ -937,11 +974,31 @@ const obtenerProductosFiltrados = (categoria) => {
 
             <input
               type="number"
-              placeholder="Precio"
+              placeholder="Precio general"
               value={nuevo.precio}
               onChange={(e) =>
                 setNuevo({ ...nuevo, precio: e.target.value })
               }
+            />
+
+            <input
+              type="number"
+              placeholder="Precio emprendedor"
+              value={nuevo.precioEmprendedor}
+              onChange={(e) =>
+                setNuevo({ ...nuevo, precioEmprendedor: e.target.value })
+              }
+              min="0"
+            />
+
+            <input
+              type="number"
+              placeholder="Precio mayorista"
+              value={nuevo.precioMayorista}
+              onChange={(e) =>
+                setNuevo({ ...nuevo, precioMayorista: e.target.value })
+              }
+              min="0"
             />
 
             <input
@@ -1008,7 +1065,7 @@ const obtenerProductosFiltrados = (categoria) => {
             <div className="modal-actions">
               <button onClick={() => {
                 setMostrarModal(false);
-                setNuevo({ nombre: "", precio: "", categoria: CATEGORIAS_POR_DEFECTO[0], stock: "", descripcion: "", imagenes: [] });
+                setNuevo({ nombre: "", precio: "", precioEmprendedor: "", precioMayorista: "", categoria: CATEGORIAS_POR_DEFECTO[0], stock: "", descripcion: "", imagenes: [] });
                 setImagenesVista([]);
               }}>
                 Cancelar
@@ -1042,10 +1099,30 @@ const obtenerProductosFiltrados = (categoria) => {
 
             <input
               type="number"
-              placeholder="Precio"
+              placeholder="Precio general"
               value={productoEdicion.precio}
               onChange={(e) =>
                 setProductoEdicion({ ...productoEdicion, precio: e.target.value })
+              }
+              min="0"
+            />
+
+            <input
+              type="number"
+              placeholder="Precio emprendedor"
+              value={productoEdicion.precio_emprendedor}
+              onChange={(e) =>
+                setProductoEdicion({ ...productoEdicion, precio_emprendedor: e.target.value })
+              }
+              min="0"
+            />
+
+            <input
+              type="number"
+              placeholder="Precio mayorista"
+              value={productoEdicion.precio_mayorista}
+              onChange={(e) =>
+                setProductoEdicion({ ...productoEdicion, precio_mayorista: e.target.value })
               }
               min="0"
             />
@@ -1176,8 +1253,22 @@ const obtenerProductosFiltrados = (categoria) => {
 
                 <div className="detalles-precio-stock">
                   <div className="precio-grande">
-                    ${productoDetalles.precio.toLocaleString()}
+                    ${Number(obtenerPrecioProducto(productoDetalles)).toLocaleString()}
                   </div>
+                  {esAdmin() && (
+                    <div className="precios-especiales">
+                      {productoDetalles.precio_emprendedor != null && productoDetalles.precio_emprendedor !== "" && (
+                        <div className="precio-especial">
+                          <span>Emprendedor:</span> ${Number(productoDetalles.precio_emprendedor).toLocaleString()}
+                        </div>
+                      )}
+                      {productoDetalles.precio_mayorista != null && productoDetalles.precio_mayorista !== "" && (
+                        <div className="precio-especial">
+                          <span>Mayorista:</span> ${Number(productoDetalles.precio_mayorista).toLocaleString()}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {esAdmin() ? (
                     <div className={`stock-info ${obtenerClaseStockAdmin(productoDetalles.stock)}`}>
                       {obtenerTextoStockAdmin(productoDetalles.stock)}
@@ -1246,7 +1337,14 @@ const obtenerProductosFiltrados = (categoria) => {
                           )
                         );
                       } else {
-                        setCarrito([...carrito, { ...productoDetalles, cantidad: cantidadDetalles }]);
+                        setCarrito([
+                          ...carrito,
+                          {
+                            ...productoDetalles,
+                            precio: obtenerPrecioProducto(productoDetalles),
+                            cantidad: cantidadDetalles,
+                          },
+                        ]);
                       }
 
                       setMostrarDetalles(false);

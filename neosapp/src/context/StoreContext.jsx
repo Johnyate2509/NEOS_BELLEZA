@@ -24,6 +24,8 @@ const adaptarProducto = (p) => ({
   id: p.id ?? p.identificacion,
   nombre: p.nombre,
   precio: p.precio,
+  precio_emprendedor: p.precio_emprendedor ?? p.precioEmprendedor ?? null,
+  precio_mayorista: p.precio_mayorista ?? p.precioMayorista ?? null,
   stock: p.stock ?? p.existencias ?? 0,
   descripcion: p.descripcion,
   categoria_id: p.categoria_id,
@@ -423,6 +425,8 @@ const cargarProductos = async () => {
   const crearProducto = async (
     nombre,
     precio,
+    precioEmprendedor,
+    precioMayorista,
     categoria,
     stock = 10,
     descripcion = "",
@@ -443,6 +447,8 @@ const cargarProductos = async () => {
     const productoInsert = {
       nombre,
       precio: Number(precio),
+      precio_emprendedor: precioEmprendedor != null && precioEmprendedor !== "" ? Number(precioEmprendedor) : null,
+      precio_mayorista: precioMayorista != null && precioMayorista !== "" ? Number(precioMayorista) : null,
       stock: Number(stock),
       descripcion,
       categoria_id: categoriaEncontrada.id,
@@ -504,6 +510,8 @@ const cargarProductos = async () => {
     const datosActualizacion = {};
     if (datos.nombre != null) datosActualizacion.nombre = datos.nombre;
     if (datos.precio != null) datosActualizacion.precio = Number(datos.precio);
+    if (datos.precio_emprendedor != null) datosActualizacion.precio_emprendedor = datos.precio_emprendedor !== "" ? Number(datos.precio_emprendedor) : null;
+    if (datos.precio_mayorista != null) datosActualizacion.precio_mayorista = datos.precio_mayorista !== "" ? Number(datos.precio_mayorista) : null;
     if (datos.stock != null) datosActualizacion.stock = Number(datos.stock);
     if (datos.descripcion != null) datosActualizacion.descripcion = datos.descripcion;
     if (datos.imagenes != null && datos.imagenes.length > 0) {

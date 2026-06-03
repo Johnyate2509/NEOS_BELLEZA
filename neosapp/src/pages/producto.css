@@ -19,6 +19,35 @@
   font-weight: 600;
 }
 
+.selector-catalogo-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 24px;
+  max-width: 360px;
+}
+
+.selector-catalogo-container label {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.selector-catalogo-container select {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 2px solid #e0e0e0;
+  background: #fff;
+  font-size: 15px;
+  transition: border-color 0.2s ease;
+}
+
+.selector-catalogo-container select:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.12);
+}
+
 .productos-header > div {
   display: flex;
   gap: 12px;
