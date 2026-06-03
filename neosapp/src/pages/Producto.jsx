@@ -126,6 +126,7 @@ export default function Producto() {
     stock: "",
     descripcion: "",
     imagenes: [],
+    variantesTemp: [],
   });
   const [imagenesVista, setImagenesVista] = useState([]);
 
@@ -201,6 +202,14 @@ export default function Producto() {
     descripcion: "",
     imagenes: [],
   });
+  const [mostrarModalVarianteNuevo, setMostrarModalVarianteNuevo] = useState(false);
+  const [varianteTemp, setVarianteTemp] = useState({ nombre: "", atributos: "", precio: "", precio_emprendedor: "", precio_mayorista: "", stock: "", imagenes: [] });
+  const [mostrarModalVarianteEdit, setMostrarModalVarianteEdit] = useState(false);
+  const [productoVarianteEditActivo, setProductoVarianteEditActivo] = useState(null);
+  const [varianteEditTemp, setVarianteEditTemp] = useState({ nombre: "", atributos: "", precio: "", precio_emprendedor: "", precio_mayorista: "", stock: "", imagenes: [] });
+  const [editarVarianteId, setEditarVarianteId] = useState(null);
+  const [mostrarModalSeleccionarVariante, setMostrarModalSeleccionarVariante] = useState(false);
+  const [variantesProducto, setVariantesProducto] = useState([]);
 
   const crearProductoHandler = async () => {
     if (!nuevo.nombre || !nuevo.precio || !nuevo.stock) {
@@ -224,7 +233,27 @@ export default function Producto() {
       return;
     }
 
-    setNuevo({ nombre: "", precio: "", precioEmprendedor: "", precioMayorista: "", categoria: CATEGORIAS_POR_DEFECTO[0], stock: "", descripcion: "", imagenes: [] });
+    // Si se añadieron variantes temporales en la creación, persistirlas
+    const nuevoProducto = resultado.producto;
+    if (nuevo.variantesTemp && nuevo.variantesTemp.length > 0) {
+      for (const v of nuevo.variantesTemp) {
+        try {
+          let atributosValue = null;
+          if (v.atributos) {
+            try {
+              atributosValue = JSON.parse(v.atributos);
+            } catch (parseError) {
+              atributosValue = v.atributos;
+            }
+          }
+          await supabase.from("producto_variantes").insert([{ producto_id: Number(nuevoProducto.id), nombre: v.nombre || null, atributos: atributosValue, precio: v.precio ? Number(v.precio) : null, precio_emprendedor: v.precio_emprendedor ? Number(v.precio_emprendedor) : null, precio_mayorista: v.precio_mayorista ? Number(v.precio_mayorista) : null, stock: v.stock ? Number(v.stock) : 0, imagenes: v.imagenes || null }]);
+        } catch (err) {
+          console.error("Error guardando variante temporal:", err);
+        }
+      }
+    }
+
+    setNuevo({ nombre: "", precio: "", precioEmprendedor: "", precioMayorista: "", categoria: CATEGORIAS_POR_DEFECTO[0], stock: "", descripcion: "", imagenes: [], variantesTemp: [] });
     setImagenesVista([]);
     setMostrarModal(false);
     alert("✅ Producto creado exitosamente");
@@ -252,6 +281,161 @@ export default function Producto() {
       };
       reader.readAsDataURL(archivo);
     });
+  };
+
+  const handleImagenVarianteTempSeleccionada = (e) => {
+    const archivos = Array.from(e.target.files);
+    const maxImagenes = 5;
+    const actuales = varianteTemp.imagenes || [];
+
+    if (archivos.length + actuales.length > maxImagenes) {
+      alert(`Máximo ${maxImagenes} imágenes permitidas por variante`);
+      return;
+    }
+
+    archivos.forEach((archivo) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const imagenBase64 = event.target.result;
+        setVarianteTemp((prev) => ({
+          ...prev,
+          imagenes: [...(prev.imagenes || []), imagenBase64],
+        }));
+      };
+      reader.readAsDataURL(archivo);
+    });
+  };
+
+  const eliminarImagenVarianteTemp = (index) => {
+    setVarianteTemp((prev) => ({
+      ...prev,
+      imagenes: prev.imagenes.filter((_, i) => i !== index),
+    }));
+  };
+
+  const handleImagenVarianteEditSeleccionada = (e) => {
+    const archivos = Array.from(e.target.files);
+    const maxImagenes = 5;
+    const actuales = varianteEditTemp.imagenes || [];
+
+    if (archivos.length + actuales.length > maxImagenes) {
+      alert(`Máximo ${maxImagenes} imágenes permitidas por variante`);
+      return;
+    }
+
+    archivos.forEach((archivo) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const imagenBase64 = event.target.result;
+        setVarianteEditTemp((prev) => ({
+          ...prev,
+          imagenes: [...(prev.imagenes || []), imagenBase64],
+        }));
+      };
+      reader.readAsDataURL(archivo);
+    });
+  };
+
+  const eliminarImagenVarianteEdit = (index) => {
+    setVarianteEditTemp((prev) => ({
+      ...prev,
+      imagenes: prev.imagenes.filter((_, i) => i !== index),
+    }));
+  };
+
+  const agregarVarianteTemp = () => {
+    if (!varianteTemp.nombre) {
+      alert("Ingrese al menos el nombre de la variante");
+      return;
+    }
+    setNuevo((prev) => ({ ...prev, variantesTemp: [...(prev.variantesTemp || []), varianteTemp] }));
+    setVarianteTemp({ nombre: "", atributos: "", precio: "", precio_emprendedor: "", precio_mayorista: "", stock: "", imagenes: [] });
+    setMostrarModalVarianteNuevo(false);
+  };
+
+  const insertarVarianteEnProducto = async (productoId, variante) => {
+    try {
+      let atributosValue = null;
+      if (variante.atributos) {
+        try {
+          atributosValue = JSON.parse(variante.atributos);
+        } catch (parseError) {
+          atributosValue = variante.atributos;
+        }
+      }
+      const payload = {
+        producto_id: Number(productoId),
+        nombre: variante.nombre || null,
+        atributos: atributosValue,
+        precio: variante.precio ? Number(variante.precio) : null,
+        precio_emprendedor: variante.precio_emprendedor ? Number(variante.precio_emprendedor) : null,
+        precio_mayorista: variante.precio_mayorista ? Number(variante.precio_mayorista) : null,
+        stock: variante.stock ? Number(variante.stock) : 0,
+        imagenes: variante.imagenes || null,
+      };
+      const { data, error } = await supabase.from("producto_variantes").insert([payload]).select().single();
+      if (error) throw error;
+      return { success: true, variante: data };
+    } catch (err) {
+      console.error("Error insertando variante:", err);
+      return { error: err.message || String(err) };
+    }
+  };
+
+  const actualizarVarianteEnProducto = async (varianteId, variante) => {
+    try {
+      let atributosValue = null;
+      if (variante.atributos) {
+        try {
+          atributosValue = JSON.parse(variante.atributos);
+        } catch (parseError) {
+          atributosValue = variante.atributos;
+        }
+      }
+      const payload = {
+        nombre: variante.nombre || null,
+        atributos: atributosValue,
+        precio: variante.precio ? Number(variante.precio) : null,
+        precio_emprendedor: variante.precio_emprendedor ? Number(variante.precio_emprendedor) : null,
+        precio_mayorista: variante.precio_mayorista ? Number(variante.precio_mayorista) : null,
+        stock: variante.stock ? Number(variante.stock) : 0,
+        imagenes: variante.imagenes || null,
+      };
+      const { data, error } = await supabase.from("producto_variantes").update(payload).eq("id", varianteId).select().single();
+      if (error) throw error;
+      return { success: true, variante: data };
+    } catch (err) {
+      console.error("Error actualizando variante:", err);
+      return { error: err.message || String(err) };
+    }
+  };
+
+  const cargarVariantesProducto = async (productoId) => {
+    try {
+      const { data, error } = await supabase.from("producto_variantes").select("*").eq("producto_id", Number(productoId));
+      if (error) throw error;
+      setVariantesProducto(data || []);
+      return data || [];
+    } catch (err) {
+      console.error("Error cargando variantes:", err);
+      setVariantesProducto([]);
+      return [];
+    }
+  };
+
+  const abrirEdicionVariante = (variante) => {
+    setEditarVarianteId(variante.id);
+    setProductoVarianteEditActivo(productoSeleccionado || productoDetalles);
+    setVarianteEditTemp({
+      nombre: variante.nombre || "",
+      atributos: typeof variante.atributos === "object" ? JSON.stringify(variante.atributos) : variante.atributos || "",
+      precio: variante.precio ?? "",
+      precio_emprendedor: variante.precio_emprendedor ?? "",
+      precio_mayorista: variante.precio_mayorista ?? "",
+      stock: variante.stock ?? "",
+      imagenes: Array.isArray(variante.imagenes) ? variante.imagenes : variante.imagenes ? [variante.imagenes] : [],
+    });
+    setMostrarModalVarianteEdit(true);
   };
 
   const eliminarImagen = (index) => {
@@ -1062,10 +1246,56 @@ const obtenerProductosFiltrados = (categoria) => {
               )}
             </div>
 
+            {/* Variantes temporales para nuevo producto */}
+            <div className="seccion-variantes-nuevo">
+              <button className="btn-primary" onClick={() => setMostrarModalVarianteNuevo(true)}>+ Añadir variante</button>
+              {nuevo.variantesTemp && nuevo.variantesTemp.length > 0 && (
+                <div className="lista-variantes-temp">
+                  {nuevo.variantesTemp.map((v, i) => (
+                    <div key={i} className="item-variante-temp">
+                      <strong>{v.nombre}</strong> - {v.atributos || "Sin atributos"} - stock: {v.stock || 0}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {mostrarModalVarianteNuevo && (
+                <div className="modal-mini-variant">
+                  <h4>Nueva variante (temporal)</h4>
+                  <input placeholder="Nombre" value={varianteTemp.nombre} onChange={(e) => setVarianteTemp({ ...varianteTemp, nombre: e.target.value })} />
+                  <input placeholder='Atributos (ej: COLOR: ROJO, TALLA: M)' value={varianteTemp.atributos} onChange={(e) => setVarianteTemp({ ...varianteTemp, atributos: e.target.value })} />
+                  <input type="number" placeholder="Precio" value={varianteTemp.precio} onChange={(e) => setVarianteTemp({ ...varianteTemp, precio: e.target.value })} />
+                  <input type="number" placeholder="Precio emprendedor" value={varianteTemp.precio_emprendedor} onChange={(e) => setVarianteTemp({ ...varianteTemp, precio_emprendedor: e.target.value })} />
+                  <input type="number" placeholder="Precio mayorista" value={varianteTemp.precio_mayorista} onChange={(e) => setVarianteTemp({ ...varianteTemp, precio_mayorista: e.target.value })} />
+                  <input type="number" placeholder="Stock" value={varianteTemp.stock} onChange={(e) => setVarianteTemp({ ...varianteTemp, stock: e.target.value })} />
+                  <div className="seccion-imagenes-variantes">
+                    <label className="etiqueta-imagenes">Imágenes de la variante (máximo 5):</label>
+                    <input type="file" multiple accept="image/*" onChange={handleImagenVarianteTempSeleccionada} />
+                    {varianteTemp.imagenes?.length > 0 && (
+                      <div className="previsualizacion-imagenes">
+                        {varianteTemp.imagenes.map((imagen, index) => (
+                          <div key={index} className="item-imagen-preview">
+                            <img src={imagen} alt={`Preview variante ${index + 1}`} />
+                            <button type="button" className="btn-eliminar-imagen" onClick={() => eliminarImagenVarianteTemp(index)} title="Eliminar imagen">
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="modal-actions">
+                    <button className="btn-primary" onClick={agregarVarianteTemp}>Agregar variante</button>
+                    <button className="btn-secundario" onClick={() => setMostrarModalVarianteNuevo(false)}>Cancelar</button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="modal-actions">
               <button onClick={() => {
                 setMostrarModal(false);
-                setNuevo({ nombre: "", precio: "", precioEmprendedor: "", precioMayorista: "", categoria: CATEGORIAS_POR_DEFECTO[0], stock: "", descripcion: "", imagenes: [] });
+                setNuevo({ nombre: "", precio: "", precioEmprendedor: "", precioMayorista: "", categoria: CATEGORIAS_POR_DEFECTO[0], stock: "", descripcion: "", imagenes: [], variantesTemp: [] });
                 setImagenesVista([]);
               }}>
                 Cancelar
@@ -1174,6 +1404,21 @@ const obtenerProductosFiltrados = (categoria) => {
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* Añadir variante al producto existente */}
+            <div className="seccion-variantes-edit">
+              <button
+                className="btn-primary"
+                onClick={() => {
+                  setProductoVarianteEditActivo(productoSeleccionado);
+                  setEditarVarianteId(null);
+                  setVarianteEditTemp({ nombre: '', atributos: '', precio: '', precio_emprendedor: '', precio_mayorista: '', stock: '', imagenes: [] });
+                  setMostrarModalVarianteEdit(true);
+                }}
+              >
+                + Añadir variante
+              </button>
             </div>
 
             <div className="modal-actions">
@@ -1315,6 +1560,17 @@ const obtenerProductosFiltrados = (categoria) => {
                   </div>
 
                   <button
+                    className="btn-seleccionar-variante"
+                    onClick={async () => {
+                      await cargarVariantesProducto(productoDetalles.id);
+                      setMostrarModalSeleccionarVariante(true);
+                    }}
+                    disabled={productoDetalles.stock <= 0}
+                  >
+                    Seleccionar variante
+                  </button>
+
+                  <button
                     className="btn-agregar-grande"
                     onClick={() => {
                       if (cantidadDetalles <= 0 || cantidadDetalles > productoDetalles.stock) {
@@ -1361,7 +1617,161 @@ const obtenerProductosFiltrados = (categoria) => {
         </div>
       )}
 
+      {mostrarModalSeleccionarVariante && (
+        <div className="modal-overlay" onClick={() => setMostrarModalSeleccionarVariante(false)}>
+          <div className="modal modal-variante" onClick={(e) => e.stopPropagation()}>
+            <h3>Seleccionar variante</h3>
+            {variantesProducto.length === 0 ? (
+              <p>No hay variantes disponibles para este producto</p>
+            ) : (
+              <div className="lista-variantes">
+                {variantesProducto.map((v) => {
+                  const precioVar = tipoCatalogo === "Emprendedor" && v.precio_emprendedor != null ? v.precio_emprendedor : tipoCatalogo === "Mayorista" && v.precio_mayorista != null ? v.precio_mayorista : v.precio != null ? v.precio : obtenerPrecioProducto(productoDetalles);
+                  return (
+                    <div key={v.id} className="variante-item">
+                      <div className="variante-meta">
+                        <div className="variante-preview">
+                          {Array.isArray(v.imagenes) && v.imagenes.length > 0 ? (
+                            <img src={v.imagenes[0]} alt={v.nombre || "Variante"} />
+                          ) : (
+                            <div className="imagen-mini-placeholder">No imagen</div>
+                          )}
+                        </div>
+                        <div className="variante-detalles">
+                          <strong>{v.nombre || "Variante"}</strong>
+                          <span>{v.atributos || "Sin atributos"}</span>
+                          <span>Stock: {v.stock}</span>
+                          <span>Precio: ${Number(precioVar).toLocaleString()}</span>
+                        </div>
+                      </div>
 
+                      <div className="variante-actions">
+                        <button
+                          className="btn-secundario btn-icon"
+                          onClick={() => abrirEdicionVariante(v)}
+                        >
+                          ✎ Editar
+                        </button>
+                        <button
+                          className="btn-primary"
+                          onClick={() => {
+                            const precioSel = precioVar;
+                            const productoEnCarrito = carrito.find((p) => p.id === productoDetalles.id && p.variante?.id === v.id);
+                            if (productoEnCarrito) {
+                              const nuevaCantidad = productoEnCarrito.cantidad + 1;
+                              if (nuevaCantidad > v.stock) {
+                                alert("No hay suficiente stock");
+                                return;
+                              }
+                              setCarrito(
+                                carrito.map((p) =>
+                                  p.id === productoDetalles.id && p.variante?.id === v.id
+                                    ? { ...p, cantidad: nuevaCantidad }
+                                    : p
+                                )
+                              );
+                            } else {
+                              setCarrito([
+                                ...carrito,
+                                {
+                                  ...productoDetalles,
+                                  precio: precioSel,
+                                  cantidad: 1,
+                                  variante: v,
+                                },
+                              ]);
+                            }
+
+                            setMostrarModalSeleccionarVariante(false);
+                          }}
+                        >
+                          Agregar variante
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="modal-actions">
+              <button className="btn-secundario" onClick={() => setMostrarModalSeleccionarVariante(false)}>Cerrar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {mostrarModalVarianteEdit && productoVarianteEditActivo && (
+        <div className="modal-overlay" onClick={() => {
+          setMostrarModalVarianteEdit(false);
+          setEditarVarianteId(null);
+          setProductoVarianteEditActivo(null);
+        }}>
+          <div className="modal modal-grande" onClick={(e) => e.stopPropagation()}>
+            <h3>{editarVarianteId ? "Editar variante" : "Nueva variante"}</h3>
+            <p style={{ marginBottom: "14px", color: "#4b5563" }}><strong>Producto:</strong> {productoVarianteEditActivo.nombre}</p>
+            <input placeholder="Nombre" value={varianteEditTemp.nombre} onChange={(e) => setVarianteEditTemp({ ...varianteEditTemp, nombre: e.target.value })} />
+            <input placeholder='Atributos (ej: COLOR: ROJO, TALLA: M)' value={varianteEditTemp.atributos} onChange={(e) => setVarianteEditTemp({ ...varianteEditTemp, atributos: e.target.value })} />
+            <input type="number" placeholder="Precio" value={varianteEditTemp.precio} onChange={(e) => setVarianteEditTemp({ ...varianteEditTemp, precio: e.target.value })} />
+            <input type="number" placeholder="Precio emprendedor" value={varianteEditTemp.precio_emprendedor} onChange={(e) => setVarianteEditTemp({ ...varianteEditTemp, precio_emprendedor: e.target.value })} />
+            <input type="number" placeholder="Precio mayorista" value={varianteEditTemp.precio_mayorista} onChange={(e) => setVarianteEditTemp({ ...varianteEditTemp, precio_mayorista: e.target.value })} />
+            <input type="number" placeholder="Stock" value={varianteEditTemp.stock} onChange={(e) => setVarianteEditTemp({ ...varianteEditTemp, stock: e.target.value })} />
+            <div className="seccion-imagenes-variantes">
+              <label className="etiqueta-imagenes">Imágenes de la variante (máximo 5):</label>
+              <input type="file" multiple accept="image/*" onChange={handleImagenVarianteEditSeleccionada} />
+              {varianteEditTemp.imagenes?.length > 0 && (
+                <div className="previsualizacion-imagenes">
+                  {varianteEditTemp.imagenes.map((imagen, index) => (
+                    <div key={index} className="item-imagen-preview">
+                      <img src={imagen} alt={`Preview variante ${index + 1}`} />
+                      <button type="button" className="btn-eliminar-imagen" onClick={() => eliminarImagenVarianteEdit(index)} title="Eliminar imagen">
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="modal-actions">
+              <button
+                className="btn-primary"
+                onClick={async () => {
+                  const productoId = productoVarianteEditActivo.id;
+                  if (editarVarianteId) {
+                    const res = await actualizarVarianteEnProducto(editarVarianteId, varianteEditTemp);
+                    if (res.error) {
+                      alert(`Error: ${res.error}`);
+                      return;
+                    }
+                    alert('✅ Variante actualizada');
+                  } else {
+                    const res = await insertarVarianteEnProducto(productoId, varianteEditTemp);
+                    if (res.error) {
+                      alert(`Error: ${res.error}`);
+                      return;
+                    }
+                    alert('✅ Variante agregada');
+                  }
+                  setMostrarModalVarianteEdit(false);
+                  setEditarVarianteId(null);
+                  setProductoVarianteEditActivo(null);
+                  setVarianteEditTemp({ nombre: '', atributos: '', precio: '', precio_emprendedor: '', precio_mayorista: '', stock: '', imagenes: [] });
+                  await cargarVariantesProducto(productoId);
+                }}
+              >
+                {editarVarianteId ? "Guardar cambios" : "Agregar variante"}
+              </button>
+              <button className="btn-secundario" onClick={() => {
+                setMostrarModalVarianteEdit(false);
+                setEditarVarianteId(null);
+                setProductoVarianteEditActivo(null);
+              }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal para finalizar pedido */}
       {mostrarModalPedido && (
