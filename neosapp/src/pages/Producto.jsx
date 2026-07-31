@@ -5,6 +5,9 @@ import { supabase } from "../context/supabaseClient";
 import { validarDatosPedido, validarCarrito } from "../utils/validaciones";
 import "./producto.css";
 import brebImage from "../components/img/breb.jpg";
+import editarIcon from "../components/img/editar.png";
+import eliminarIcon from "../components/img/eliminar.png";
+import ocultoIcon from "../components/img/oculto.png";
 
 const CATEGORIAS_POR_DEFECTO = [
   "Accesorios",
@@ -23,7 +26,7 @@ const CATEGORIAS_POR_DEFECTO = [
 const FORMAS_PAGO = ["Efectivo", "Crédito", "Abono"];
 
 export default function Producto() {
-  const { productos, categorias, setProductos, crearProducto, actualizarProducto, eliminarProducto, clientes } = useStore();
+  const { productos, categorias, setProductos, setCategorias, crearProducto, actualizarProducto, eliminarProducto, clientes, bannerUrl, subirBanner } = useStore();
   const { esAdmin, esVendedor, obtenerDatosUsuario, user, getUserRole } = useAuth();
   const vendedorData = obtenerDatosUsuario();
 
@@ -33,15 +36,167 @@ export default function Producto() {
     categorias.find((c) => c.id === producto.categoria_id)?.nombre ||
     "Sin categoría";
 
+  const [categoriasOcultas, setCategoriasOcultas] = useState([]);
+
   const categoriasDisponibles = useMemo(() => {
-    if (categorias.length > 0) {
-      return categorias.map((c) => c.nombre);
+    const base = categorias.length > 0
+      ? categorias.map((c) => c.nombre)
+      : Array.from(
+          new Set(productos.map((producto) => obtenerCategoriaProducto(producto)))
+        ).filter(Boolean);
+
+    return Array.from(new Set([...base, ...CATEGORIAS_POR_DEFECTO])).filter(Boolean);
+  }, [categorias, productos]);
+
+  const categoriasVisibles = useMemo(() => {
+    return categoriasDisponibles.filter((categoria) => !categoriasOcultas.includes(categoria));
+  }, [categoriasDisponibles, categoriasOcultas]);
+
+  const crearCategoria = async () => {
+    const nombreCategoria = nuevaCategoria.trim();
+    if (!nombreCategoria) return;
+
+    const nombreNormalizado = nombreCategoria.replace(/\s+/g, " ").trim();
+    const existe = categoriasDisponibles.some((categoria) => categoria.toLowerCase() === nombreNormalizado.toLowerCase());
+
+    if (existe) {
+      setNuevaCategoria("");
+      setCategoriaSeleccionada("Todas");
+      return;
     }
 
-    return Array.from(
-      new Set(productos.map((producto) => obtenerCategoriaProducto(producto)))
-    ).filter(Boolean);
-  }, [categorias, productos]);
+    try {
+      const categoriaInsert = { nombre: nombreNormalizado };
+      const { data, error } = await supabase
+        .from("categorias")
+        .insert([categoriaInsert])
+        .select()
+        .single();
+
+      if (error) {
+        console.warn("No se pudo crear la categoría en Supabase, se añadirá localmente:", error);
+      }
+
+      const categoriaCreada = data?.nombre || nombreNormalizado;
+      setCategorias((prev) => {
+        const yaExiste = prev.some((categoria) => String(categoria.nombre || "").toLowerCase() === categoriaCreada.toLowerCase());
+        return yaExiste ? prev : [...prev, { id: data?.id ?? Date.now(), nombre: categoriaCreada }];
+      });
+      setCategoriaSeleccionada(categoriaCreada);
+      setNuevaCategoria("");
+    } catch (error) {
+      console.error("Error creando categoría:", error);
+      setCategorias((prev) => {
+        const nombre = nombreNormalizado;
+        const yaExiste = prev.some((categoria) => String(categoria.nombre || "").toLowerCase() === nombre.toLowerCase());
+        return yaExiste ? prev : [...prev, { id: Date.now(), nombre }];
+      });
+      setCategoriaSeleccionada(nombreNormalizado);
+      setNuevaCategoria("");
+    }
+  };
+
+  const alternarCategoriaOculta = async (categoria) => {
+    if (!categoria) return;
+
+    const siguiente = categoriasOcultas.includes(categoria)
+      ? categoriasOcultas.filter((item) => item !== categoria)
+      : [...categoriasOcultas, categoria];
+
+    await guardarCategoriasOcultas(siguiente);
+  };
+
+  const editarCategoria = async (categoriaNombre) => {
+    if (!categoriaNombre) return;
+
+    const categoriaActual = categorias.find((categoria) => categoria.nombre === categoriaNombre);
+    if (!categoriaActual) return;
+
+    const nuevoNombre = window.prompt("Editar nombre de la categoría", categoriaActual.nombre)?.trim();
+    if (!nuevoNombre) return;
+
+    const nombreNormalizado = nuevoNombre.replace(/\s+/g, " ").trim();
+    if (!nombreNormalizado) return;
+
+    const yaExiste = categorias.some(
+      (categoria) =>
+        categoria.id !== categoriaActual.id &&
+        String(categoria.nombre || "").toLowerCase() === nombreNormalizado.toLowerCase()
+    );
+
+    if (yaExiste) {
+      alert("Ya existe una categoría con ese nombre.");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("categorias")
+        .update({ nombre: nombreNormalizado })
+        .eq("id", categoriaActual.id);
+
+      if (error) {
+        throw error;
+      }
+
+      setCategorias((prev) =>
+        prev.map((categoria) =>
+          categoria.id === categoriaActual.id ? { ...categoria, nombre: nombreNormalizado } : categoria
+        )
+      );
+
+      setCategoriasOcultas((prev) =>
+        prev.map((categoria) => (categoria === categoriaNombre ? nombreNormalizado : categoria))
+      );
+
+      if (categoriaSeleccionada === categoriaNombre) {
+        setCategoriaSeleccionada(nombreNormalizado);
+      }
+    } catch (error) {
+      console.error("Error editando categoría:", error);
+      alert("No se pudo editar la categoría en Supabase.");
+    }
+  };
+
+  const eliminarCategoria = async (categoriaNombre) => {
+    if (!categoriaNombre) return;
+
+    const categoriaActual = categorias.find((categoria) => categoria.nombre === categoriaNombre);
+    if (!categoriaActual) return;
+
+    const confirmado = window.confirm(`¿Estás seguro de eliminar la categoría "${categoriaActual.nombre}"?`);
+    if (!confirmado) return;
+
+    try {
+      const { error } = await supabase
+        .from("categorias")
+        .delete()
+        .eq("id", categoriaActual.id);
+
+      if (error) {
+        throw error;
+      }
+
+      const { error: errorProductos } = await supabase
+        .from("productos")
+        .update({ categoria_id: null })
+        .eq("categoria_id", categoriaActual.id);
+
+      if (errorProductos) {
+        console.warn("Error limpiando productos afectados al borrar categoría:", errorProductos);
+      }
+
+      setCategorias((prev) => prev.filter((categoria) => categoria.id !== categoriaActual.id));
+      setCategoriasOcultas((prev) => prev.filter((categoria) => categoria !== categoriaNombre));
+
+      if (categoriaSeleccionada === categoriaNombre) {
+        setCategoriaSeleccionada("Todas");
+      }
+    } catch (error) {
+      console.error("Error eliminando categoría:", error);
+      alert("No se pudo eliminar la categoría en Supabase.");
+    }
+  };
 
   const obtenerTextoStockCliente = (stock) => {
     const cantidad = Number(stock || 0);
@@ -140,6 +295,74 @@ export default function Producto() {
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
   const [mostrarListaClientes, setMostrarListaClientes] = useState(false);
   const [erroresValidacion, setErroresValidacion] = useState([]);
+  const [nuevaCategoria, setNuevaCategoria] = useState("");
+  const bannerInputRef = useRef(null);
+  const categoriasOcultasLista = useMemo(() => {
+    return categoriasDisponibles.filter((categoria) => categoriasOcultas.includes(categoria));
+  }, [categoriasDisponibles, categoriasOcultas]);
+
+  const cargarCategoriasOcultas = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", "categorias_ocultas")
+        .maybeSingle();
+
+      if (error && !String(error.message || "").toLowerCase().includes("does not exist")) {
+        console.error("Error cargando categorías ocultas:", error);
+      }
+
+      if (data?.value) {
+        try {
+          const parsed = JSON.parse(data.value);
+          setCategoriasOcultas(Array.isArray(parsed) ? parsed : []);
+          return;
+        } catch (parseError) {
+          console.warn("No se pudo parsear categorías ocultas desde Supabase:", parseError);
+        }
+      }
+    } catch (error) {
+      console.warn("No se pudo cargar categorías ocultas desde Supabase:", error);
+    }
+
+    if (typeof window !== "undefined") {
+      try {
+        const guardadas = window.localStorage.getItem("neosapp_categorias_ocultas");
+        if (guardadas) {
+          const parsed = JSON.parse(guardadas);
+          setCategoriasOcultas(Array.isArray(parsed) ? parsed : []);
+        }
+      } catch (error) {
+        console.error("Error leyendo categorías ocultas locales:", error);
+      }
+    }
+  };
+
+  const guardarCategoriasOcultas = async (lista) => {
+    const valorFinal = Array.isArray(lista) ? lista : [];
+    setCategoriasOcultas(valorFinal);
+
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem("neosapp_categorias_ocultas", JSON.stringify(valorFinal));
+      } catch (error) {
+        console.error("Error guardando categorías ocultas locales:", error);
+      }
+    }
+
+    try {
+      const { error } = await supabase
+        .from("site_settings")
+        .upsert({ key: "categorias_ocultas", value: JSON.stringify(valorFinal) }, { onConflict: "key" });
+
+      if (error) {
+        console.warn("No se pudo guardar categorías ocultas en Supabase:", error);
+      }
+    } catch (error) {
+      console.warn("No se pudo guardar categorías ocultas en Supabase:", error);
+    }
+  };
   const [datosCliente, setDatosCliente] = useState({
     cedula: "",
     nombre: "",
@@ -149,6 +372,35 @@ export default function Producto() {
     password: "",
     formaPago: FORMAS_PAGO[0],
   });
+
+  const manejarCambioBanner = async (event) => {
+    const archivo = event.target.files?.[0];
+    if (!archivo) return;
+
+    if (!archivo.type.startsWith("image/")) {
+      alert("Solo puedes subir imágenes para el banner.");
+      return;
+    }
+
+    try {
+      await subirBanner(archivo);
+    } catch (error) {
+      console.error("Error al guardar banner:", error);
+      alert("No se pudo guardar el banner. Inténtalo de nuevo.");
+    }
+
+    event.target.value = "";
+  };
+
+  useEffect(() => {
+    cargarCategoriasOcultas();
+  }, []);
+
+  useEffect(() => {
+    if (categoriaSeleccionada !== "Todas" && categoriasOcultas.includes(categoriaSeleccionada)) {
+      setCategoriaSeleccionada("Todas");
+    }
+  }, [categoriaSeleccionada, categoriasOcultas]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -779,7 +1031,7 @@ export default function Producto() {
 
   // Obtener categorías a mostrar basado en filtros
 const obtenerCategoriasConProductos = () => {
-  let categoriasAMostrar = categoriasDisponibles;
+  let categoriasAMostrar = categoriasVisibles;
 
   if (categoriaSeleccionada !== "Todas") {
     categoriasAMostrar = [categoriaSeleccionada];
@@ -1014,12 +1266,29 @@ const obtenerProductosFiltrados = (categoria) => {
         </select>
       </div>
 
-      {/* IMAGEN INFORMATIVA PARA CLIENTES */}
-      {!esAdmin() && !esVendedor() && (
-        <div className="info-image-container">
-          <img src={brebImage} alt="Información sobre pedidos y productos" />
-        </div>
-      )}
+      {/* IMAGEN INFORMATIVA DEL BANNER */}
+      <div className="info-image-container">
+        <img src={bannerUrl || brebImage} alt="Banner principal de NEOS BELLEZA" />
+
+        {esAdmin() && (
+          <div className="banner-admin-controls">
+            <button
+              type="button"
+              className="btn-primary btn-banner-editor"
+              onClick={() => bannerInputRef.current?.click()}
+            >
+              ✏️ Editar banner
+            </button>
+            <input
+              ref={bannerInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              onChange={manejarCambioBanner}
+            />
+          </div>
+        )}
+      </div>
 
       {/* TÍTULO PARA CLIENTES */}
       {!esAdmin() && !esVendedor() && (
@@ -1038,22 +1307,89 @@ const obtenerProductosFiltrados = (categoria) => {
           />
         </div>
 
-        <div className="filtro-categorias">
-          <button
-            className={`categoria-btn ${categoriaSeleccionada === "Todas" ? "activa" : ""}`}
-            onClick={() => setCategoriaSeleccionada("Todas")}
-          >
-            Todas
-          </button>
-          {(categorias.length > 0 ? categorias.map((c) => c.nombre) : CATEGORIAS_POR_DEFECTO).map((categoria) => (
+        <div className="filtro-categorias-wrapper">
+          <div className="filtro-categorias">
             <button
-              key={categoria}
-              className={`categoria-btn ${categoriaSeleccionada === categoria ? "activa" : ""}`}
-              onClick={() => setCategoriaSeleccionada(categoria)}
+              className={`categoria-btn ${categoriaSeleccionada === "Todas" ? "activa" : ""}`}
+              onClick={() => setCategoriaSeleccionada("Todas")}
             >
-              {categoria}
+              Todas
             </button>
-          ))}
+            {categoriasVisibles.map((categoria) => (
+              <div key={categoria} className="categoria-chip-container">
+                <button
+                  className={`categoria-btn ${categoriaSeleccionada === categoria ? "activa" : ""}`}
+                  onClick={() => setCategoriaSeleccionada(categoria)}
+                >
+                  {categoria}
+                </button>
+                {esAdmin() && (
+                  <div className="categoria-admin-actions">
+                    <button
+                      type="button"
+                      className="categoria-action-btn"
+                      onClick={() => editarCategoria(categoria)}
+                      title="Editar categoría"
+                      aria-label={`Editar categoría ${categoria}`}
+                    >
+                      <img src={editarIcon} alt="Editar categoría" />
+                    </button>
+                    <button
+                      type="button"
+                      className="categoria-action-btn danger"
+                      onClick={() => eliminarCategoria(categoria)}
+                      title="Eliminar categoría"
+                      aria-label={`Eliminar categoría ${categoria}`}
+                    >
+                      <img src={eliminarIcon} alt="Eliminar categoría" />
+                    </button>
+                    <button
+                      type="button"
+                      className="categoria-hide-btn"
+                      onClick={() => alternarCategoriaOculta(categoria)}
+                      title="Ocultar categoría"
+                      aria-label={`Ocultar categoría ${categoria}`}
+                    >
+                      <img src={ocultoIcon} alt="Ocultar categoría" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {esAdmin() && (
+            <div className="categoria-admin-tools">
+              <input
+                type="text"
+                value={nuevaCategoria}
+                onChange={(e) => setNuevaCategoria(e.target.value)}
+                placeholder="Nueva categoría"
+                className="categoria-input"
+              />
+              <button type="button" className="btn-primary btn-categoria-crear" onClick={crearCategoria}>
+                + Crear
+              </button>
+            </div>
+          )}
+
+          {esAdmin() && categoriasOcultasLista.length > 0 && (
+            <div className="categoria-ocultas-panel">
+              <span className="categoria-ocultas-label">Ocultas:</span>
+              <div className="categoria-ocultas-lista">
+                {categoriasOcultasLista.map((categoria) => (
+                  <button
+                    key={categoria}
+                    type="button"
+                    className="categoria-oculta-btn"
+                    onClick={() => alternarCategoriaOculta(categoria)}
+                  >
+                    {categoria} ↩
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

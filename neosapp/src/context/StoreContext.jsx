@@ -16,9 +16,109 @@ export function StoreProvider({ children }) {
   const [tablaVendedoresExiste, setTablaVendedoresExiste] = useState(true);
   const [categorias, setCategorias] = useState([]);
   const [cargandoCategorias, setCargandoCategorias] = useState(true);
+  const [bannerUrl, setBannerUrl] = useState("");
 
   const DEFAULT_IMAGE =
     "https://images.unsplash.com/photo-1522338242592-cb0acf6f85a2?w=500";
+
+  const cargarBannerDesdeSupabase = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", "banner_url")
+        .maybeSingle();
+
+      if (error && !String(error.message || "").toLowerCase().includes("does not exist")) {
+        console.error("Error cargando banner desde Supabase:", error);
+      }
+
+      if (data?.value) {
+        setBannerUrl(data.value);
+        return data.value;
+      }
+    } catch (error) {
+      console.warn("No se pudo cargar el banner desde Supabase:", error);
+    }
+
+    if (typeof window !== "undefined") {
+      try {
+        const bannerGuardado = window.localStorage.getItem("neosapp_banner_url");
+        if (bannerGuardado) {
+          setBannerUrl(bannerGuardado);
+          return bannerGuardado;
+        }
+      } catch (localError) {
+        console.error("Error cargando banner guardado:", localError);
+      }
+    }
+
+    return "";
+  };
+
+  const guardarBannerUrl = async (url) => {
+    const valorFinal = url || "";
+    setBannerUrl(valorFinal);
+
+    if (typeof window !== "undefined") {
+      try {
+        if (valorFinal) {
+          window.localStorage.setItem("neosapp_banner_url", valorFinal);
+        } else {
+          window.localStorage.removeItem("neosapp_banner_url");
+        }
+      } catch (error) {
+        console.error("Error guardando banner local:", error);
+      }
+    }
+
+    try {
+      const { error } = await supabase
+        .from("site_settings")
+        .upsert({ key: "banner_url", value: valorFinal }, { onConflict: "key" });
+
+      if (error) {
+        console.warn("No se pudo guardar banner en Supabase, se conserva localmente:", error);
+      }
+    } catch (error) {
+      console.warn("No se pudo guardar banner en Supabase:", error);
+    }
+  };
+
+  const subirBanner = async (file) => {
+    if (!file) return "";
+
+    const nombreArchivo = `banners/${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
+
+    try {
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("banners")
+        .upload(nombreArchivo, file, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: file.type || "image/jpeg",
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const publicUrl = supabase.storage.from("banners").getPublicUrl(uploadData.path).data.publicUrl;
+      await guardarBannerUrl(publicUrl);
+      return publicUrl;
+    } catch (error) {
+      console.error("Error subiendo banner a Supabase Storage:", error);
+      const preview = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      await guardarBannerUrl(preview);
+      return preview;
+    }
+  };
 
 const adaptarProducto = (p) => {
   const imagenesDesdeColumnas = [p.imagen_url, p.imagen_url2, p.imagen_url3].filter(Boolean);
@@ -353,6 +453,24 @@ const cargarProductos = async () => {
       setCargandoCategorias(false);
     }
   };
+
+  useEffect(() => {
+    cargarBannerDesdeSupabase();
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      if (bannerUrl) {
+        window.localStorage.setItem("neosapp_banner_url", bannerUrl);
+      } else {
+        window.localStorage.removeItem("neosapp_banner_url");
+      }
+    } catch (error) {
+      console.error("Error guardando banner:", error);
+    }
+  }, [bannerUrl]);
 
   useEffect(() => {
     const calcularSaldoCliente = (cliente, pedidosArray) => {
@@ -1842,6 +1960,7 @@ return (
       vendedores,
       usuariosVendedores,
       categorias,
+      setCategorias,
       crearProducto,
       actualizarStock,
       agotarProducto,
@@ -1872,6 +1991,10 @@ return (
       cargandoCategorias,
       vendedoresConUsuarios,
       tablaVendedoresExiste,
+      bannerUrl,
+      setBannerUrl,
+      guardarBannerUrl,
+      subirBanner,
     }}
   >
     {children}
