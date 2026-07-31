@@ -46,6 +46,30 @@
   box-shadow: 0 8px 20px rgba(0,0,0,0.15);
 }
 
+.acciones-pedido {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-pdf {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: #e8f5e9;
+  color: #1f7a3d;
+  font-size: 18px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-pdf:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(31, 122, 61, 0.18);
+}
+
 /* HEADER PEDIDO */
 .pedido-header {
   display: flex;

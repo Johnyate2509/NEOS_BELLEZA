@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useStore } from "../context/StoreContext";
+import { descargarRemisionPedido } from "../utils/remisionPdf";
 import "../styles/pedidos.css";
 
 export default function Pedidos() {
@@ -73,6 +74,20 @@ export default function Pedidos() {
         prev ? { ...prev, fechaEntrega, fecha: fechaFormateada } : prev
       );
     }
+  };
+
+  const handleDescargarRemision = (pedido) => {
+    const pedidoPdf = {
+      ...pedido,
+      cliente: pedido.cliente || "Cliente sin nombre",
+      direccion: pedido.direccion || "Sin dirección registrada",
+      telefono: pedido.telefono || pedido.celular || pedido.clienteTelefono || pedido.cliente?.telefono || "3001234567",
+      contactoTelefono: pedido.contactoTelefono || pedido.telefono || pedido.celular || "3001234567",
+      estado: pedido.estado || "Pendiente",
+      items: Array.isArray(pedido.items) ? pedido.items : [],
+    };
+
+    descargarRemisionPedido(pedidoPdf);
   };
 
   const abrirEdicion = (pedido) => {
@@ -229,13 +244,24 @@ export default function Pedidos() {
                   </div>
                 </td>
                 <td data-label="Acción">
-                  <button
-                    className="btn-detalle"
-                    onClick={() => setModalPedido(p)}
-                    title="Ver detalle"
-                  >
-                    Ver Detalle
-                  </button>
+                  <div className="acciones-pedido">
+                    <button
+                      className="btn-detalle"
+                      onClick={() => setModalPedido(p)}
+                      title="Ver detalle"
+                    >
+                      Ver Detalle
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-pdf"
+                      onClick={() => handleDescargarRemision(p)}
+                      title="Descargar remisión PDF"
+                      aria-label={`Descargar remisión del pedido ${p.id}`}
+                    >
+                      📄
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))
