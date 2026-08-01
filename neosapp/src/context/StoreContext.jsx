@@ -554,8 +554,23 @@ const cargarProductos = async () => {
     descripcion = "",
     imagenes = []
   ) => {
-    if (!nombre || !precio || !categoria) {
-      return { error: "Nombre, precio y categoría son requeridos" };
+    if (!nombre || !categoria) {
+      return { error: "Nombre y categoría son requeridos" };
+    }
+
+    const preciosIngresados = [
+      precio,
+      precioEmprendedor,
+      precioMayorista,
+    ].filter((valor) => valor !== null && valor !== undefined && valor !== "");
+
+    const tienePrecioValido = preciosIngresados.some((valor) => {
+      const numero = Number(valor);
+      return !Number.isNaN(numero) && numero >= 0;
+    });
+
+    if (!tienePrecioValido) {
+      return { error: "Debe ingresar al menos un precio válido entre General, Emprendedor y Mayorista." };
     }
 
     const categoriaEncontrada = categorias.find(
@@ -568,7 +583,7 @@ const cargarProductos = async () => {
 
     const productoInsert = {
       nombre,
-      precio: Number(precio),
+      precio: precio != null && precio !== "" ? Number(precio) : null,
       precio_emprendedor: precioEmprendedor != null && precioEmprendedor !== "" ? Number(precioEmprendedor) : null,
       precio_mayorista: precioMayorista != null && precioMayorista !== "" ? Number(precioMayorista) : null,
       stock: Number(stock),
@@ -631,11 +646,26 @@ const cargarProductos = async () => {
     const producto = productos.find((p) => p.id === productoId);
     if (!producto) return { error: "Producto no encontrado" };
 
+    const preciosIngresados = [
+      datos.precio,
+      datos.precio_emprendedor,
+      datos.precio_mayorista,
+    ].filter((valor) => valor !== null && valor !== undefined && valor !== "");
+
+    const tienePrecioValido = preciosIngresados.some((valor) => {
+      const numero = Number(valor);
+      return !Number.isNaN(numero) && numero >= 0;
+    });
+
+    if (!tienePrecioValido) {
+      return { error: "Debe dejar al menos un precio válido para el producto." };
+    }
+
     const datosActualizacion = {};
     if (datos.nombre != null) datosActualizacion.nombre = datos.nombre;
-    if (datos.precio != null) datosActualizacion.precio = Number(datos.precio);
-    if (datos.precio_emprendedor != null) datosActualizacion.precio_emprendedor = datos.precio_emprendedor !== "" ? Number(datos.precio_emprendedor) : null;
-    if (datos.precio_mayorista != null) datosActualizacion.precio_mayorista = datos.precio_mayorista !== "" ? Number(datos.precio_mayorista) : null;
+    if (datos.precio !== undefined) datosActualizacion.precio = datos.precio === "" ? null : Number(datos.precio);
+    if (datos.precio_emprendedor !== undefined) datosActualizacion.precio_emprendedor = datos.precio_emprendedor === "" ? null : Number(datos.precio_emprendedor);
+    if (datos.precio_mayorista !== undefined) datosActualizacion.precio_mayorista = datos.precio_mayorista === "" ? null : Number(datos.precio_mayorista);
     if (datos.stock != null) datosActualizacion.stock = Number(datos.stock);
     if (datos.descripcion != null) datosActualizacion.descripcion = datos.descripcion;
     if (datos.imagenes != null) {
