@@ -243,15 +243,22 @@ export default function Producto() {
   const obtenerPrecioProducto = (producto, catalogo = tipoCatalogo) => {
     if (!producto) return null;
 
+    let precioValor = null;
+
     if (catalogo === "Emprendedor") {
-      return producto.precio_emprendedor != null && producto.precio_emprendedor !== "" ? Number(producto.precio_emprendedor) : null;
+      precioValor = producto.precio_emprendedor;
+    } else if (catalogo === "Mayorista") {
+      precioValor = producto.precio_mayorista;
+    } else {
+      precioValor = producto.precio;
     }
 
-    if (catalogo === "Mayorista") {
-      return producto.precio_mayorista != null && producto.precio_mayorista !== "" ? Number(producto.precio_mayorista) : null;
+    if (precioValor === null || precioValor === undefined || precioValor === "") {
+      return null;
     }
 
-    return producto.precio != null && producto.precio !== "" ? Number(producto.precio) : null;
+    const numero = Number(precioValor);
+    return Number.isFinite(numero) && numero > 0 ? numero : null;
   };
 
   const tienePrecioEnCatalogo = (producto, catalogo = tipoCatalogo) => {
@@ -265,12 +272,12 @@ export default function Producto() {
       datos?.precio_mayorista,
       datos?.precioEmprendedor,
       datos?.precioMayorista,
-    ].filter((valor) => valor !== null && valor !== undefined && valor !== "");
+    ]
+      .filter((valor) => valor !== null && valor !== undefined && valor !== "")
+      .map((valor) => Number(valor));
 
-    return precios.some((valor) => {
-      const numero = Number(valor);
-      return !Number.isNaN(numero) && numero >= 0;
-    });
+    if (precios.length === 0) return false;
+    return precios.some((valor) => Number.isFinite(valor) && valor >= 0);
   };
 
   const obtenerClaseStockAdmin = (stock) => {
@@ -597,7 +604,7 @@ export default function Producto() {
 
   const crearProductoHandler = async () => {
     if (!nuevo.nombre || !nuevo.stock || !validarPrecioProducto(nuevo)) {
-      alert("Por favor completa nombre, stock y al menos un precio válido");
+      alert("Por favor completa nombre y stock");
       return;
     }
 
@@ -951,7 +958,7 @@ export default function Producto() {
 
   const actualizarStockHandler = async () => {
     if (!productoEdicion.nombre || productoEdicion.stock === "" || !validarPrecioProducto(productoEdicion)) {
-      alert("Por favor completa nombre, stock y al menos un precio válido");
+      alert("Por favor completa nombre y stock");
       return;
     }
 
@@ -979,7 +986,7 @@ export default function Producto() {
 
     const precioSeleccionado = obtenerPrecioProducto(producto);
     if (precioSeleccionado == null) {
-      alert("Este producto no está disponible en este catálogo");
+      alert("Producto no disponible en este catalogo");
       return;
     }
 
@@ -1292,14 +1299,7 @@ const obtenerProductosFiltrados = (categoria) => {
         <select
           id="tipoCatalogo"
           value={tipoCatalogo}
-          onChange={(e) => {
-            const nuevoCatalogo = e.target.value;
-            setTipoCatalogo(nuevoCatalogo);
-            const sinPrecio = productos.filter((producto) => !tienePrecioEnCatalogo(producto, nuevoCatalogo));
-            if (sinPrecio.length > 0) {
-              alert("Este producto no está disponible en este catálogo");
-            }
-          }}
+          onChange={(e) => setTipoCatalogo(e.target.value)}
         >
           <option value="General">General</option>
           <option value="Emprendedor">Emprendedor</option>
@@ -1469,11 +1469,13 @@ const obtenerProductosFiltrados = (categoria) => {
                           {obtenerPrecioProducto(p) != null ? `$${Number(obtenerPrecioProducto(p)).toLocaleString()}` : "No disponible"}
                         </span>
                         {esAdmin() ? (
-                          <span className={`producto-stock ${obtenerClaseStockAdmin(p.stock)}`}>
-                            {obtenerTextoStockAdmin(p.stock)}
-                          </span>
+                          precioDisponibleEnCatalogo(p) && (
+                            <span className={`producto-stock ${obtenerClaseStockAdmin(p.stock)}`}>
+                              {obtenerTextoStockAdmin(p.stock)}
+                            </span>
+                          )
                         ) : (
-                          obtenerTextoStockCliente(p.stock) && (
+                          precioDisponibleEnCatalogo(p) && obtenerTextoStockCliente(p.stock) && (
                             <span className={`producto-stock ${obtenerClaseStockCliente(p.stock)}`}>
                               {obtenerTextoStockCliente(p.stock)}
                             </span>
@@ -1486,7 +1488,7 @@ const obtenerProductosFiltrados = (categoria) => {
                           className="btn-agregar-carrito"
                           onClick={() => {
                             if (!precioDisponibleEnCatalogo(p)) {
-                              alert("Este producto no está disponible en este catálogo");
+                              alert("Producto no disponible en este catalogo");
                               return;
                             }
                             agregarAlCarrito(p);
@@ -1581,11 +1583,13 @@ const obtenerProductosFiltrados = (categoria) => {
                             {obtenerPrecioProducto(p) != null ? `$${Number(obtenerPrecioProducto(p)).toLocaleString()}` : "No disponible"}
                           </span>
                           {esAdmin() ? (
-                            <span className={`producto-stock ${obtenerClaseStockAdmin(p.stock)}`}>
-                              {obtenerTextoStockAdmin(p.stock)}
-                            </span>
+                            precioDisponibleEnCatalogo(p) && (
+                              <span className={`producto-stock ${obtenerClaseStockAdmin(p.stock)}`}>
+                                {obtenerTextoStockAdmin(p.stock)}
+                              </span>
+                            )
                           ) : (
-                            obtenerTextoStockCliente(p.stock) && (
+                            precioDisponibleEnCatalogo(p) && obtenerTextoStockCliente(p.stock) && (
                               <span className={`producto-stock ${obtenerClaseStockCliente(p.stock)}`}>
                                 {obtenerTextoStockCliente(p.stock)}
                               </span>
@@ -1598,7 +1602,7 @@ const obtenerProductosFiltrados = (categoria) => {
                             className="btn-agregar-carrito"
                             onClick={() => {
                               if (!precioDisponibleEnCatalogo(p)) {
-                                alert("Este producto no está disponible en este catálogo");
+                                alert("Producto no disponible en este catalogo");
                                 return;
                               }
                               agregarAlCarrito(p);
@@ -2035,11 +2039,13 @@ const obtenerProductosFiltrados = (categoria) => {
                     </div>
                   )}
                   {esAdmin() ? (
-                    <div className={`stock-info ${obtenerClaseStockAdmin(productoDetalles.stock)}`}>
-                      {obtenerTextoStockAdmin(productoDetalles.stock)}
-                    </div>
+                    precioDisponibleEnCatalogo(productoDetalles) && (
+                      <div className={`stock-info ${obtenerClaseStockAdmin(productoDetalles.stock)}`}>
+                        {obtenerTextoStockAdmin(productoDetalles.stock)}
+                      </div>
+                    )
                   ) : (
-                    obtenerTextoStockCliente(productoDetalles.stock) && (
+                    precioDisponibleEnCatalogo(productoDetalles) && obtenerTextoStockCliente(productoDetalles.stock) && (
                       <div className={`stock-info ${obtenerClaseStockCliente(productoDetalles.stock)}`}>
                         {obtenerTextoStockCliente(productoDetalles.stock)}
                       </div>
@@ -2098,6 +2104,12 @@ const obtenerProductosFiltrados = (categoria) => {
                         return;
                       }
 
+                      const precioSeleccionado = obtenerPrecioProducto(productoDetalles);
+                      if (precioSeleccionado == null) {
+                        alert("Producto no disponible en este catalogo");
+                        return;
+                      }
+
                       const productoEnCarrito = carrito.find((p) => p.id === productoDetalles.id);
                       if (productoEnCarrito) {
                         const nuevaCantidad = productoEnCarrito.cantidad + cantidadDetalles;
@@ -2117,7 +2129,7 @@ const obtenerProductosFiltrados = (categoria) => {
                           ...carrito,
                           {
                             ...productoDetalles,
-                            precio: obtenerPrecioProducto(productoDetalles),
+                            precio: precioSeleccionado,
                             cantidad: cantidadDetalles,
                           },
                         ]);
@@ -2126,7 +2138,7 @@ const obtenerProductosFiltrados = (categoria) => {
                       setMostrarDetalles(false);
                       setCantidadDetalles(1);
                     }}
-                    disabled={productoDetalles.stock <= 0}
+                    disabled={productoDetalles.stock <= 0 || obtenerPrecioProducto(productoDetalles) == null}
                   >
                     🛒 Agregar al carrito
                   </button>
@@ -2174,8 +2186,14 @@ const obtenerProductosFiltrados = (categoria) => {
                         </button>
                         <button
                           className="btn-primary"
+                          disabled={precioVar == null || precioVar <= 0}
                           onClick={() => {
                             const precioSel = precioVar;
+                            if (precioSel == null || precioSel <= 0) {
+                              alert("Producto no disponible en este catalogo");
+                              return;
+                            }
+
                             const productoEnCarrito = carrito.find((p) => p.id === productoDetalles.id && p.variante?.id === v.id);
                             if (productoEnCarrito) {
                               const nuevaCantidad = productoEnCarrito.cantidad + 1;
