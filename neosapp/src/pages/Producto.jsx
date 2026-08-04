@@ -1897,8 +1897,8 @@ const obtenerProductosFiltrados = (categoria) => {
               onChange={(e) =>
                 setProductoEdicion({ ...productoEdicion, descripcion: e.target.value })
               }
-              rows="3"
-              style={{ fontFamily: "inherit", resize: "vertical" }}
+              rows="5"
+              style={{ fontFamily: "inherit", resize: "vertical", minHeight: "120px" }}
             />
 
             <div className="seccion-imagenes">
