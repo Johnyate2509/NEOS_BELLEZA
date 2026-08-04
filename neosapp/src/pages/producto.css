@@ -1416,23 +1416,49 @@
 }
 
 .input-imagenes {
-  padding: 10px;
+  width: 100%;
+  padding: 0;
   border: 2px dashed #d1d5db;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.25s ease;
   font-size: 14px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.input-imagenes::file-selector-button {
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  background: linear-gradient(135deg, #facc15, #eab308);
+  color: #111111;
+  font-weight: 700;
+  padding: 10px 16px;
+  margin-right: 12px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  font-family: inherit;
 }
 
 .input-imagenes:hover {
   border-color: var(--gold);
-  background: #fffbf0;
+  background: #fffaf0;
+}
+
+.input-imagenes:hover::file-selector-button {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: #111111;
 }
 
 .input-imagenes:focus {
   outline: none;
   border-color: #1e40af;
   box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
+}
+
+.input-imagenes:focus::file-selector-button {
+  outline: none;
 }
 
 .previsualizacion-imagenes {
