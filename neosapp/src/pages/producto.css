@@ -1431,7 +1431,7 @@
   appearance: none;
   -webkit-appearance: none;
   border: none;
-  background: linear-gradient(135deg, #facc15, #eab308);
+  background: var(--gold);
   color: #111111;
   font-weight: 700;
   padding: 10px 16px;
@@ -1447,7 +1447,7 @@
 }
 
 .input-imagenes:hover::file-selector-button {
-  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  background: var(--primary-color-dark);
   color: #111111;
 }
 
