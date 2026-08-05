@@ -81,6 +81,7 @@
   bottom: 18px;
   display: flex;
   justify-content: flex-end;
+  z-index: 3;
 }
 
 .btn-banner-editor {
@@ -92,6 +93,171 @@
 
 .info-image-container {
   position: relative;
+}
+
+.banner-editor-panel {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(80vw, 1200px);
+  height: min(80vh, 760px);
+  background: rgba(17, 24, 39, 0.78);
+  backdrop-filter: blur(4px);
+  border-radius: 16px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  z-index: 9999;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.28);
+  pointer-events: auto;
+}
+
+.banner-editor-header h4 {
+  margin: 0;
+  color: #fff;
+  font-size: 18px;
+}
+
+.banner-editor-preview {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 1280 / 570;
+  height: auto;
+  min-height: 260px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  background: #000;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.banner-editor-preview::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid rgba(200, 169, 81, 0.85);
+  border-radius: 12px;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.banner-editor-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.2s ease;
+}
+
+.banner-crop-frame,
+.banner-crop-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.banner-crop-frame {
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 12px;
+  z-index: 1;
+}
+
+.banner-crop-grid {
+  background-image:
+    linear-gradient(to right, rgba(255,255,255,0.28) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.28) 1px, transparent 1px);
+  background-size: 25% 25%;
+  border-radius: 12px;
+  z-index: 2;
+}
+
+.banner-editor-directions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin: 0 auto 12px;
+}
+
+.banner-direction-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.banner-direction-btn:hover {
+  background: rgba(200, 169, 81, 0.25);
+  border-color: rgba(200, 169, 81, 0.8);
+}
+
+.banner-editor-controls {
+  display: grid;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.banner-editor-controls label {
+  display: grid;
+  gap: 8px;
+  color: #fff;
+  font-size: 14px;
+}
+
+.banner-editor-controls input[type="range"] {
+  width: 100%;
+  accent-color: var(--gold);
+}
+
+.banner-bg-picker select,
+.banner-color-picker input {
+  width: 100%;
+  min-height: 38px;
+  border-radius: 8px;
+  border: 1px solid rgba(200, 169, 81, 0.7);
+  background: linear-gradient(180deg, #1a1a1a 0%, #0f0f0f 100%);
+  color: #f5d77d;
+  padding: 8px 10px;
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px rgba(200, 169, 81, 0.2);
+}
+
+.banner-bg-picker select option {
+  background: #111111;
+  color: #f5d77d;
+}
+
+.banner-color-picker input {
+  padding: 4px;
+  background: #111111;
+}
+
+.banner-editor-hint {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 12px;
+}
+
+.banner-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.banner-editor-actions button {
+  min-width: 120px;
 }
 
 /* TÍTULO DE PRODUCTOS */

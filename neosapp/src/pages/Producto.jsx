@@ -314,6 +314,16 @@ export default function Producto() {
     variantesTemp: [],
   });
   const [imagenesVista, setImagenesVista] = useState([]);
+  const [bannerZoom, setBannerZoom] = useState(100);
+  const [bannerPosicionX, setBannerPosicionX] = useState(50);
+  const [bannerPosicionY, setBannerPosicionY] = useState(50);
+  const [bannerEditorAbierto, setBannerEditorAbierto] = useState(false);
+  const [bannerPreviewUrl, setBannerPreviewUrl] = useState("");
+  const [bannerArchivoTemporal, setBannerArchivoTemporal] = useState(null);
+  const [bannerBackgroundMode, setBannerBackgroundMode] = useState("transparent");
+  const [bannerBackgroundColor, setBannerBackgroundColor] = useState("#ffffff");
+  const [bannerHandleDrag, setBannerHandleDrag] = useState(null);
+  const bannerPreviewRef = useRef(null);
 
   // Estados para el carrito (debe estar ANTES de useEffect que los usa)
   const [carrito, setCarrito] = useState([]);
@@ -403,7 +413,72 @@ export default function Producto() {
     formaPago: FORMAS_PAGO[0],
   });
 
-  const manejarCambioBanner = async (event) => {
+  const guardarConfiguracionBanner = (
+    zoom = bannerZoom,
+    posicionXValue = bannerPosicionX,
+    posicionYValue = bannerPosicionY,
+    modoFondo = bannerBackgroundMode,
+    colorFondo = bannerBackgroundColor
+  ) => {
+    try {
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(
+          "neosapp_banner_config",
+          JSON.stringify({
+            zoom,
+            posicionX: posicionXValue,
+            posicionY: posicionYValue,
+            backgroundMode: modoFondo,
+            backgroundColor: colorFondo,
+          })
+        );
+      }
+    } catch (error) {
+      console.warn("No se pudo guardar la configuración del banner:", error);
+    }
+  };
+
+  useEffect(() => {
+    try {
+      if (typeof window === "undefined") return;
+      const configGuardada = window.localStorage.getItem("neosapp_banner_config");
+      if (!configGuardada) return;
+
+      const config = JSON.parse(configGuardada);
+      if (Number.isFinite(Number(config.zoom))) {
+        setBannerZoom(Number(config.zoom));
+      }
+      if (Number.isFinite(Number(config.posicionX))) {
+        setBannerPosicionX(Number(config.posicionX));
+      }
+      if (Number.isFinite(Number(config.posicionY))) {
+        setBannerPosicionY(Number(config.posicionY));
+      }
+      if (config.backgroundMode) {
+        setBannerBackgroundMode(config.backgroundMode);
+      }
+      if (config.backgroundColor) {
+        setBannerBackgroundColor(config.backgroundColor);
+      }
+    } catch (error) {
+      console.warn("No se pudo cargar la configuración del banner:", error);
+    }
+  }, []);
+
+  const abrirEditorBanner = () => {
+    setBannerPreviewUrl(bannerUrl || brebImage);
+    setBannerArchivoTemporal(null);
+    setBannerEditorAbierto(true);
+  };
+
+  const cerrarEditorBanner = () => {
+    setBannerArchivoTemporal(null);
+    setBannerPreviewUrl("");
+    setBannerEditorAbierto(false);
+    setBannerHandleDrag(null);
+  };
+
+  const manejarCambioBanner = (event) => {
     const archivo = event.target.files?.[0];
     if (!archivo) return;
 
@@ -412,14 +487,40 @@ export default function Producto() {
       return;
     }
 
+    const urlPrevia = URL.createObjectURL(archivo);
+    setBannerArchivoTemporal(archivo);
+    setBannerPreviewUrl(urlPrevia);
+    setBannerEditorAbierto(true);
+    event.target.value = "";
+  };
+
+  const moverBannerConFlecha = (direccion) => {
+    const paso = 6;
+
+    setBannerPosicionX((prev) => {
+      if (direccion === "left") return Math.max(0, prev - paso);
+      if (direccion === "right") return Math.min(100, prev + paso);
+      return prev;
+    });
+
+    setBannerPosicionY((prev) => {
+      if (direccion === "up") return Math.max(0, prev - paso);
+      if (direccion === "down") return Math.min(100, prev + paso);
+      return prev;
+    });
+  };
+
+  const guardarBannerEditado = async () => {
     try {
-      await subirBanner(archivo);
+      if (bannerArchivoTemporal) {
+        await subirBanner(bannerArchivoTemporal);
+      }
+      guardarConfiguracionBanner();
+      cerrarEditorBanner();
     } catch (error) {
       console.error("Error al guardar banner:", error);
       alert("No se pudo guardar el banner. Inténtalo de nuevo.");
     }
-
-    event.target.value = "";
   };
 
   useEffect(() => {
@@ -1308,15 +1409,29 @@ const obtenerProductosFiltrados = (categoria) => {
       </div>
 
       {/* IMAGEN INFORMATIVA DEL BANNER */}
-      <div className="info-image-container">
-        <img src={bannerUrl || brebImage} alt="Banner principal de NEOS BELLEZA" />
+      <div
+        className="info-image-container"
+        style={{
+          background: bannerBackgroundMode === "transparent" ? "transparent" : bannerBackgroundColor,
+        }}
+      >
+        <img
+          src={bannerPreviewUrl || bannerUrl || brebImage}
+          alt="Banner principal de NEOS BELLEZA"
+          style={{
+            transform: `scale(${bannerZoom / 100})`,
+            transformOrigin: `${bannerPosicionX}% ${bannerPosicionY}%`,
+            objectPosition: `${bannerPosicionX}% ${bannerPosicionY}%`,
+            background: bannerBackgroundMode === "transparent" ? "transparent" : bannerBackgroundColor,
+          }}
+        />
 
         {esAdmin() && (
           <div className="banner-admin-controls">
             <button
               type="button"
               className="btn-primary btn-banner-editor"
-              onClick={() => bannerInputRef.current?.click()}
+              onClick={abrirEditorBanner}
             >
               ✏️ Editar banner
             </button>
@@ -1327,6 +1442,105 @@ const obtenerProductosFiltrados = (categoria) => {
               style={{ display: "none" }}
               onChange={manejarCambioBanner}
             />
+          </div>
+        )}
+
+        {esAdmin() && bannerEditorAbierto && (
+          <div className="banner-editor-panel">
+            <div className="banner-editor-header">
+              <h4>Ajustar banner</h4>
+            </div>
+
+            <div
+              ref={bannerPreviewRef}
+              className="banner-editor-preview"
+              style={{
+                background: bannerBackgroundMode === "transparent" ? "transparent" : bannerBackgroundColor,
+              }}
+            >
+              <div className="banner-crop-frame" />
+              <div className="banner-crop-grid" />
+
+              <img
+                src={bannerPreviewUrl || bannerUrl || brebImage}
+                alt="Vista previa del banner"
+                style={{
+                  transform: `scale(${bannerZoom / 100})`,
+                  transformOrigin: `${bannerPosicionX}% ${bannerPosicionY}%`,
+                  objectPosition: `${bannerPosicionX}% ${bannerPosicionY}%`,
+                  background: bannerBackgroundMode === "transparent" ? "transparent" : bannerBackgroundColor,
+                }}
+              />
+            </div>
+
+            <div className="banner-editor-directions" aria-label="Mover imagen del banner">
+              <button type="button" className="banner-direction-btn" onClick={() => moverBannerConFlecha("left")}>←</button>
+              <button type="button" className="banner-direction-btn" onClick={() => moverBannerConFlecha("right")}>→</button>
+              <button type="button" className="banner-direction-btn" onClick={() => moverBannerConFlecha("up")}>↑</button>
+              <button type="button" className="banner-direction-btn" onClick={() => moverBannerConFlecha("down")}>↓</button>
+            </div>
+
+            <div className="banner-editor-controls">
+              <label>
+                Zoom: <strong>{bannerZoom}%</strong>
+                <input
+                  type="range"
+                  min="10"
+                  max="180"
+                  step="5"
+                  value={bannerZoom}
+                  onChange={(e) => setBannerZoom(Number(e.target.value))}
+                />
+              </label>
+
+              <label className="banner-bg-picker">
+                Fondo del banner:
+                <select
+                  value={bannerBackgroundMode}
+                  onChange={(e) => setBannerBackgroundMode(e.target.value)}
+                >
+                  <option value="transparent">Transparente</option>
+                  <option value="color">Color sólido</option>
+                </select>
+              </label>
+
+              {bannerBackgroundMode === "color" && (
+                <label className="banner-color-picker">
+                  Color de fondo:
+                  <input
+                    type="color"
+                    value={bannerBackgroundColor}
+                    onChange={(e) => setBannerBackgroundColor(e.target.value)}
+                  />
+                </label>
+              )}
+
+              <p className="banner-editor-hint">Ajusta el zoom y mueve la imagen con las flechas para dejarla alineada al banner real.</p>
+            </div>
+
+            <div className="banner-editor-actions">
+              <button
+                type="button"
+                className="btn-secundario"
+                onClick={() => bannerInputRef.current?.click()}
+              >
+                Cambiar foto
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={guardarBannerEditado}
+              >
+                Guardar
+              </button>
+              <button
+                type="button"
+                className="btn-secundario"
+                onClick={cerrarEditorBanner}
+              >
+                Cancelar
+              </button>
+            </div>
           </div>
         )}
       </div>
