@@ -495,6 +495,12 @@ export default function Producto() {
   };
 
   const moverBannerConFlecha = (direccion) => {
+    if (esVistaMovil) {
+      setBannerPosicionX(50);
+      setBannerPosicionY(50);
+      return;
+    }
+
     const paso = 6;
 
     setBannerPosicionX((prev) => {
@@ -509,6 +515,13 @@ export default function Producto() {
       return prev;
     });
   };
+
+  const getBannerImageStyles = () => ({
+    transform: esVistaMovil ? "scale(1)" : `scale(${bannerZoom / 100})`,
+    transformOrigin: esVistaMovil ? "50% 50%" : `${bannerPosicionX}% ${bannerPosicionY}%`,
+    objectPosition: esVistaMovil ? "50% 50%" : `${bannerPosicionX}% ${bannerPosicionY}%`,
+    background: bannerBackgroundMode === "transparent" ? "transparent" : bannerBackgroundColor,
+  });
 
   const guardarBannerEditado = async () => {
     try {
@@ -1418,12 +1431,7 @@ const obtenerProductosFiltrados = (categoria) => {
         <img
           src={bannerPreviewUrl || bannerUrl || brebImage}
           alt="Banner principal de NEOS BELLEZA"
-          style={{
-            transform: `scale(${bannerZoom / 100})`,
-            transformOrigin: `${bannerPosicionX}% ${bannerPosicionY}%`,
-            objectPosition: `${bannerPosicionX}% ${bannerPosicionY}%`,
-            background: bannerBackgroundMode === "transparent" ? "transparent" : bannerBackgroundColor,
-          }}
+          style={getBannerImageStyles()}
         />
 
         {esAdmin() && (
@@ -1464,12 +1472,7 @@ const obtenerProductosFiltrados = (categoria) => {
               <img
                 src={bannerPreviewUrl || bannerUrl || brebImage}
                 alt="Vista previa del banner"
-                style={{
-                  transform: `scale(${bannerZoom / 100})`,
-                  transformOrigin: `${bannerPosicionX}% ${bannerPosicionY}%`,
-                  objectPosition: `${bannerPosicionX}% ${bannerPosicionY}%`,
-                  background: bannerBackgroundMode === "transparent" ? "transparent" : bannerBackgroundColor,
-                }}
+                style={getBannerImageStyles()}
               />
             </div>
 
