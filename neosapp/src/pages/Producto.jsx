@@ -323,6 +323,7 @@ export default function Producto() {
   const [bannerBackgroundMode, setBannerBackgroundMode] = useState("transparent");
   const [bannerBackgroundColor, setBannerBackgroundColor] = useState("#ffffff");
   const [bannerHandleDrag, setBannerHandleDrag] = useState(null);
+  const [bannerAmpliadoMovil, setBannerAmpliadoMovil] = useState(false);
   const bannerPreviewRef = useRef(null);
 
   // Estados para el carrito (debe estar ANTES de useEffect que los usa)
@@ -522,6 +523,16 @@ export default function Producto() {
     objectPosition: esVistaMovil ? "50% 50%" : `${bannerPosicionX}% ${bannerPosicionY}%`,
     background: bannerBackgroundMode === "transparent" ? "transparent" : bannerBackgroundColor,
   });
+
+  const abrirBannerMovil = () => {
+    if (esVistaMovil) {
+      setBannerAmpliadoMovil(true);
+    }
+  };
+
+  const cerrarBannerMovil = () => {
+    setBannerAmpliadoMovil(false);
+  };
 
   const guardarBannerEditado = async () => {
     try {
@@ -1431,7 +1442,11 @@ const obtenerProductosFiltrados = (categoria) => {
         <img
           src={bannerPreviewUrl || bannerUrl || brebImage}
           alt="Banner principal de NEOS BELLEZA"
-          style={getBannerImageStyles()}
+          onClick={abrirBannerMovil}
+          style={{
+            ...getBannerImageStyles(),
+            cursor: esVistaMovil ? "pointer" : "default",
+          }}
         />
 
         {esAdmin() && (
@@ -1650,6 +1665,32 @@ const obtenerProductosFiltrados = (categoria) => {
           )}
         </div>
       </div>
+
+      {esVistaMovil && bannerAmpliadoMovil && (
+        <div className="banner-mobile-zoom-overlay" onClick={cerrarBannerMovil}>
+          <div className="banner-mobile-zoom-modal" onClick={(event) => event.stopPropagation()}>
+            <button
+              type="button"
+              className="banner-mobile-zoom-close"
+              onClick={cerrarBannerMovil}
+              aria-label="Cerrar vista ampliada"
+            >
+              ×
+            </button>
+            <img
+              src={bannerPreviewUrl || bannerUrl || brebImage}
+              alt="Banner ampliado"
+              style={{
+                objectFit: "cover",
+                objectPosition: "center center",
+                width: "100%",
+                height: "100%",
+                borderRadius: "12px",
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* PRODUCTOS */}
       {obtenerCategoriasConProductos().length > 0 ? (
