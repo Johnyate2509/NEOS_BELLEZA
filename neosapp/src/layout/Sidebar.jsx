@@ -54,6 +54,10 @@ export default function Sidebar() {
                Productos
             </NavLink>
 
+            <NavLink to="/admin-productos">
+              Administrar productos
+            </NavLink>
+
             <NavLink to="/pedidos">
                Pedidos
             </NavLink>

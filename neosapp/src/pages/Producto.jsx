@@ -1370,7 +1370,8 @@ const obtenerCategoriasConProductos = () => {
       const categoriaProducto = obtenerCategoriaProducto(p);
       const coincideCategoria = categoriaProducto === categoria;
       const coincideBusqueda = p.nombre.toLowerCase().includes(busquedaProducto.toLowerCase());
-      return coincideCategoria && coincideBusqueda;
+      const ocultoEnCatalogo = (p.catalogos_ocultos || (p.oculto_catalogo ? ["General", "Emprendedor", "Mayorista"] : [])).includes(tipoCatalogo);
+      return (esAdmin() || !ocultoEnCatalogo) && coincideCategoria && coincideBusqueda;
     });
   });
 };
@@ -1379,7 +1380,9 @@ const obtenerCategoriasConProductos = () => {
 const obtenerProductosFiltrados = (categoria) => {
   return productos.filter((p) => {
     const categoriaProducto = obtenerCategoriaProducto(p);
+    const ocultoEnCatalogo = (p.catalogos_ocultos || (p.oculto_catalogo ? ["General", "Emprendedor", "Mayorista"] : [])).includes(tipoCatalogo);
     return (
+      (esAdmin() || !ocultoEnCatalogo) &&
       categoriaProducto === categoria &&
       p.nombre.toLowerCase().includes(busquedaProducto.toLowerCase())
     );

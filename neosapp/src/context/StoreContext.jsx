@@ -122,12 +122,20 @@ export function StoreProvider({ children }) {
 
 const adaptarProducto = (p) => {
   const imagenesDesdeColumnas = [p.imagen_url, p.imagen_url2, p.imagen_url3].filter(Boolean);
+  const catalogosOcultos = Array.isArray(p.catalogos_ocultos)
+    ? p.catalogos_ocultos
+    : p.oculto_catalogo
+    ? ["General", "Emprendedor", "Mayorista"]
+    : [];
   return {
     id: p.id ?? p.identificacion,
     nombre: p.nombre,
     precio: p.precio,
     precio_emprendedor: p.precio_emprendedor ?? p.precioEmprendedor ?? null,
     precio_mayorista: p.precio_mayorista ?? p.precioMayorista ?? null,
+    precio_costo: p.precio_costo ?? null,
+    catalogos_ocultos: catalogosOcultos,
+    oculto_catalogo: catalogosOcultos.length === 3,
     stock: p.stock ?? p.existencias ?? 0,
     descripcion: p.descripcion,
     categoria_id: p.categoria_id,
@@ -552,7 +560,8 @@ const cargarProductos = async () => {
     categoria,
     stock = 10,
     descripcion = "",
-    imagenes = []
+    imagenes = [],
+    opciones = {}
   ) => {
     if (!nombre || !categoria) {
       return { error: "Nombre y categoría son requeridos" };
@@ -585,6 +594,9 @@ const cargarProductos = async () => {
       stock: Number(stock),
       descripcion,
       categoria_id: categoriaEncontrada.id,
+      precio_costo: opciones.precio_costo === "" || opciones.precio_costo == null ? null : Number(opciones.precio_costo),
+      catalogos_ocultos: opciones.catalogos_ocultos || [],
+      oculto_catalogo: (opciones.catalogos_ocultos || []).length === 3,
     };
 
     if (productoInsert.precio == null) {
@@ -687,6 +699,19 @@ const cargarProductos = async () => {
 
     if (datos.stock != null) datosActualizacion.stock = Number(datos.stock);
     if (datos.descripcion != null) datosActualizacion.descripcion = datos.descripcion;
+    if (datos.categoria_id != null) datosActualizacion.categoria_id = datos.categoria_id;
+    if (datos.precio_costo !== undefined) {
+      datosActualizacion.precio_costo = datos.precio_costo === "" || datos.precio_costo == null
+        ? null
+        : normalizarPrecioParaGuardar(datos.precio_costo);
+    }
+    if (datos.catalogos_ocultos !== undefined) {
+      const catalogosValidos = ["General", "Emprendedor", "Mayorista"];
+      datosActualizacion.catalogos_ocultos = catalogosValidos.filter((catalogo) => datos.catalogos_ocultos.includes(catalogo));
+      datosActualizacion.oculto_catalogo = datosActualizacion.catalogos_ocultos.length === catalogosValidos.length;
+    } else if (datos.oculto_catalogo !== undefined) {
+      datosActualizacion.oculto_catalogo = Boolean(datos.oculto_catalogo);
+    }
     if (datos.imagenes != null) {
       datosActualizacion.imagen_url = datos.imagenes[0] || null;
       datosActualizacion.imagen_url2 = datos.imagenes[1] || null;
@@ -706,6 +731,12 @@ const cargarProductos = async () => {
     }
 
     let productoActualizado = adaptarProducto(data);
+    if (datos.categoria_id != null) {
+      productoActualizado = {
+        ...productoActualizado,
+        categoria: categorias.find((categoria) => String(categoria.id) === String(datos.categoria_id))?.nombre || producto.categoria,
+      };
+    }
     if (datos.imagenes != null && datos.imagenes.length > 0) {
       productoActualizado = {
         ...productoActualizado,
