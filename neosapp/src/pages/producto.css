@@ -24,34 +24,94 @@
   flex-direction: column;
   gap: 8px;
   margin-bottom: 24px;
-  max-width: 360px;
+  width: 100%;
 }
 
-.selector-catalogo-container label {
+.selector-catalogo-label {
   font-weight: 600;
   color: #1f2937;
 }
 
-.selector-catalogo-container select {
+.catalogos-botones {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
   width: 100%;
-  padding: 10px 14px;
-  border-radius: 10px;
+}
+
+.catalogo-boton-contenedor {
+  position: relative;
+  min-width: 0;
+}
+
+.catalogo-btn {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 36px 8px 12px;
   border: 2px solid #e0e0e0;
+  border-radius: 20px;
   background: #fff;
-  font-size: 15px;
-  transition: border-color 0.2s ease;
+  color: #333;
+  font-size: 14px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.selector-catalogo-container select:focus {
-  outline: none;
+.catalogo-btn:hover:not(:disabled) {
   border-color: var(--gold);
-  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.12);
+  color: var(--gold);
 }
 
-.selector-catalogo-container select:disabled {
-  background: #f1f2f4;
-  color: #6b7280;
+.catalogo-btn.activa {
+  border-color: var(--gold);
+  background: var(--gold);
+  color: #000;
+  font-weight: 600;
+}
+
+.catalogo-btn:disabled {
   cursor: not-allowed;
+  opacity: 0.8;
+}
+
+.catalogo-editar-btn {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 5px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.catalogo-editar-btn img {
+  display: block;
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+}
+
+.catalogo-editar-btn:hover {
+  background: #e5e7eb;
+}
+
+.catalogo-btn:focus-visible,
+.catalogo-editar-btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.catalogo-btn.activa:focus-visible {
+  border-color: var(--gold);
 }
 
 .catalogo-bloqueado-aviso {
@@ -945,6 +1005,16 @@
     font-size: 13px;
   }
 
+  .catalogos-botones {
+    gap: 8px;
+  }
+
+  .catalogo-btn {
+    min-height: 42px;
+    padding: 8px 30px 8px 8px;
+    font-size: 13px;
+  }
+
   .productos-scroll-container {
     gap: 10px;
   }
@@ -1157,6 +1227,40 @@
   background: #d1d5db;
   cursor: not-allowed;
   opacity: 0.5;
+}
+
+.producto-cantidad-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 34px;
+}
+
+.producto-cantidad-control button {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  background: #10b981;
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.producto-cantidad-control button:hover:not(:disabled) {
+  background: #059669;
+}
+
+.producto-cantidad-control button:disabled {
+  background: #d1d5db;
+  cursor: not-allowed;
+}
+
+.producto-cantidad-control span {
+  flex: 1;
+  text-align: center;
+  font-weight: 600;
 }
 
 .btn-stock {

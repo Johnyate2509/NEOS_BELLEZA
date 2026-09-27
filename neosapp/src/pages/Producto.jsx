@@ -24,6 +24,13 @@ const CATEGORIAS_POR_DEFECTO = [
 ];
 
 const FORMAS_PAGO = ["Efectivo", "Crédito", "Abono"];
+const CATALOGOS = ["General", "Emprendedor", "Mayorista"];
+const NOMBRES_CATALOGOS_DEFAULT = {
+  General: "Tienda física",
+  Emprendedor: "Mayorista",
+  Mayorista: "SuperMayorista",
+};
+const CATALOGOS_STORAGE_KEY = "neosapp_nombres_catalogos";
 const EVENTO_COMPRA_COMPLETADA = "neosapp:compra-completada";
 let finalizarPedidoEnCurso = false;
 
@@ -334,6 +341,7 @@ export default function Producto() {
   const [busquedaProducto, setBusquedaProducto] = useState("");
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState("Todas");
   const [tipoCatalogo, setTipoCatalogo] = useState("General");
+  const [nombresCatalogos, setNombresCatalogos] = useState(NOMBRES_CATALOGOS_DEFAULT);
   const [busquedaCliente, setBusquedaCliente] = useState("");
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
   const [mostrarListaClientes, setMostrarListaClientes] = useState(false);
@@ -341,6 +349,85 @@ export default function Producto() {
   const [procesandoPedido, setProcesandoPedido] = useState(false);
   const [nuevaCategoria, setNuevaCategoria] = useState("");
   const bannerInputRef = useRef(null);
+
+  useEffect(() => {
+    const aplicarNombresGuardados = (valor) => {
+      const nombres = typeof valor === "string" ? JSON.parse(valor) : valor;
+      if (!nombres || typeof nombres !== "object" || Array.isArray(nombres)) return false;
+
+      setNombresCatalogos({
+        ...NOMBRES_CATALOGOS_DEFAULT,
+        ...Object.fromEntries(
+          CATALOGOS.filter((catalogo) => typeof nombres[catalogo] === "string" && nombres[catalogo].trim())
+            .map((catalogo) => [catalogo, nombres[catalogo].trim()])
+        ),
+      });
+      return true;
+    };
+
+    const cargarNombresCatalogos = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("site_settings")
+          .select("value")
+          .eq("key", "nombres_catalogos")
+          .maybeSingle();
+
+        if (error) throw error;
+        if (data?.value && aplicarNombresGuardados(data.value)) return;
+      } catch (error) {
+        console.warn("No se pudieron cargar los nombres de catálogo desde Supabase:", error);
+      }
+
+      try {
+        const nombresLocales = window.localStorage.getItem(CATALOGOS_STORAGE_KEY);
+        if (nombresLocales) aplicarNombresGuardados(nombresLocales);
+      } catch (error) {
+        console.warn("No se pudieron cargar los nombres de catálogo locales:", error);
+      }
+    };
+
+    cargarNombresCatalogos();
+  }, []);
+
+  const editarNombreCatalogo = async (catalogo) => {
+    if (!esAdmin()) return;
+
+    const nombreIngresado = window.prompt("Editar nombre del catálogo", nombresCatalogos[catalogo]);
+    if (nombreIngresado == null) return;
+
+    const nombre = nombreIngresado.replace(/\s+/g, " ").trim();
+    if (!nombre) return;
+
+    const nombreDuplicado = CATALOGOS.some(
+      (otroCatalogo) => otroCatalogo !== catalogo &&
+        nombresCatalogos[otroCatalogo].toLocaleLowerCase() === nombre.toLocaleLowerCase()
+    );
+    if (nombreDuplicado) {
+      alert("Cada catálogo debe tener un nombre diferente.");
+      return;
+    }
+
+    const nombresActualizados = { ...nombresCatalogos, [catalogo]: nombre };
+    setNombresCatalogos(nombresActualizados);
+
+    try {
+      window.localStorage.setItem(CATALOGOS_STORAGE_KEY, JSON.stringify(nombresActualizados));
+    } catch (error) {
+      console.warn("No se pudieron guardar localmente los nombres de catálogo:", error);
+    }
+
+    try {
+      const { error } = await supabase
+        .from("site_settings")
+        .upsert({ key: "nombres_catalogos", value: JSON.stringify(nombresActualizados) }, { onConflict: "key" });
+      if (error) throw error;
+    } catch (error) {
+      console.error("No se pudieron sincronizar los nombres de catálogo:", error);
+      alert("El nombre se guardó en este navegador, pero no se pudo sincronizar para otros usuarios.");
+    }
+  };
+
   const categoriasOcultasLista = useMemo(() => {
     return categoriasDisponibles.filter((categoria) => categoriasOcultas.includes(categoria));
   }, [categoriasDisponibles, categoriasOcultas]);
@@ -1135,14 +1222,21 @@ export default function Producto() {
       return;
     }
 
-    // Verificar si ya está en el carrito
-    const productoEnCarrito = carrito.find((p) => p.id === producto.id);
+    const productoEnCarrito = carrito.find((p) => p.id === producto.id && !p.variante);
 
-    if (!productoEnCarrito) {
-      // Agregar con cantidad 0 para que el usuario la especifique en el carrito
-      setCarrito([...carrito, { ...producto, precio: precioSeleccionado, cantidad: 0 }]);
-
+    if (productoEnCarrito) {
+      if (productoEnCarrito.cantidad >= producto.stock) return;
+      setCarrito(
+        carrito.map((p) =>
+          p.id === producto.id && !p.variante
+            ? { ...p, cantidad: p.cantidad + 1 }
+            : p
+        )
+      );
+      return;
     }
+
+    setCarrito([...carrito, { ...producto, precio: precioSeleccionado, cantidad: 1 }]);
   };
 
   const precioDisponibleEnCatalogo = (producto) => obtenerPrecioProducto(producto) != null;
@@ -1177,6 +1271,61 @@ export default function Producto() {
       carrito.map((p) =>
         obtenerCarritoKey(p) === itemKey ? { ...p, cantidad } : p
       )
+    );
+  };
+
+  const renderControlCarrito = (producto) => {
+    const productoEnCarrito = carrito.find((item) => item.id === producto.id && !item.variante);
+    const cantidad = productoEnCarrito?.cantidad || 0;
+
+    if (!precioDisponibleEnCatalogo(producto)) {
+      return (
+        <button className="btn-agregar-carrito" disabled>
+          No disponible
+        </button>
+      );
+    }
+
+    if (cantidad === 0) {
+      return (
+        <button
+          className="btn-agregar-carrito"
+          onClick={(event) => {
+            event.stopPropagation();
+            agregarAlCarrito(producto);
+          }}
+          disabled={producto.stock <= 0}
+        >
+          Agregar
+        </button>
+      );
+    }
+
+    const itemKey = obtenerCarritoKey(productoEnCarrito);
+
+    return (
+      <div
+        className="producto-cantidad-control"
+        aria-label={`Cantidad de ${producto.nombre}`}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button
+          type="button"
+          aria-label={`Quitar una unidad de ${producto.nombre}`}
+          onClick={() => actualizarCantidad(itemKey, cantidad - 1)}
+        >
+          −
+        </button>
+        <span aria-live="polite">{cantidad}</span>
+        <button
+          type="button"
+          aria-label={`Agregar una unidad de ${producto.nombre}`}
+          onClick={() => actualizarCantidad(itemKey, cantidad + 1)}
+          disabled={cantidad >= producto.stock}
+        >
+          +
+        </button>
+      </div>
     );
   };
 
@@ -1464,17 +1613,33 @@ const obtenerProductosFiltrados = (categoria) => {
 
       {/* Selector de tipo de catálogo */}
       <div className="selector-catalogo-container">
-        <label htmlFor="tipoCatalogo">¿Qué tipo de catálogo desea consultar?</label>
-        <select
-          id="tipoCatalogo"
-          value={tipoCatalogo}
-          disabled={carrito.length > 0}
-          onChange={(e) => setTipoCatalogo(e.target.value)}
-        >
-          <option value="General">General</option>
-          <option value="Emprendedor">Emprendedor</option>
-          <option value="Mayorista">Mayorista</option>
-        </select>
+        <span className="selector-catalogo-label">¿Qué catálogo desea consultar?</span>
+        <div className="catalogos-botones">
+          {CATALOGOS.map((catalogo) => (
+            <div className="catalogo-boton-contenedor" key={catalogo}>
+              <button
+                type="button"
+                className={`catalogo-btn ${tipoCatalogo === catalogo ? "activa" : ""}`}
+                aria-pressed={tipoCatalogo === catalogo}
+                disabled={carrito.length > 0}
+                onClick={() => setTipoCatalogo(catalogo)}
+              >
+                {nombresCatalogos[catalogo]}
+              </button>
+              {esAdmin() && (
+                <button
+                  type="button"
+                  className="catalogo-editar-btn"
+                  onClick={() => editarNombreCatalogo(catalogo)}
+                  title={`Editar nombre: ${nombresCatalogos[catalogo]}`}
+                  aria-label={`Editar nombre del catálogo ${nombresCatalogos[catalogo]}`}
+                >
+                  <img src={editarIcon} alt="" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
         {carrito.length > 0 && (
           <small className="catalogo-bloqueado-aviso">
             El catálogo queda bloqueado mientras haya productos en el carrito.
@@ -1792,19 +1957,7 @@ const obtenerProductosFiltrados = (categoria) => {
                       </div>
 
                       <div className="producto-acciones">
-                        <button
-                          className="btn-agregar-carrito"
-                          onClick={() => {
-                            if (!precioDisponibleEnCatalogo(p)) {
-                              alert("Producto no disponible en este catalogo");
-                              return;
-                            }
-                            agregarAlCarrito(p);
-                          }}
-                          disabled={p.stock <= 0 || !precioDisponibleEnCatalogo(p)}
-                        >
-                          {precioDisponibleEnCatalogo(p) ? "Agregar" : "No disponible"}
-                        </button>
+                        {renderControlCarrito(p)}
                         {esAdmin() && (
                           <>
                             <button
@@ -1906,19 +2059,7 @@ const obtenerProductosFiltrados = (categoria) => {
                         </div>
 
                         <div className="producto-acciones">
-                          <button
-                            className="btn-agregar-carrito"
-                            onClick={() => {
-                              if (!precioDisponibleEnCatalogo(p)) {
-                                alert("Producto no disponible en este catalogo");
-                                return;
-                              }
-                              agregarAlCarrito(p);
-                            }}
-                            disabled={p.stock <= 0 || !precioDisponibleEnCatalogo(p)}
-                          >
-                            {precioDisponibleEnCatalogo(p) ? "Agregar" : "No disponible"}
-                          </button>
+                          {renderControlCarrito(p)}
                           {esAdmin() && (
                             <>
                               <button
@@ -1990,7 +2131,7 @@ const obtenerProductosFiltrados = (categoria) => {
 
             <input
               type="number"
-              placeholder="Precio general"
+              placeholder={`Precio ${nombresCatalogos.General}`}
               value={nuevo.precio}
               onChange={(e) =>
                 setNuevo({ ...nuevo, precio: e.target.value })
@@ -1999,7 +2140,7 @@ const obtenerProductosFiltrados = (categoria) => {
 
             <input
               type="number"
-              placeholder="Precio emprendedor"
+              placeholder={`Precio ${nombresCatalogos.Emprendedor}`}
               value={nuevo.precioEmprendedor}
               onChange={(e) =>
                 setNuevo({ ...nuevo, precioEmprendedor: e.target.value })
@@ -2009,7 +2150,7 @@ const obtenerProductosFiltrados = (categoria) => {
 
             <input
               type="number"
-              placeholder="Precio mayorista"
+              placeholder={`Precio ${nombresCatalogos.Mayorista}`}
               value={nuevo.precioMayorista}
               onChange={(e) =>
                 setNuevo({ ...nuevo, precioMayorista: e.target.value })
@@ -2097,8 +2238,8 @@ const obtenerProductosFiltrados = (categoria) => {
                   <input placeholder="Nombre" value={varianteTemp.nombre} onChange={(e) => setVarianteTemp({ ...varianteTemp, nombre: e.target.value })} />
                   <input placeholder='Atributos (ej: COLOR: ROJO, TALLA: M)' value={varianteTemp.atributos} onChange={(e) => setVarianteTemp({ ...varianteTemp, atributos: e.target.value })} />
                   <input type="number" placeholder="Precio" value={varianteTemp.precio} onChange={(e) => setVarianteTemp({ ...varianteTemp, precio: e.target.value })} />
-                  <input type="number" placeholder="Precio emprendedor" value={varianteTemp.precio_emprendedor} onChange={(e) => setVarianteTemp({ ...varianteTemp, precio_emprendedor: e.target.value })} />
-                  <input type="number" placeholder="Precio mayorista" value={varianteTemp.precio_mayorista} onChange={(e) => setVarianteTemp({ ...varianteTemp, precio_mayorista: e.target.value })} />
+                  <input type="number" placeholder={`Precio ${nombresCatalogos.Emprendedor}`} value={varianteTemp.precio_emprendedor} onChange={(e) => setVarianteTemp({ ...varianteTemp, precio_emprendedor: e.target.value })} />
+                  <input type="number" placeholder={`Precio ${nombresCatalogos.Mayorista}`} value={varianteTemp.precio_mayorista} onChange={(e) => setVarianteTemp({ ...varianteTemp, precio_mayorista: e.target.value })} />
                   <input type="number" placeholder="Stock" value={varianteTemp.stock} onChange={(e) => setVarianteTemp({ ...varianteTemp, stock: e.target.value })} />
                   <div className="seccion-imagenes-variantes">
                     <label className="etiqueta-imagenes">Imágenes de la variante (máximo 5):</label>
@@ -2161,7 +2302,7 @@ const obtenerProductosFiltrados = (categoria) => {
 
             <input
               type="number"
-              placeholder="Precio general"
+              placeholder={`Precio ${nombresCatalogos.General}`}
               value={productoEdicion.precio}
               onChange={(e) =>
                 setProductoEdicion({ ...productoEdicion, precio: e.target.value })
@@ -2171,7 +2312,7 @@ const obtenerProductosFiltrados = (categoria) => {
 
             <input
               type="number"
-              placeholder="Precio emprendedor"
+              placeholder={`Precio ${nombresCatalogos.Emprendedor}`}
               value={productoEdicion.precio_emprendedor}
               onChange={(e) =>
                 setProductoEdicion({ ...productoEdicion, precio_emprendedor: e.target.value })
@@ -2181,7 +2322,7 @@ const obtenerProductosFiltrados = (categoria) => {
 
             <input
               type="number"
-              placeholder="Precio mayorista"
+              placeholder={`Precio ${nombresCatalogos.Mayorista}`}
               value={productoEdicion.precio_mayorista}
               onChange={(e) =>
                 setProductoEdicion({ ...productoEdicion, precio_mayorista: e.target.value })
@@ -2336,12 +2477,12 @@ const obtenerProductosFiltrados = (categoria) => {
                     <div className="precios-especiales">
                       {productoDetalles.precio_emprendedor != null && productoDetalles.precio_emprendedor !== "" && (
                         <div className="precio-especial">
-                          <span>Emprendedor:</span> ${Number(productoDetalles.precio_emprendedor).toLocaleString()}
+                          <span>{nombresCatalogos.Emprendedor}:</span> ${Number(productoDetalles.precio_emprendedor).toLocaleString()}
                         </div>
                       )}
                       {productoDetalles.precio_mayorista != null && productoDetalles.precio_mayorista !== "" && (
                         <div className="precio-especial">
-                          <span>Mayorista:</span> ${Number(productoDetalles.precio_mayorista).toLocaleString()}
+                          <span>{nombresCatalogos.Mayorista}:</span> ${Number(productoDetalles.precio_mayorista).toLocaleString()}
                         </div>
                       )}
                     </div>
@@ -2559,8 +2700,8 @@ const obtenerProductosFiltrados = (categoria) => {
             <input placeholder="Nombre" value={varianteEditTemp.nombre} onChange={(e) => setVarianteEditTemp({ ...varianteEditTemp, nombre: e.target.value })} />
             <input placeholder='Atributos (ej: COLOR: ROJO, TALLA: M)' value={varianteEditTemp.atributos} onChange={(e) => setVarianteEditTemp({ ...varianteEditTemp, atributos: e.target.value })} />
             <input type="number" placeholder="Precio" value={varianteEditTemp.precio} onChange={(e) => setVarianteEditTemp({ ...varianteEditTemp, precio: e.target.value })} />
-            <input type="number" placeholder="Precio emprendedor" value={varianteEditTemp.precio_emprendedor} onChange={(e) => setVarianteEditTemp({ ...varianteEditTemp, precio_emprendedor: e.target.value })} />
-            <input type="number" placeholder="Precio mayorista" value={varianteEditTemp.precio_mayorista} onChange={(e) => setVarianteEditTemp({ ...varianteEditTemp, precio_mayorista: e.target.value })} />
+            <input type="number" placeholder={`Precio ${nombresCatalogos.Emprendedor}`} value={varianteEditTemp.precio_emprendedor} onChange={(e) => setVarianteEditTemp({ ...varianteEditTemp, precio_emprendedor: e.target.value })} />
+            <input type="number" placeholder={`Precio ${nombresCatalogos.Mayorista}`} value={varianteEditTemp.precio_mayorista} onChange={(e) => setVarianteEditTemp({ ...varianteEditTemp, precio_mayorista: e.target.value })} />
             <input type="number" placeholder="Stock" value={varianteEditTemp.stock} onChange={(e) => setVarianteEditTemp({ ...varianteEditTemp, stock: e.target.value })} />
             <div className="seccion-imagenes-variantes">
               <label className="etiqueta-imagenes">Imágenes de la variante (máximo 5):</label>
@@ -2831,16 +2972,21 @@ const obtenerProductosFiltrados = (categoria) => {
                 </>
               )}
 
-              <select
-                value={datosCliente.formaPago}
-                onChange={(e) =>
-                  setDatosCliente({ ...datosCliente, formaPago: e.target.value })
-                }
-              >
-                {FORMAS_PAGO.map((forma) => (
-                  <option key={forma}>{forma}</option>
-                ))}
-              </select>
+              {esAdmin() && (
+                <label>
+                  Forma de pago:
+                  <select
+                    value={datosCliente.formaPago}
+                    onChange={(e) =>
+                      setDatosCliente({ ...datosCliente, formaPago: e.target.value })
+                    }
+                  >
+                    {FORMAS_PAGO.map((forma) => (
+                      <option key={forma}>{forma}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
             </div>
 
             <div className="modal-actions">

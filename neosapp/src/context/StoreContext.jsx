@@ -1766,6 +1766,33 @@ const datosCliente = {
     }
   };
 
+  const actualizarFormaPagoPedido = async (pedidoId, formaPago) => {
+    const formasPagoPermitidas = ["Efectivo", "Crédito", "Abono"];
+    if (!formasPagoPermitidas.includes(formaPago)) return false;
+
+    try {
+      const { error } = await supabase
+        .from("pedidos")
+        .update({ forma_pago: formaPago })
+        .eq("id", pedidoId);
+
+      if (error) {
+        console.error("Error actualizando forma de pago del pedido:", error);
+        return false;
+      }
+
+      setPedidos((prev) =>
+        prev.map((pedido) =>
+          pedido.id === pedidoId ? { ...pedido, formaPago } : pedido
+        )
+      );
+      return true;
+    } catch (err) {
+      console.error("Excepción actualizando forma de pago del pedido:", err);
+      return false;
+    }
+  };
+
   const actualizarFechaPedido = async (pedidoId, fecha) => {
     const formatearFechaLocal = (fechaIso) => {
       if (!fechaIso) return "";
@@ -2028,6 +2055,7 @@ return (
       actualizarClienteNombre,
       actualizarClienteCedula,
       cambiarEstadoPedido,
+      actualizarFormaPagoPedido,
       actualizarFechaPedido,
       eliminarPedido,
       asignarRepartidor,

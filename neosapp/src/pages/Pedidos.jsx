@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useStore } from "../context/StoreContext";
+import { useAuth } from "../context/AuthContext";
 import { descargarRemisionPedido } from "../utils/remisionPdf";
 import "../styles/pedidos.css";
 
@@ -14,7 +15,9 @@ export default function Pedidos() {
     eliminarItemPedido,
     actualizarCantidadItemPedido,
     actualizarFechaPedido,
+    actualizarFormaPagoPedido,
   } = useStore();
+  const { esAdmin } = useAuth();
 
   const [pedidoExpandido, setPedidoExpandido] = useState(null);
   const [pedidoTemp, setPedidoTemp] = useState({});
@@ -74,6 +77,18 @@ export default function Pedidos() {
         prev ? { ...prev, fechaEntrega, fecha: fechaFormateada } : prev
       );
     }
+  };
+
+  const manejarCambioFormaPago = async (pedidoId, formaPago) => {
+    const success = await actualizarFormaPagoPedido(pedidoId, formaPago);
+    if (!success) return;
+
+    setModalPedido((prev) =>
+      prev?.id === pedidoId ? { ...prev, formaPago } : prev
+    );
+    setPedidoTemp((prev) =>
+      prev?.id === pedidoId ? { ...prev, formaPago } : prev
+    );
   };
 
   const handleDescargarRemision = (pedido) => {
@@ -311,14 +326,16 @@ export default function Pedidos() {
                       modalPedido.fecha || "No definida"
                     )}
                   </p>
-                  <p>
-                    <strong>Forma de pago:</strong>{" "}
-                    <span
-                      className={`forma-pago ${modalPedido.formaPago?.toLowerCase() ?? ""}`}
-                    >
-                      {modalPedido.formaPago}
-                    </span>
-                  </p>
+                  {esAdmin() && (
+                    <p>
+                      <strong>Forma de pago:</strong>{" "}
+                      <span
+                        className={`forma-pago ${modalPedido.formaPago?.toLowerCase() ?? ""}`}
+                      >
+                        {modalPedido.formaPago}
+                      </span>
+                    </p>
+                  )}
                 </div>
 
                 {/* Items con controles de edición si está expandido */}
@@ -442,6 +459,19 @@ export default function Pedidos() {
 
                 {pedidoExpandido === modalPedido.id && (
                   <div className="pedido-acciones">
+                    {esAdmin() && (
+                      <div className="control">
+                        <label>Forma de pago:</label>
+                        <select
+                          value={modalPedido.formaPago || "Efectivo"}
+                          onChange={(e) => manejarCambioFormaPago(modalPedido.id, e.target.value)}
+                        >
+                          <option value="Efectivo">Efectivo</option>
+                          <option value="Crédito">Crédito</option>
+                          <option value="Abono">Abono</option>
+                        </select>
+                      </div>
+                    )}
                     <div className="control">
                       <label>Estado:</label>
                       <select
