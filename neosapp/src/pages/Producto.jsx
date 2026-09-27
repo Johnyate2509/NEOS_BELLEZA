@@ -18,7 +18,6 @@ const CATEGORIAS_POR_DEFECTO = [
   "Halloween",
   "Maquillaje",
   "Pedrería Adhesiva",
-  "S. Shop",
   "Tratamientos",
   "Uñas y Limas"
 ];
@@ -48,14 +47,8 @@ export default function Producto() {
   const [categoriasOcultas, setCategoriasOcultas] = useState([]);
 
   const categoriasDisponibles = useMemo(() => {
-    const base = categorias.length > 0
-      ? categorias.map((c) => c.nombre)
-      : Array.from(
-          new Set(productos.map((producto) => obtenerCategoriaProducto(producto)))
-        ).filter(Boolean);
-
-    return Array.from(new Set([...base, ...CATEGORIAS_POR_DEFECTO])).filter(Boolean);
-  }, [categorias, productos]);
+    return Array.from(new Set(categorias.map((categoria) => categoria.nombre))).filter(Boolean);
+  }, [categorias]);
 
   const categoriasVisibles = useMemo(() => {
     return categoriasDisponibles.filter((categoria) => !categoriasOcultas.includes(categoria));
