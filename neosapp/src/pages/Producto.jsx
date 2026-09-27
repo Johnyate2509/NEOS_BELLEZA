@@ -24,6 +24,8 @@ const CATEGORIAS_POR_DEFECTO = [
 ];
 
 const FORMAS_PAGO = ["Efectivo", "Crédito", "Abono"];
+const EVENTO_COMPRA_COMPLETADA = "neosapp:compra-completada";
+let finalizarPedidoEnCurso = false;
 
 export default function Producto() {
   const { productos, categorias, setProductos, setCategorias, crearProducto, actualizarProducto, eliminarProducto, clientes, bannerUrl, subirBanner } = useStore();
@@ -336,6 +338,7 @@ export default function Producto() {
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
   const [mostrarListaClientes, setMostrarListaClientes] = useState(false);
   const [erroresValidacion, setErroresValidacion] = useState([]);
+  const [procesandoPedido, setProcesandoPedido] = useState(false);
   const [nuevaCategoria, setNuevaCategoria] = useState("");
   const bannerInputRef = useRef(null);
   const categoriasOcultasLista = useMemo(() => {
@@ -645,7 +648,6 @@ export default function Producto() {
     if (!estadoGuardado) return;
 
     if (estadoGuardado.carrito) setCarrito(estadoGuardado.carrito);
-    if (estadoGuardado.mostrarModalPedido) setMostrarModalPedido(estadoGuardado.mostrarModalPedido);
     if (estadoGuardado.busquedaProducto) setBusquedaProducto(estadoGuardado.busquedaProducto);
     if (estadoGuardado.categoriaSeleccionada) setCategoriaSeleccionada(estadoGuardado.categoriaSeleccionada);
     if (estadoGuardado.tipoCatalogo) setTipoCatalogo(estadoGuardado.tipoCatalogo);
@@ -674,7 +676,6 @@ export default function Producto() {
   useEffect(() => {
     guardarEstadoPersistente({
       carrito,
-      mostrarModalPedido,
       busquedaProducto,
       categoriaSeleccionada,
       tipoCatalogo,
@@ -701,7 +702,6 @@ export default function Producto() {
     });
   }, [
     carrito,
-    mostrarModalPedido,
     busquedaProducto,
     categoriaSeleccionada,
     tipoCatalogo,
@@ -726,6 +726,26 @@ export default function Producto() {
     nuevo,
     imagenesVista,
   ]);
+
+  useEffect(() => {
+    const limpiarCompraCompletada = () => {
+      setCarrito([]);
+      setMostrarModalPedido(false);
+      setDatosCliente({
+        cedula: "",
+        nombre: "",
+        direccion: "",
+        correoElectronico: "",
+        numeroCelular: "",
+        password: "",
+        formaPago: FORMAS_PAGO[0],
+      });
+      setErroresValidacion([]);
+    };
+
+    window.addEventListener(EVENTO_COMPRA_COMPLETADA, limpiarCompraCompletada);
+    return () => window.removeEventListener(EVENTO_COMPRA_COMPLETADA, limpiarCompraCompletada);
+  }, []);
 
   const crearProductoHandler = async () => {
     if (!nuevo.nombre || !nuevo.stock || !validarPrecioProducto(nuevo)) {
@@ -1252,6 +1272,8 @@ const obtenerProductosFiltrados = (categoria) => {
   };
 
   const finalizarPedido = async () => {
+    if (finalizarPedidoEnCurso) return;
+
     setErroresValidacion([]);
 
     const correo = datosCliente.correoElectronico.trim();
@@ -1282,6 +1304,9 @@ const obtenerProductosFiltrados = (categoria) => {
       setErroresValidacion(validacionCarrito.errores);
       return;
     }
+
+    finalizarPedidoEnCurso = true;
+    setProcesandoPedido(true);
 
     try {
       let { data: clienteExistente, error: errorClienteExistente } = await supabase
@@ -1387,10 +1412,29 @@ const obtenerProductosFiltrados = (categoria) => {
       setBusquedaCliente("");
       setMostrarModalPedido(false);
       setErroresValidacion([]);
-      alert("Compra registrada correctamente");
+      const estadoPersistido = cargarEstadoPersistente() || {};
+      guardarEstadoPersistente({
+        ...estadoPersistido,
+        carrito: [],
+        mostrarModalPedido: false,
+        datosCliente: {
+          cedula: "",
+          nombre: "",
+          direccion: "",
+          correoElectronico: "",
+          numeroCelular: "",
+          password: "",
+          formaPago: FORMAS_PAGO[0],
+        },
+      });
+      window.dispatchEvent(new Event(EVENTO_COMPRA_COMPLETADA));
+      alert("Compra realizada exitosamente");
     } catch (error) {
       console.error(error);
       setErroresValidacion([error?.message || "Error registrando la compra"]);
+    } finally {
+      finalizarPedidoEnCurso = false;
+      setProcesandoPedido(false);
     }
   };
 
@@ -1424,12 +1468,18 @@ const obtenerProductosFiltrados = (categoria) => {
         <select
           id="tipoCatalogo"
           value={tipoCatalogo}
+          disabled={carrito.length > 0}
           onChange={(e) => setTipoCatalogo(e.target.value)}
         >
           <option value="General">General</option>
           <option value="Emprendedor">Emprendedor</option>
           <option value="Mayorista">Mayorista</option>
         </select>
+        {carrito.length > 0 && (
+          <small className="catalogo-bloqueado-aviso">
+            El catálogo queda bloqueado mientras haya productos en el carrito.
+          </small>
+        )}
       </div>
 
       {/* IMAGEN INFORMATIVA DEL BANNER */}
@@ -2800,8 +2850,9 @@ const obtenerProductosFiltrados = (categoria) => {
               <button
                 className="btn-primary"
                 onClick={finalizarPedido}
+                disabled={procesandoPedido}
               >
-                Crear Pedido
+                {procesandoPedido ? "Procesando compra..." : "Crear Pedido"}
               </button>
             </div>
           </div>

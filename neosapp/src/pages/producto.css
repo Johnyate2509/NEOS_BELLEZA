@@ -48,6 +48,17 @@
   box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.12);
 }
 
+.selector-catalogo-container select:disabled {
+  background: #f1f2f4;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
+.catalogo-bloqueado-aviso {
+  color: #6b7280;
+  font-size: 13px;
+}
+
 .productos-header > div {
   display: flex;
   gap: 12px;
