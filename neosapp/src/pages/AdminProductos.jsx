@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useStore } from "../context/StoreContext";
@@ -15,6 +15,38 @@ const FORMULARIO_VACIO = {
   descripcion: "",
   imagenes: [],
   catalogos_ocultos: [],
+};
+
+const BORRADOR_STORAGE_KEY = "neosapp_admin_productos_borrador";
+
+const leerBorrador = () => {
+  try {
+    const guardado = window.localStorage.getItem(BORRADOR_STORAGE_KEY);
+    if (!guardado) return null;
+    const borrador = JSON.parse(guardado);
+    if (!borrador.formulario || typeof borrador.formulario !== "object") return null;
+    return {
+      productoActivo: borrador.productoActivo || null,
+      formulario: {
+        ...FORMULARIO_VACIO,
+        ...borrador.formulario,
+        imagenes: Array.isArray(borrador.formulario.imagenes) ? borrador.formulario.imagenes : [],
+        catalogos_ocultos: Array.isArray(borrador.formulario.catalogos_ocultos)
+          ? borrador.formulario.catalogos_ocultos
+          : [],
+      },
+    };
+  } catch {
+    return null;
+  }
+};
+
+const borrarBorrador = () => {
+  try {
+    window.localStorage.removeItem(BORRADOR_STORAGE_KEY);
+  } catch {
+    return;
+  }
 };
 
 const CATALOGOS = [
@@ -37,14 +69,27 @@ const obtenerNombreCategoria = (producto, categorias) =>
 export default function AdminProductos() {
   const { esAdmin } = useAuth();
   const { productos, categorias, crearProducto, actualizarProducto, eliminarProducto } = useStore();
+  const [borradorInicial] = useState(leerBorrador);
   const [busqueda, setBusqueda] = useState("");
   const [filtroVisibilidad, setFiltroVisibilidad] = useState("todos");
-  const [productoActivo, setProductoActivo] = useState(null);
-  const [formularioAbierto, setFormularioAbierto] = useState(false);
-  const [formulario, setFormulario] = useState(FORMULARIO_VACIO);
+  const [productoActivo, setProductoActivo] = useState(borradorInicial?.productoActivo ?? null);
+  const [formularioAbierto, setFormularioAbierto] = useState(Boolean(borradorInicial));
+  const [formulario, setFormulario] = useState(borradorInicial?.formulario ?? FORMULARIO_VACIO);
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!formularioAbierto) {
+      borrarBorrador();
+      return;
+    }
+    try {
+      window.localStorage.setItem(BORRADOR_STORAGE_KEY, JSON.stringify({ productoActivo, formulario }));
+    } catch {
+      return;
+    }
+  }, [formularioAbierto, formulario, productoActivo]);
 
   const productosFiltrados = useMemo(() => {
     const texto = busqueda.trim().toLocaleLowerCase("es");
@@ -61,6 +106,13 @@ export default function AdminProductos() {
   }, [productos, categorias, busqueda, filtroVisibilidad]);
 
   if (!esAdmin()) return <Navigate to="/" replace />;
+
+  const cerrarFormulario = () => {
+    borrarBorrador();
+    setProductoActivo(null);
+    setFormularioAbierto(false);
+    setFormulario(FORMULARIO_VACIO);
+  };
 
   const abrirNuevo = () => {
     setProductoActivo(null);
@@ -162,10 +214,8 @@ export default function AdminProductos() {
           );
 
       if (resultado?.error) throw new Error(resultado.error);
-      setProductoActivo(null);
-      setFormularioAbierto(false);
+      cerrarFormulario();
       setMensaje(productoActivo ? "Producto actualizado." : "Producto creado.");
-      setFormulario(FORMULARIO_VACIO);
     } catch (guardarError) {
       setError(guardarError.message || "No se pudo guardar el producto.");
     } finally {
@@ -243,11 +293,11 @@ export default function AdminProductos() {
       </section>
 
       {formularioAbierto && (
-        <div className="admin-productos-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !guardando) { setProductoActivo(null); setFormularioAbierto(false); setFormulario(FORMULARIO_VACIO); } }}>
+        <div className="admin-productos-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !guardando) cerrarFormulario(); }}>
           <section className="admin-productos-modal" role="dialog" aria-modal="true" aria-labelledby="admin-producto-form-title">
             <header className="admin-productos-modal-header">
               <div><span>DETALLE DEL PRODUCTO</span><h2 id="admin-producto-form-title">{productoActivo ? "Editar producto" : "Nuevo producto"}</h2></div>
-              <button type="button" aria-label="Cerrar" onClick={() => { setProductoActivo(null); setFormularioAbierto(false); setFormulario(FORMULARIO_VACIO); }}>×</button>
+              <button type="button" aria-label="Cerrar" onClick={cerrarFormulario}>×</button>
             </header>
             <form onSubmit={guardar}>
               <div className="admin-productos-form-grid">
@@ -285,7 +335,7 @@ export default function AdminProductos() {
               </div>
               {error && <p className="admin-productos-form-error" role="alert">{error}</p>}
               <footer className="admin-productos-form-actions">
-                <button type="button" className="admin-productos-secondary" onClick={() => { setProductoActivo(null); setFormularioAbierto(false); setFormulario(FORMULARIO_VACIO); }}>Cancelar</button>
+                <button type="button" className="admin-productos-secondary" onClick={cerrarFormulario}>Cancelar</button>
                 <button type="submit" className="admin-productos-primary" disabled={guardando}>{guardando ? "Guardando..." : "Guardar producto"}</button>
               </footer>
             </form>
