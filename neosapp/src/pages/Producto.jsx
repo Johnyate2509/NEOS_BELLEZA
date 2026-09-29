@@ -744,6 +744,9 @@ export default function Producto() {
   const [editarVarianteId, setEditarVarianteId] = useState(null);
   const [mostrarModalSeleccionarVariante, setMostrarModalSeleccionarVariante] = useState(false);
   const [variantesProducto, setVariantesProducto] = useState([]);
+  const [variantesPorProducto, setVariantesPorProducto] = useState({});
+  const [cargandoVariantesProducto, setCargandoVariantesProducto] = useState(false);
+  const [errorVariantesProducto, setErrorVariantesProducto] = useState("");
 
   const STORAGE_KEY = "neosapp_producto_state";
 
@@ -1070,16 +1073,30 @@ export default function Producto() {
     }
   };
 
-  const cargarVariantesProducto = async (productoId) => {
+  const cargarVariantesProducto = async (productoId, forzar = false) => {
+    if (!forzar && Object.prototype.hasOwnProperty.call(variantesPorProducto, productoId)) {
+      const guardadas = variantesPorProducto[productoId];
+      setVariantesProducto(guardadas);
+      setErrorVariantesProducto("");
+      return guardadas;
+    }
+
+    setCargandoVariantesProducto(true);
+    setErrorVariantesProducto("");
     try {
       const { data, error } = await supabase.from("producto_variantes").select("*").eq("producto_id", Number(productoId));
       if (error) throw error;
-      setVariantesProducto(data || []);
-      return data || [];
+      const cargadas = data || [];
+      setVariantesProducto(cargadas);
+      setVariantesPorProducto((actuales) => ({ ...actuales, [productoId]: cargadas }));
+      return cargadas;
     } catch (err) {
       console.error("Error cargando variantes:", err);
       setVariantesProducto([]);
-      return [];
+      setErrorVariantesProducto("No se pudieron verificar las variantes. Inténtalo de nuevo.");
+      return null;
+    } finally {
+      setCargandoVariantesProducto(false);
     }
   };
 
@@ -1135,16 +1152,24 @@ export default function Producto() {
     }));
   };
 
-  const abrirDetalles = (producto) => {
+  const abrirDetalles = (producto, variantesPrecargadas = null) => {
     if (!tienePrecioEnCatalogo(producto, tipoCatalogo)) {
       alert("Este producto no está disponible en este catálogo");
       return;
     }
 
     setProductoDetalles(producto);
+    const tieneVariantesPrecargadas = Array.isArray(variantesPrecargadas) ||
+      Object.prototype.hasOwnProperty.call(variantesPorProducto, producto.id);
+    const variantesGuardadas = variantesPrecargadas || variantesPorProducto[producto.id];
+    setVariantesProducto(variantesGuardadas || []);
+    setErrorVariantesProducto("");
     setIndiceCarrusel(0);
     setCantidadDetalles(1);
     setMostrarDetalles(true);
+    if (!tieneVariantesPrecargadas) {
+      cargarVariantesProducto(producto.id);
+    }
   };
 
   const siguienteImagen = () => {
@@ -1250,12 +1275,25 @@ export default function Producto() {
     setMostrarModalStock(false);
   };
 
-  const agregarAlCarrito = (producto) => {
+  const agregarAlCarrito = async (producto) => {
     if (producto.stock <= 0) return;
 
     const precioSeleccionado = obtenerPrecioProducto(producto);
     if (precioSeleccionado == null) {
       alert("Producto no disponible en este catalogo");
+      return;
+    }
+
+    let variantes = variantesPorProducto[producto.id];
+    if (!Object.prototype.hasOwnProperty.call(variantesPorProducto, producto.id)) {
+      variantes = await cargarVariantesProducto(producto.id);
+    }
+    if (variantes === null) {
+      alert("No fue posible verificar si el producto tiene variantes. Inténtalo de nuevo.");
+      return;
+    }
+    if (variantes.length > 0) {
+      abrirDetalles(producto, variantes);
       return;
     }
 
