@@ -1319,6 +1319,12 @@ export default function Producto() {
 
   const precioDisponibleEnCatalogo = (producto) => obtenerPrecioProducto(producto) != null;
 
+  const variantesDetalleCargadas = productoDetalles &&
+    Object.prototype.hasOwnProperty.call(variantesPorProducto, productoDetalles.id);
+  const variantesDetalle = variantesDetalleCargadas
+    ? variantesPorProducto[productoDetalles.id]
+    : [];
+
 
   const obtenerCarritoKey = (item) =>
     item.variante?.id ? `${item.id}-${item.variante.id}` : `${item.id}-base`;
@@ -2649,95 +2655,109 @@ const obtenerProductosFiltrados = (categoria) => {
                 </div>
 
                 <div className="detalles-acciones">
-                  <div className="cantidad-detalles">
-                    <label>Cantidad:</label>
-                    <div className="cantidad-input-group-detalles">
+                  {cargandoVariantesProducto && !variantesDetalleCargadas ? (
+                    <p role="status">Verificando variantes...</p>
+                  ) : errorVariantesProducto ? (
+                    <button
+                      type="button"
+                      className="btn-seleccionar-variante"
+                      onClick={() => cargarVariantesProducto(productoDetalles.id, true)}
+                    >
+                      Reintentar verificación
+                    </button>
+                  ) : variantesDetalle.length > 0 ? (
+                    <button
+                      type="button"
+                      className="btn-seleccionar-variante"
+                      onClick={() => {
+                        setMensajeConfirmacionVariantes("");
+                        setMostrarModalSeleccionarVariante(true);
+                      }}
+                      disabled={productoDetalles.stock <= 0}
+                    >
+                      Seleccionar variante
+                    </button>
+                  ) : (
+                    <>
+                      <div className="cantidad-detalles">
+                        <label>Cantidad:</label>
+                        <div className="cantidad-input-group-detalles">
+                          <button
+                            onClick={() => setCantidadDetalles(Math.max(1, cantidadDetalles - 1))}
+                            className="btn-cantidad-detalles"
+                          >
+                            −
+                          </button>
+                          <input
+                            type="number"
+                            value={cantidadDetalles}
+                            onChange={(e) => {
+                              const valor = Number(e.target.value);
+                              if (valor > 0 && valor <= productoDetalles.stock) {
+                                setCantidadDetalles(valor);
+                              }
+                            }}
+                            min="1"
+                            max={productoDetalles.stock}
+                            className="cantidad-input-detalles"
+                          />
+                          <button
+                            onClick={() => setCantidadDetalles(Math.min(productoDetalles.stock, cantidadDetalles + 1))}
+                            className="btn-cantidad-detalles"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+
                       <button
-                        onClick={() => setCantidadDetalles(Math.max(1, cantidadDetalles - 1))}
-                        className="btn-cantidad-detalles"
-                      >
-                        −
-                      </button>
-                      <input
-                        type="number"
-                        value={cantidadDetalles}
-                        onChange={(e) => {
-                          const valor = Number(e.target.value);
-                          if (valor > 0 && valor <= productoDetalles.stock) {
-                            setCantidadDetalles(valor);
+                        className="btn-agregar-grande"
+                        onClick={() => {
+                          if (cantidadDetalles <= 0 || cantidadDetalles > productoDetalles.stock) {
+                            alert("Cantidad inválida");
+                            return;
                           }
+
+                          const precioSeleccionado = obtenerPrecioProducto(productoDetalles);
+                          if (precioSeleccionado == null) {
+                            alert("Producto no disponible en este catalogo");
+                            return;
+                          }
+
+                          const productoEnCarrito = carrito.find((p) => p.id === productoDetalles.id && !p.variante);
+                          if (productoEnCarrito) {
+                            const nuevaCantidad = productoEnCarrito.cantidad + cantidadDetalles;
+                            if (nuevaCantidad > productoDetalles.stock) {
+                              alert(`No hay suficiente stock. Máximo disponible: ${productoDetalles.stock}`);
+                              return;
+                            }
+                            setCarrito(
+                              carrito.map((p) =>
+                                p.id === productoDetalles.id && !p.variante
+                                  ? { ...p, cantidad: nuevaCantidad }
+                                  : p
+                              )
+                            );
+                          } else {
+                            setCarrito([
+                              ...carrito,
+                              {
+                                ...productoDetalles,
+                                precio: precioSeleccionado,
+                                cantidad: cantidadDetalles,
+                              },
+                            ]);
+                          }
+
+                          setMostrarDetalles(false);
+                          setCantidadDetalles(1);
                         }}
-                        min="1"
-                        max={productoDetalles.stock}
-                        className="cantidad-input-detalles"
-                      />
-                      <button
-                        onClick={() => setCantidadDetalles(Math.min(productoDetalles.stock, cantidadDetalles + 1))}
-                        className="btn-cantidad-detalles"
+                        disabled={productoDetalles.stock <= 0 || obtenerPrecioProducto(productoDetalles) == null}
                       >
-                        +
+                        🛒 Agregar al carrito
                       </button>
-                    </div>
-                  </div>
-
-                  <button
-                    className="btn-seleccionar-variante"
-                    onClick={async () => {
-                      await cargarVariantesProducto(productoDetalles.id);
-                      setMensajeConfirmacionVariantes("");
-                      setMostrarModalSeleccionarVariante(true);
-                    }}
-                    disabled={productoDetalles.stock <= 0}
-                  >
-                    Seleccionar variante
-                  </button>
-
-                  <button
-                    className="btn-agregar-grande"
-                    onClick={() => {
-                      if (cantidadDetalles <= 0 || cantidadDetalles > productoDetalles.stock) {
-                        alert("Cantidad inválida");
-                        return;
-                      }
-
-                      const precioSeleccionado = obtenerPrecioProducto(productoDetalles);
-                      if (precioSeleccionado == null) {
-                        alert("Producto no disponible en este catalogo");
-                        return;
-                      }
-
-                      const productoEnCarrito = carrito.find((p) => p.id === productoDetalles.id);
-                      if (productoEnCarrito) {
-                        const nuevaCantidad = productoEnCarrito.cantidad + cantidadDetalles;
-                        if (nuevaCantidad > productoDetalles.stock) {
-                          alert(`No hay suficiente stock. Máximo disponible: ${productoDetalles.stock}`);
-                          return;
-                        }
-                        setCarrito(
-                          carrito.map((p) =>
-                            p.id === productoDetalles.id
-                              ? { ...p, cantidad: nuevaCantidad }
-                              : p
-                          )
-                        );
-                      } else {
-                        setCarrito([
-                          ...carrito,
-                          {
-                            ...productoDetalles,
-                            precio: precioSeleccionado,
-                            cantidad: cantidadDetalles,
-                          },
-                        ]);
-                      }
-
-                      setMostrarDetalles(false);
-                      setCantidadDetalles(1);
-                    }}
-                    disabled={productoDetalles.stock <= 0 || obtenerPrecioProducto(productoDetalles) == null}
-                  >
-                    🛒 Agregar al carrito
-                  </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
