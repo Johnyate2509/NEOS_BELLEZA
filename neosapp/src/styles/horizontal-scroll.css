@@ -1,0 +1,40 @@
+.horizontal-scroll {
+  width: 100%;
+  min-width: 0;
+}
+
+.horizontal-scroll__top {
+  width: 100%;
+  height: 15px;
+  margin-bottom: 3px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-color: #87968d #e8eeea;
+  scrollbar-width: thin;
+}
+
+.horizontal-scroll__top::-webkit-scrollbar {
+  height: 12px;
+}
+
+.horizontal-scroll__top::-webkit-scrollbar-track {
+  background: #e8eeea;
+}
+
+.horizontal-scroll__top::-webkit-scrollbar-thumb {
+  border: 2px solid #e8eeea;
+  border-radius: 8px;
+  background: #87968d;
+}
+
+.horizontal-scroll__spacer {
+  height: 1px;
+}
+
+.horizontal-scroll__viewport {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}

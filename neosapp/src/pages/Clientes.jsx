@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useStore } from "../context/StoreContext";
+import HorizontalScroll from "../components/HorizontalScroll";
 import "../styles/clientes.css";
 
 
@@ -292,7 +293,7 @@ export default function Clientes() {
                   </div>
                 ) : (
                   <>
-                    <div className="pedidos-tabla-container">
+                    <HorizontalScroll className="pedidos-tabla-container">
                       <table className="pedidos-tabla">
                         <thead>
                           <tr>
@@ -321,7 +322,7 @@ export default function Clientes() {
                           ))}
                         </tbody>
                       </table>
-                    </div>
+                    </HorizontalScroll>
 
                     {/* Tarjetas de pedidos para móvil */}
                     <div className="pedidos-cards-container">

@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useStore } from "../context/StoreContext";
 import { supabase } from "../context/supabaseClient";
+import HorizontalScroll from "../components/HorizontalScroll";
 import "../styles/admin-productos.css";
 
 const FORMULARIO_VACIO = {
@@ -442,7 +443,7 @@ export default function AdminProductos() {
       {(mensaje || error) && <div className={`admin-productos-message ${error ? "error" : "success"}`} role="status">{error || mensaje}</div>}
 
       <section className="admin-productos-list" aria-label="Lista de productos">
-        <div className="admin-productos-table-wrap">
+        <HorizontalScroll viewportClassName="admin-productos-table-wrap">
           <table className="admin-productos-table">
             <thead>
               <tr><th>Producto</th><th>Categoría</th><th>Stock</th><th>Tienda física</th><th>Mayorista</th><th>Supermayorista</th><th>Costo</th><th>Catálogo</th><th>Variantes</th><th>Acciones</th></tr>
@@ -518,7 +519,7 @@ export default function AdminProductos() {
                                 <button type="button" onClick={() => cargarVariantes(producto.id)}>Reintentar</button>
                               </div>
                             ) : variantesFiltradas.length > 0 ? (
-                              <div className="admin-productos-variants-table-wrap">
+                              <HorizontalScroll viewportClassName="admin-productos-variants-table-wrap">
                                 <table className="admin-productos-variants-table">
                                   <thead><tr><th>Variante</th><th>Atributos</th><th>Stock</th><th>Tienda física</th><th>Mayorista</th><th>Supermayorista</th><th>Acciones</th></tr></thead>
                                   <tbody>
@@ -541,7 +542,7 @@ export default function AdminProductos() {
                                     ))}
                                   </tbody>
                                 </table>
-                              </div>
+                              </HorizontalScroll>
                             ) : (
                               <p className="admin-productos-variants-message">
                                 {variantes.length ? "No hay variantes que coincidan con el filtro." : "Este producto todavía no tiene variantes."}
@@ -557,7 +558,7 @@ export default function AdminProductos() {
               {productosFiltrados.length === 0 && <tr><td className="admin-productos-empty" colSpan="10">No hay productos para mostrar.</td></tr>}
             </tbody>
           </table>
-        </div>
+        </HorizontalScroll>
       </section>
 
       {formularioAbierto && (

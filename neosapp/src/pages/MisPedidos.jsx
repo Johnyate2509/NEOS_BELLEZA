@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useStore } from "../context/StoreContext";
+import HorizontalScroll from "../components/HorizontalScroll";
 import "../styles/mis-pedidos.css";
 
 export default function MisPedidos() {
@@ -62,7 +63,7 @@ export default function MisPedidos() {
         ) : (
           <>
             {/* Vista de tabla para desktop */}
-            <div className="pedidos-tabla-container">
+            <HorizontalScroll className="pedidos-tabla-container">
               <table className="pedidos-tabla">
                 <thead>
                   <tr>
@@ -91,7 +92,7 @@ export default function MisPedidos() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </HorizontalScroll>
 
             {/* Vista de tarjetas para móvil */}
             <div className="pedidos-cards-container">
