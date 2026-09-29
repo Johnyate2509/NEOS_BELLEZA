@@ -997,6 +997,24 @@
 }
 
 @media (max-width: 820px) {
+  .app:has(.productos-page) {
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .main:has(.productos-page) {
+    height: auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .content:has(.productos-page) {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-anchor: none;
+  }
+
   .productos-filtros {
     gap: 12px;
   }
@@ -1039,6 +1057,43 @@
 
   .producto-imagen {
     height: 140px;
+  }
+
+  .productos-filtros.compacto {
+    gap: 0;
+    padding: 6px 0;
+    margin-bottom: 20px;
+  }
+
+  .productos-filtros.compacto .busqueda-container,
+  .productos-filtros.compacto .categoria-admin-tools,
+  .productos-filtros.compacto .categoria-ocultas-panel {
+    display: none;
+  }
+
+  .productos-filtros.compacto .filtro-categorias-wrapper {
+    gap: 0;
+  }
+
+  .productos-filtros.compacto .filtro-categorias {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 4px 0 8px;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .productos-filtros.compacto .categoria-chip-container,
+  .productos-filtros.compacto .categoria-btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .productos-filtros.compacto .categoria-admin-actions {
+    display: none;
   }
 }
 

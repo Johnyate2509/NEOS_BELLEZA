@@ -321,6 +321,7 @@ export default function Producto() {
   const [dragging, setDragging] = useState({});
   const [dragStart, setDragStart] = useState({});
   const [esVistaMovil, setEsVistaMovil] = useState(false);
+  const [categoriasCompactas, setCategoriasCompactas] = useState(false);
   
   const [mostrarModal, setMostrarModal] = useState(false);
   const [nuevo, setNuevo] = useState({
@@ -667,6 +668,30 @@ export default function Producto() {
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    const contenedor = document.querySelector(".content");
+    const filtros = document.querySelector(".productos-filtros");
+    const header = document.querySelector(".header");
+    if (!contenedor || !filtros || !header) return undefined;
+
+    const actualizarCompacto = () => {
+      const compacto = window.innerWidth <= 820 &&
+        filtros.getBoundingClientRect().top <= header.getBoundingClientRect().bottom + 1;
+      setCategoriasCompactas((actual) => actual === compacto ? actual : compacto);
+    };
+    const frame = window.requestAnimationFrame(actualizarCompacto);
+    contenedor.addEventListener("scroll", actualizarCompacto, { passive: true });
+    window.addEventListener("scroll", actualizarCompacto, { passive: true });
+    window.addEventListener("resize", actualizarCompacto);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      contenedor.removeEventListener("scroll", actualizarCompacto);
+      window.removeEventListener("scroll", actualizarCompacto);
+      window.removeEventListener("resize", actualizarCompacto);
+    };
   }, []);
 
   // Cargar datos del cliente logueado cuando se abre el modal de pedido
@@ -1800,7 +1825,7 @@ const obtenerProductosFiltrados = (categoria) => {
       )}
 
       {/* BUSCADOR Y FILTROS */}
-      <div className="productos-filtros">
+      <div className={`productos-filtros ${esVistaMovil && categoriasCompactas ? "compacto" : ""}`}>
         <div className="busqueda-container">
           <input
             type="text"
