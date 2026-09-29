@@ -747,6 +747,8 @@ export default function Producto() {
   const [variantesPorProducto, setVariantesPorProducto] = useState({});
   const [cargandoVariantesProducto, setCargandoVariantesProducto] = useState(false);
   const [errorVariantesProducto, setErrorVariantesProducto] = useState("");
+  const [cantidadesVariantesSeleccionadas, setCantidadesVariantesSeleccionadas] = useState({});
+  const [mensajeConfirmacionVariantes, setMensajeConfirmacionVariantes] = useState("");
 
   const STORAGE_KEY = "neosapp_producto_state";
 
@@ -1348,6 +1350,70 @@ export default function Producto() {
         obtenerCarritoKey(p) === itemKey ? { ...p, cantidad } : p
       )
     );
+  };
+
+  const totalVariantesSeleccionadas = Object.values(cantidadesVariantesSeleccionadas)
+    .reduce((total, cantidad) => total + cantidad, 0);
+
+  const cambiarCantidadVariante = (variante, cambio) => {
+    const cantidadEnCarrito = carrito.find(
+      (item) => item.id === productoDetalles.id && item.variante?.id === variante.id
+    )?.cantidad || 0;
+    const stockDisponible = Math.max(0, Number(variante.stock || 0) - cantidadEnCarrito);
+    setMensajeConfirmacionVariantes("");
+    setCantidadesVariantesSeleccionadas((actuales) => ({
+      ...actuales,
+      [variante.id]: Math.max(0, Math.min(stockDisponible, (actuales[variante.id] || 0) + cambio)),
+    }));
+  };
+
+  const confirmarUnidadesVariantes = () => {
+    const seleccionadas = variantesProducto
+      .map((variante) => ({ variante, cantidad: cantidadesVariantesSeleccionadas[variante.id] || 0 }))
+      .filter(({ cantidad }) => cantidad > 0);
+    if (seleccionadas.length === 0) return;
+
+    const carritoActualizado = [...carrito];
+    let unidadesAgregadas = 0;
+    seleccionadas.forEach(({ variante, cantidad }) => {
+      const precio = tipoCatalogo === "Emprendedor" && variante.precio_emprendedor != null
+        ? variante.precio_emprendedor
+        : tipoCatalogo === "Mayorista" && variante.precio_mayorista != null
+          ? variante.precio_mayorista
+          : variante.precio != null
+            ? variante.precio
+            : obtenerPrecioProducto(productoDetalles);
+      if (precio == null || Number(precio) <= 0) return;
+
+      const indiceExistente = carritoActualizado.findIndex(
+        (item) => item.id === productoDetalles.id && item.variante?.id === variante.id
+      );
+      if (indiceExistente >= 0) {
+        const cantidadFinal = carritoActualizado[indiceExistente].cantidad + cantidad;
+        if (cantidadFinal > Number(variante.stock || 0)) return;
+        carritoActualizado[indiceExistente] = {
+          ...carritoActualizado[indiceExistente],
+          cantidad: cantidadFinal,
+        };
+      } else {
+        carritoActualizado.push({
+          ...productoDetalles,
+          precio: Number(precio),
+          cantidad,
+          variante,
+        });
+      }
+      unidadesAgregadas += cantidad;
+    });
+
+    if (unidadesAgregadas === 0) {
+      setMensajeConfirmacionVariantes("Revisa las cantidades y el stock disponible.");
+      return;
+    }
+    setCarrito(carritoActualizado);
+    setCantidadesVariantesSeleccionadas({});
+    setMensajeConfirmacionVariantes(`${unidadesAgregadas} ${unidadesAgregadas === 1 ? "unidad agregada" : "unidades agregadas"} al carrito.`);
+    setMostrarModalSeleccionarVariante(false);
   };
 
   const renderControlCarrito = (producto) => {
@@ -2617,6 +2683,7 @@ const obtenerProductosFiltrados = (categoria) => {
                     className="btn-seleccionar-variante"
                     onClick={async () => {
                       await cargarVariantesProducto(productoDetalles.id);
+                      setMensajeConfirmacionVariantes("");
                       setMostrarModalSeleccionarVariante(true);
                     }}
                     disabled={productoDetalles.stock <= 0}
@@ -2681,12 +2748,19 @@ const obtenerProductosFiltrados = (categoria) => {
         <div className="modal-overlay" onClick={() => setMostrarModalSeleccionarVariante(false)}>
           <div className="modal modal-variante" onClick={(e) => e.stopPropagation()}>
             <h3>Seleccionar variante</h3>
+            <div className="variantes-confirmacion variantes-confirmacion-superior">
+              <span aria-live="polite">{mensajeConfirmacionVariantes || `${totalVariantesSeleccionadas} ${totalVariantesSeleccionadas === 1 ? "unidad seleccionada" : "unidades seleccionadas"}`}</span>
+              <button type="button" className="btn-primary" onClick={confirmarUnidadesVariantes} disabled={totalVariantesSeleccionadas === 0}>Confirmar unidades</button>
+            </div>
             {variantesProducto.length === 0 ? (
               <p>No hay variantes disponibles para este producto</p>
             ) : (
               <div className="lista-variantes">
                 {variantesProducto.map((v) => {
                   const precioVar = tipoCatalogo === "Emprendedor" && v.precio_emprendedor != null ? v.precio_emprendedor : tipoCatalogo === "Mayorista" && v.precio_mayorista != null ? v.precio_mayorista : v.precio != null ? v.precio : obtenerPrecioProducto(productoDetalles);
+                  const cantidadSeleccionada = cantidadesVariantesSeleccionadas[v.id] || 0;
+                  const cantidadEnCarrito = carrito.find((item) => item.id === productoDetalles.id && item.variante?.id === v.id)?.cantidad || 0;
+                  const stockDisponible = Math.max(0, Number(v.stock || 0) - cantidadEnCarrito);
                   return (
                     <div key={v.id} className="variante-item">
                       <div className="variante-meta">
@@ -2706,53 +2780,13 @@ const obtenerProductosFiltrados = (categoria) => {
                       </div>
 
                       <div className="variante-actions">
-                        <button
-                          className="btn-secundario btn-icon"
-                          onClick={() => abrirEdicionVariante(v)}
-                        >
-                          ✎ Editar
-                        </button>
-                        <button
-                          className="btn-primary"
-                          disabled={precioVar == null || precioVar <= 0}
-                          onClick={() => {
-                            const precioSel = precioVar;
-                            if (precioSel == null || precioSel <= 0) {
-                              alert("Producto no disponible en este catalogo");
-                              return;
-                            }
-
-                            const productoEnCarrito = carrito.find((p) => p.id === productoDetalles.id && p.variante?.id === v.id);
-                            if (productoEnCarrito) {
-                              const nuevaCantidad = productoEnCarrito.cantidad + 1;
-                              if (nuevaCantidad > v.stock) {
-                                alert("No hay suficiente stock");
-                                return;
-                              }
-                              setCarrito(
-                                carrito.map((p) =>
-                                  p.id === productoDetalles.id && p.variante?.id === v.id
-                                    ? { ...p, cantidad: nuevaCantidad }
-                                    : p
-                                )
-                              );
-                            } else {
-                              setCarrito([
-                                ...carrito,
-                                {
-                                  ...productoDetalles,
-                                  precio: precioSel,
-                                  cantidad: 1,
-                                  variante: v,
-                                },
-                              ]);
-                            }
-
-                            setMostrarModalSeleccionarVariante(false);
-                          }}
-                        >
-                          Agregar variante
-                        </button>
+                        {esAdmin() && <button type="button" className="btn-secundario btn-icon" onClick={() => abrirEdicionVariante(v)}>✎ Editar</button>}
+                        <div className="variante-cantidad-control" aria-label={`Cantidad de ${v.nombre || "variante"}`}>
+                          <button type="button" aria-label={`Disminuir ${v.nombre || "variante"}`} onClick={() => cambiarCantidadVariante(v, -1)} disabled={cantidadSeleccionada === 0}>−</button>
+                          <output aria-live="polite">{cantidadSeleccionada}</output>
+                          <button type="button" aria-label={`Aumentar ${v.nombre || "variante"}`} onClick={() => cambiarCantidadVariante(v, 1)} disabled={cantidadSeleccionada >= stockDisponible || precioVar == null || Number(precioVar) <= 0}>+</button>
+                        </div>
+                        <small className="variante-en-carrito">En carrito: {cantidadEnCarrito} / Stock: {v.stock ?? 0}</small>
                       </div>
                     </div>
                   );
@@ -2761,6 +2795,7 @@ const obtenerProductosFiltrados = (categoria) => {
             )}
 
             <div className="modal-actions">
+              <button type="button" className="btn-primary" onClick={confirmarUnidadesVariantes} disabled={totalVariantesSeleccionadas === 0}>Confirmar unidades ({totalVariantesSeleccionadas})</button>
               <button className="btn-secundario" onClick={() => setMostrarModalSeleccionarVariante(false)}>Cerrar</button>
             </div>
           </div>
