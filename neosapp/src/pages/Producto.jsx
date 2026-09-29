@@ -1343,6 +1343,13 @@ export default function Producto() {
     setCarrito(carrito.filter((p) => obtenerCarritoKey(p) !== itemKey));
   };
 
+  const vaciarCarrito = () => {
+    if (carrito.length === 0) return;
+    if (!window.confirm("¿Vaciar todos los productos del carrito?")) return;
+    setCarrito([]);
+    setErroresValidacion([]);
+  };
+
   const actualizarCantidad = (itemKey, cantidad) => {
     const item = carrito.find((p) => obtenerCarritoKey(p) === itemKey);
     if (!item) return;
@@ -2909,9 +2916,16 @@ const obtenerProductosFiltrados = (categoria) => {
             <h3>Finalizar Pedido</h3>
 
             <div className="modal-carrito">
-              <h4>Productos en el carrito:</h4>
+              <div className="carrito-header">
+                <h4>Productos en el carrito:</h4>
+                <button type="button" className="btn-vaciar-carrito" onClick={vaciarCarrito} disabled={carrito.length === 0}>
+                  Vaciar carrito
+                </button>
+              </div>
               <div className="carrito-items">
-                {carrito.map((item) => {
+                {carrito.length === 0 ? (
+                  <p className="carrito-vacio">El carrito está vacío.</p>
+                ) : carrito.map((item) => {
                   const itemKey = obtenerCarritoKey(item);
                   return (
                     <div key={itemKey} className="carrito-item">
@@ -3138,7 +3152,7 @@ const obtenerProductosFiltrados = (categoria) => {
               <button
                 className="btn-primary"
                 onClick={finalizarPedido}
-                disabled={procesandoPedido}
+                disabled={procesandoPedido || carrito.length === 0}
               >
                 {procesandoPedido ? "Procesando compra..." : "Crear Pedido"}
               </button>

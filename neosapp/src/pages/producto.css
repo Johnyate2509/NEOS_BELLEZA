@@ -1572,6 +1572,33 @@
   border-bottom: 2px solid #f0f0f0;
 }
 
+.carrito-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.carrito-header h4 { margin: 0; }
+
+.btn-vaciar-carrito {
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid #e5b8b4;
+  border-radius: 4px;
+  color: #a12b23;
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-vaciar-carrito:hover:not(:disabled) { background: #fff1ef; }
+.btn-vaciar-carrito:disabled { opacity: .55; cursor: not-allowed; }
+.carrito-vacio { padding: 16px 10px; color: #6b7280; text-align: center; }
+
 .carrito-items {
   display: flex;
   flex-direction: column;
