@@ -549,8 +549,14 @@
   width: 100%;
 }
 
-.modal-variante {
+.modal.modal-variante {
   width: min(560px, 90vw);
+}
+
+@media (min-width: 900px) {
+  .modal.modal-variante {
+    width: min(820px, 90vw);
+  }
 }
 
 .modal-variante .lista-variantes {

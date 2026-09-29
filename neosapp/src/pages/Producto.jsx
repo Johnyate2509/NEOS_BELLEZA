@@ -1103,6 +1103,7 @@ export default function Producto() {
   };
 
   const abrirEdicionVariante = (variante) => {
+    if (getUserRole() !== "admin") return;
     setEditarVarianteId(variante.id);
     setProductoVarianteEditActivo(productoSeleccionado || productoDetalles);
     setVarianteEditTemp({
@@ -2780,7 +2781,7 @@ const obtenerProductosFiltrados = (categoria) => {
                       </div>
 
                       <div className="variante-actions">
-                        {esAdmin() && <button type="button" className="btn-secundario btn-icon" onClick={() => abrirEdicionVariante(v)}>✎ Editar</button>}
+                        {getUserRole() === "admin" && <button type="button" className="btn-secundario btn-icon" onClick={() => abrirEdicionVariante(v)}>✎ Editar</button>}
                         <div className="variante-cantidad-control" aria-label={`Cantidad de ${v.nombre || "variante"}`}>
                           <button type="button" aria-label={`Disminuir ${v.nombre || "variante"}`} onClick={() => cambiarCantidadVariante(v, -1)} disabled={cantidadSeleccionada === 0}>−</button>
                           <output aria-live="polite">{cantidadSeleccionada}</output>
@@ -2802,7 +2803,7 @@ const obtenerProductosFiltrados = (categoria) => {
         </div>
       )}
 
-      {mostrarModalVarianteEdit && productoVarianteEditActivo && (
+      {mostrarModalVarianteEdit && productoVarianteEditActivo && getUserRole() === "admin" && (
         <div className="modal-overlay" onClick={() => {
           setMostrarModalVarianteEdit(false);
           setEditarVarianteId(null);
