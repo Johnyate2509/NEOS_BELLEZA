@@ -93,6 +93,34 @@
 .admin-productos-table th { padding: 12px 10px; color: var(--ap-muted); background: #f1f5f1; font-size: 10px; text-transform: uppercase; white-space: nowrap; }
 .admin-productos-table td { padding: 10px; border-top: 1px solid #e8eeea; font-size: 12px; white-space: nowrap; }
 .admin-productos-table tbody tr:hover { background: #f9fbf9; }
+.admin-producto-toggle-variantes { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 8px; border: 1px solid var(--ap-line); border-radius: 3px; color: var(--ap-green); background: #fff; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+.admin-producto-toggle-variantes:hover { border-color: var(--ap-green); background: #f3f8f4; }
+.admin-productos-table tbody tr.admin-productos-variants-row:hover { background: #f4f8f5; }
+.admin-productos-variants-row > td { padding: 0 12px 14px; background: #f4f8f5; white-space: normal; }
+.admin-productos-variants-panel { padding: 15px; border: 1px solid var(--ap-line); border-radius: 4px; background: #fff; }
+.admin-productos-variants-header { display: flex; align-items: flex-end; gap: 14px; margin-bottom: 12px; }
+.admin-productos-variants-header > div { margin-right: auto; }
+.admin-productos-variants-header h3 { margin-bottom: 3px; font-size: 14px; }
+.admin-productos-variants-header > div > span { color: var(--ap-muted); font-size: 11px; }
+.admin-productos-variant-search { display: grid; gap: 5px; min-width: 190px; color: var(--ap-muted); font-size: 10px; font-weight: 700; }
+.admin-productos-variant-search input { min-height: 36px; padding: 7px 9px; border: 1px solid var(--ap-line); border-radius: 3px; color: var(--ap-ink); font: inherit; font-size: 12px; }
+.admin-productos-variant-search input:focus { outline: 2px solid #9ac8b1; outline-offset: 1px; }
+.admin-productos-variants-header .admin-productos-primary { min-height: 36px; white-space: nowrap; }
+.admin-productos-variants-table-wrap { overflow-x: auto; }
+.admin-productos-variants-table { width: 100%; min-width: 700px; border-collapse: collapse; text-align: left; }
+.admin-productos-variants-table th { padding: 9px 8px; color: var(--ap-muted); background: #f1f5f1; font-size: 9px; text-transform: uppercase; white-space: nowrap; }
+.admin-productos-variants-table td { padding: 9px 8px; border-top: 1px solid #e8eeea; font-size: 11px; white-space: nowrap; }
+.admin-productos-variants-table tr:hover { background: #f9fbf9; }
+.admin-productos-variant-name { display: flex; align-items: center; gap: 8px; }
+.admin-productos-variant-name img { width: 32px; height: 32px; object-fit: cover; border-radius: 3px; background: #eaf0ec; }
+.admin-productos-variant-actions { text-align: right; }
+.admin-productos-variant-actions button { padding: 5px 7px; border: 1px solid var(--ap-line); border-radius: 3px; color: var(--ap-ink); background: #fff; font: inherit; font-size: 10px; cursor: pointer; }
+.admin-productos-variant-actions button + button { margin-left: 5px; }
+.admin-productos-variant-actions button.danger { color: var(--ap-coral); }
+.admin-productos-variants-message { margin: 0; padding: 13px 8px; color: var(--ap-muted); font-size: 12px; }
+.admin-productos-variants-error { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 8px; color: #8e382d; font-size: 12px; }
+.admin-productos-variants-error button { padding: 5px 8px; border: 1px solid #e6b8ae; border-radius: 3px; color: #8e382d; background: white; font: inherit; cursor: pointer; }
+.admin-productos-variant-modal { width: min(620px, 100%); }
 .admin-producto-name { display: flex; align-items: center; gap: 10px; min-width: 220px; font-weight: 700; }
 .admin-producto-name img,
 .admin-producto-no-image { width: 42px; height: 42px; flex: 0 0 42px; object-fit: cover; border-radius: 3px; background: #eaf0ec; }
@@ -149,6 +177,21 @@
   .admin-productos-table td { display: block; width: 100%; }
   .admin-productos-table tbody { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 12px; }
   .admin-productos-table tbody tr { min-width: 0; padding: 8px 12px; border: 1px solid var(--ap-line); border-radius: 5px; background: #fff; }
+  .admin-productos-table tbody tr.admin-productos-variants-row { grid-column: 1 / -1; padding: 0; border: 0; background: transparent; }
+  .admin-productos-table tbody tr.admin-productos-variants-row:hover { background: transparent; }
+  .admin-productos-table tbody tr.admin-productos-variants-row > td { display: block; width: 100%; padding: 0; border: 0; }
+  .admin-productos-table tbody tr.admin-productos-variants-row > td::before { content: none; }
+  .admin-productos-variants-panel { padding: 11px; }
+  .admin-productos-variants-header { align-items: stretch; flex-direction: column; gap: 10px; }
+  .admin-productos-variants-header > div { margin: 0; }
+  .admin-productos-variant-search { min-width: 0; }
+  .admin-productos-variants-header .admin-productos-primary { width: 100%; }
+  .admin-productos-variants-table { display: table !important; width: 100%; min-width: 700px; }
+  .admin-productos-variants-table thead { position: static; width: auto; height: auto; overflow: visible; clip: auto; }
+  .admin-productos-table .admin-productos-variants-table tbody { display: table-row-group; padding: 0; }
+  .admin-productos-table .admin-productos-variants-table tr { display: table-row; width: auto; padding: 0; border: 0; border-radius: 0; }
+  .admin-productos-table .admin-productos-variants-table td { display: table-cell; width: auto; padding: 9px 8px; border-top: 1px solid #e8eeea; text-align: left; }
+  .admin-productos-table .admin-productos-variants-table td::before { content: none; }
   .admin-productos-table td { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-width: 0; padding: 8px 0; border-top: 1px solid #edf1ee; font-size: 12px; white-space: normal; text-align: right; }
   .admin-productos-table td::before { content: attr(data-label); flex: 0 1 auto; color: var(--ap-muted); font-size: 10px; font-weight: 700; text-align: left; }
   .admin-productos-table td.admin-producto-name { justify-content: flex-start; padding: 4px 0 10px; border: 0; text-align: left; }

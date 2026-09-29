@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useStore } from "../context/StoreContext";
+import { supabase } from "../context/supabaseClient";
 import "../styles/admin-productos.css";
 
 const FORMULARIO_VACIO = {
@@ -15,6 +16,16 @@ const FORMULARIO_VACIO = {
   descripcion: "",
   imagenes: [],
   catalogos_ocultos: [],
+};
+
+const VARIANTE_VACIA = {
+  nombre: "",
+  atributos: "",
+  precio: "",
+  precio_emprendedor: "",
+  precio_mayorista: "",
+  stock: "0",
+  imagenes: [],
 };
 
 const BORRADOR_STORAGE_KEY = "neosapp_admin_productos_borrador";
@@ -60,6 +71,9 @@ const formatearPrecio = (precio) =>
     ? "—"
     : `$${Number(precio).toLocaleString("es-CO")}`;
 
+const formatearAtributos = (atributos) =>
+  typeof atributos === "string" ? atributos : atributos ? JSON.stringify(atributos) : "—";
+
 const obtenerNombreCategoria = (producto, categorias) =>
   producto.categorias?.nombre ||
   producto.categoria ||
@@ -78,6 +92,16 @@ export default function AdminProductos() {
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState("");
   const [error, setError] = useState("");
+  const [productoExpandidoId, setProductoExpandidoId] = useState(null);
+  const [variantesPorProducto, setVariantesPorProducto] = useState({});
+  const [cargandoVariantes, setCargandoVariantes] = useState({});
+  const [erroresVariantes, setErroresVariantes] = useState({});
+  const [filtroVariantes, setFiltroVariantes] = useState("");
+  const [productoVarianteActivo, setProductoVarianteActivo] = useState(null);
+  const [varianteActiva, setVarianteActiva] = useState(null);
+  const [formularioVariante, setFormularioVariante] = useState(VARIANTE_VACIA);
+  const [guardandoVariante, setGuardandoVariante] = useState(false);
+  const [errorVariante, setErrorVariante] = useState("");
 
   useEffect(() => {
     if (!formularioAbierto) {
@@ -112,6 +136,165 @@ export default function AdminProductos() {
     setProductoActivo(null);
     setFormularioAbierto(false);
     setFormulario(FORMULARIO_VACIO);
+  };
+
+  const cargarVariantes = async (productoId) => {
+    setCargandoVariantes((actuales) => ({ ...actuales, [productoId]: true }));
+    setErroresVariantes((actuales) => ({ ...actuales, [productoId]: "" }));
+    try {
+      const { data, error: errorConsulta } = await supabase
+        .from("producto_variantes")
+        .select("*")
+        .eq("producto_id", Number(productoId));
+      if (errorConsulta) throw errorConsulta;
+      setVariantesPorProducto((actuales) => ({ ...actuales, [productoId]: data || [] }));
+      return data || [];
+    } catch (errorConsulta) {
+      setErroresVariantes((actuales) => ({
+        ...actuales,
+        [productoId]: errorConsulta.message || "No se pudieron cargar las variantes.",
+      }));
+      return null;
+    } finally {
+      setCargandoVariantes((actuales) => ({ ...actuales, [productoId]: false }));
+    }
+  };
+
+  const alternarVariantes = async (producto) => {
+    if (productoExpandidoId === producto.id) {
+      setProductoExpandidoId(null);
+      setFiltroVariantes("");
+      return;
+    }
+    setProductoExpandidoId(producto.id);
+    setFiltroVariantes("");
+    if (!Object.prototype.hasOwnProperty.call(variantesPorProducto, producto.id)) {
+      await cargarVariantes(producto.id);
+    }
+  };
+
+  const abrirNuevaVariante = (producto) => {
+    setProductoVarianteActivo(producto);
+    setVarianteActiva(null);
+    setFormularioVariante(VARIANTE_VACIA);
+    setErrorVariante("");
+  };
+
+  const abrirEdicionVariante = (producto, variante) => {
+    setProductoVarianteActivo(producto);
+    setVarianteActiva(variante);
+    setFormularioVariante({
+      nombre: variante.nombre || "",
+      atributos: typeof variante.atributos === "object" && variante.atributos !== null
+        ? JSON.stringify(variante.atributos)
+        : variante.atributos || "",
+      precio: variante.precio ?? "",
+      precio_emprendedor: variante.precio_emprendedor ?? "",
+      precio_mayorista: variante.precio_mayorista ?? "",
+      stock: String(variante.stock ?? 0),
+      imagenes: Array.isArray(variante.imagenes)
+        ? variante.imagenes
+        : variante.imagenes
+          ? [variante.imagenes]
+          : [],
+    });
+    setErrorVariante("");
+  };
+
+  const cerrarVariante = () => {
+    setProductoVarianteActivo(null);
+    setVarianteActiva(null);
+    setFormularioVariante(VARIANTE_VACIA);
+    setErrorVariante("");
+  };
+
+  const agregarImagenesVariante = async (event) => {
+    const archivos = Array.from(event.target.files || []);
+    event.target.value = "";
+    const disponibles = Math.max(0, 5 - formularioVariante.imagenes.length);
+    const seleccionados = archivos.slice(0, disponibles);
+    if (archivos.length > disponibles) setErrorVariante("Se permiten hasta 5 imágenes por variante.");
+    try {
+      const imagenesNuevas = await Promise.all(seleccionados.map((archivo) => new Promise((resolve, reject) => {
+        const lector = new FileReader();
+        lector.onload = () => resolve(String(lector.result || ""));
+        lector.onerror = reject;
+        lector.readAsDataURL(archivo);
+      })));
+      setFormularioVariante((actual) => ({ ...actual, imagenes: [...actual.imagenes, ...imagenesNuevas] }));
+    } catch {
+      setErrorVariante("No se pudieron cargar las imágenes seleccionadas.");
+    }
+  };
+
+  const guardarVariante = async (event) => {
+    event.preventDefault();
+    setErrorVariante("");
+    if (!formularioVariante.nombre.trim()) {
+      setErrorVariante("Escribe el nombre de la variante.");
+      return;
+    }
+    if (!Number.isFinite(Number(formularioVariante.stock)) || Number(formularioVariante.stock) < 0) {
+      setErrorVariante("El stock debe ser un número igual o mayor a cero.");
+      return;
+    }
+
+    let atributos = null;
+    if (formularioVariante.atributos.trim()) {
+      try {
+        atributos = JSON.parse(formularioVariante.atributos);
+      } catch {
+        atributos = formularioVariante.atributos;
+      }
+    }
+    const payload = {
+      nombre: formularioVariante.nombre.trim(),
+      atributos,
+      precio: formularioVariante.precio === "" ? null : Number(formularioVariante.precio),
+      precio_emprendedor: formularioVariante.precio_emprendedor === "" ? null : Number(formularioVariante.precio_emprendedor),
+      precio_mayorista: formularioVariante.precio_mayorista === "" ? null : Number(formularioVariante.precio_mayorista),
+      stock: Number(formularioVariante.stock),
+      imagenes: formularioVariante.imagenes,
+    };
+    setGuardandoVariante(true);
+    try {
+      const consulta = varianteActiva
+        ? supabase.from("producto_variantes").update(payload).eq("id", varianteActiva.id).eq("producto_id", Number(productoVarianteActivo.id))
+        : supabase.from("producto_variantes").insert([{ ...payload, producto_id: Number(productoVarianteActivo.id) }]);
+      const { data, error: errorGuardado } = await consulta.select().single();
+      if (errorGuardado) throw errorGuardado;
+      setVariantesPorProducto((actuales) => {
+        const variantes = actuales[productoVarianteActivo.id] || [];
+        return {
+          ...actuales,
+          [productoVarianteActivo.id]: varianteActiva
+            ? variantes.map((variante) => variante.id === data.id ? data : variante)
+            : [...variantes, data],
+        };
+      });
+      cerrarVariante();
+    } catch (errorGuardado) {
+      setErrorVariante(errorGuardado.message || "No se pudo guardar la variante.");
+    } finally {
+      setGuardandoVariante(false);
+    }
+  };
+
+  const eliminarVariante = async (producto, variante) => {
+    if (!window.confirm(`¿Eliminar la variante “${variante.nombre || "Variante"}”?`)) return;
+    const { error: errorEliminacion } = await supabase
+      .from("producto_variantes")
+      .delete()
+      .eq("id", variante.id)
+      .eq("producto_id", Number(producto.id));
+    if (errorEliminacion) {
+      setErroresVariantes((actuales) => ({ ...actuales, [producto.id]: errorEliminacion.message }));
+      return;
+    }
+    setVariantesPorProducto((actuales) => ({
+      ...actuales,
+      [producto.id]: (actuales[producto.id] || []).filter((actual) => actual.id !== variante.id),
+    }));
   };
 
   const abrirNuevo = () => {
@@ -262,31 +445,116 @@ export default function AdminProductos() {
         <div className="admin-productos-table-wrap">
           <table className="admin-productos-table">
             <thead>
-              <tr><th>Producto</th><th>Categoría</th><th>Stock</th><th>Tienda física</th><th>Mayorista</th><th>Supermayorista</th><th>Costo</th><th>Catálogo</th><th>Acciones</th></tr>
+              <tr><th>Producto</th><th>Categoría</th><th>Stock</th><th>Tienda física</th><th>Mayorista</th><th>Supermayorista</th><th>Costo</th><th>Catálogo</th><th>Variantes</th><th>Acciones</th></tr>
             </thead>
             <tbody>
-              {productosFiltrados.map((producto) => (
-                <tr key={producto.id}>
-                  <td data-label="Producto" className="admin-producto-name">
-                    {producto.imagenes?.[0]
-                      ? <img src={producto.imagenes[0]} alt="" />
-                      : <span className="admin-producto-no-image">IMG</span>}
-                    <span>{producto.nombre}</span>
-                  </td>
-                  <td data-label="Categoría">{obtenerNombreCategoria(producto, categorias)}</td>
-                  <td data-label="Stock">{producto.stock ?? 0}</td>
-                  <td data-label="Precio tienda física">{formatearPrecio(producto.precio)}</td>
-                  <td data-label="Precio mayorista">{formatearPrecio(producto.precio_emprendedor)}</td>
-                  <td data-label="Precio supermayorista">{formatearPrecio(producto.precio_mayorista)}</td>
-                  <td data-label="Precio costo">{formatearPrecio(producto.precio_costo)}</td>
-                  <td data-label="Catálogos"><span className={`admin-producto-status ${producto.catalogos_ocultos?.length ? "oculto" : "visible"}`}>{producto.catalogos_ocultos?.length ? `Oculto en ${producto.catalogos_ocultos.length}` : "Visible en todos"}</span></td>
-                  <td data-label="Acciones" className="admin-producto-actions">
-                    <button type="button" onClick={() => abrirEdicion(producto)}>Editar</button>
-                    <button type="button" className="danger" onClick={() => borrarProducto(producto)}>Eliminar</button>
-                  </td>
-                </tr>
-              ))}
-              {productosFiltrados.length === 0 && <tr><td className="admin-productos-empty" colSpan="9">No hay productos para mostrar.</td></tr>}
+              {productosFiltrados.map((producto) => {
+                const variantes = variantesPorProducto[producto.id] || [];
+                const textoFiltro = filtroVariantes.trim().toLocaleLowerCase("es");
+                const variantesFiltradas = variantes.filter((variante) =>
+                  `${variante.nombre || ""} ${formatearAtributos(variante.atributos)}`
+                    .toLocaleLowerCase("es")
+                    .includes(textoFiltro)
+                );
+                const expandido = productoExpandidoId === producto.id;
+                return (
+                  <Fragment key={producto.id}>
+                    <tr>
+                      <td data-label="Producto" className="admin-producto-name">
+                        {producto.imagenes?.[0]
+                          ? <img src={producto.imagenes[0]} alt="" />
+                          : <span className="admin-producto-no-image">IMG</span>}
+                        <span>{producto.nombre}</span>
+                      </td>
+                      <td data-label="Categoría">{obtenerNombreCategoria(producto, categorias)}</td>
+                      <td data-label="Stock">{producto.stock ?? 0}</td>
+                      <td data-label="Precio tienda física">{formatearPrecio(producto.precio)}</td>
+                      <td data-label="Precio mayorista">{formatearPrecio(producto.precio_emprendedor)}</td>
+                      <td data-label="Precio supermayorista">{formatearPrecio(producto.precio_mayorista)}</td>
+                      <td data-label="Precio costo">{formatearPrecio(producto.precio_costo)}</td>
+                      <td data-label="Catálogos"><span className={`admin-producto-status ${producto.catalogos_ocultos?.length ? "oculto" : "visible"}`}>{producto.catalogos_ocultos?.length ? `Oculto en ${producto.catalogos_ocultos.length}` : "Visible en todos"}</span></td>
+                      <td data-label="Variantes">
+                        <button
+                          type="button"
+                          className="admin-producto-toggle-variantes"
+                          aria-expanded={expandido}
+                          onClick={() => alternarVariantes(producto)}
+                        >
+                          <span aria-hidden="true">{expandido ? "▾" : "▸"}</span>
+                          {Object.prototype.hasOwnProperty.call(variantesPorProducto, producto.id)
+                            ? ` ${variantes.length}`
+                            : " Ver"}
+                        </button>
+                      </td>
+                      <td data-label="Acciones" className="admin-producto-actions">
+                        <button type="button" onClick={() => abrirEdicion(producto)}>Editar</button>
+                        <button type="button" className="danger" onClick={() => borrarProducto(producto)}>Eliminar</button>
+                      </td>
+                    </tr>
+                    {expandido && (
+                      <tr className="admin-productos-variants-row">
+                        <td colSpan="10">
+                          <section className="admin-productos-variants-panel" aria-label={`Variantes de ${producto.nombre}`}>
+                            <header className="admin-productos-variants-header">
+                              <div>
+                                <h3>Variantes de {producto.nombre}</h3>
+                                <span>{variantes.length} {variantes.length === 1 ? "variante" : "variantes"}</span>
+                              </div>
+                              <label className="admin-productos-variant-search">
+                                <span>Filtrar variantes</span>
+                                <input
+                                  value={filtroVariantes}
+                                  onChange={(event) => setFiltroVariantes(event.target.value)}
+                                  placeholder="Nombre o atributos"
+                                />
+                              </label>
+                              <button type="button" className="admin-productos-primary" onClick={() => abrirNuevaVariante(producto)}>+ Añadir variante</button>
+                            </header>
+                            {cargandoVariantes[producto.id] ? (
+                              <p className="admin-productos-variants-message">Cargando variantes...</p>
+                            ) : erroresVariantes[producto.id] ? (
+                              <div className="admin-productos-variants-error" role="alert">
+                                <span>{erroresVariantes[producto.id]}</span>
+                                <button type="button" onClick={() => cargarVariantes(producto.id)}>Reintentar</button>
+                              </div>
+                            ) : variantesFiltradas.length > 0 ? (
+                              <div className="admin-productos-variants-table-wrap">
+                                <table className="admin-productos-variants-table">
+                                  <thead><tr><th>Variante</th><th>Atributos</th><th>Stock</th><th>Tienda física</th><th>Mayorista</th><th>Supermayorista</th><th>Acciones</th></tr></thead>
+                                  <tbody>
+                                    {variantesFiltradas.map((variante) => (
+                                      <tr key={variante.id}>
+                                        <td className="admin-productos-variant-name">
+                                          {variante.imagenes?.[0] && <img src={variante.imagenes[0]} alt="" />}
+                                          <strong>{variante.nombre || "Variante"}</strong>
+                                        </td>
+                                        <td>{formatearAtributos(variante.atributos)}</td>
+                                        <td>{variante.stock ?? 0}</td>
+                                        <td>{formatearPrecio(variante.precio)}</td>
+                                        <td>{formatearPrecio(variante.precio_emprendedor)}</td>
+                                        <td>{formatearPrecio(variante.precio_mayorista)}</td>
+                                        <td className="admin-productos-variant-actions">
+                                          <button type="button" onClick={() => abrirEdicionVariante(producto, variante)}>Editar</button>
+                                          <button type="button" className="danger" onClick={() => eliminarVariante(producto, variante)}>Eliminar</button>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            ) : (
+                              <p className="admin-productos-variants-message">
+                                {variantes.length ? "No hay variantes que coincidan con el filtro." : "Este producto todavía no tiene variantes."}
+                              </p>
+                            )}
+                          </section>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
+              {productosFiltrados.length === 0 && <tr><td className="admin-productos-empty" colSpan="10">No hay productos para mostrar.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -337,6 +605,48 @@ export default function AdminProductos() {
               <footer className="admin-productos-form-actions">
                 <button type="button" className="admin-productos-secondary" onClick={cerrarFormulario}>Cancelar</button>
                 <button type="submit" className="admin-productos-primary" disabled={guardando}>{guardando ? "Guardando..." : "Guardar producto"}</button>
+              </footer>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {productoVarianteActivo && (
+        <div className="admin-productos-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !guardandoVariante) cerrarVariante(); }}>
+          <section className="admin-productos-modal admin-productos-variant-modal" role="dialog" aria-modal="true" aria-labelledby="admin-variante-form-title">
+            <header className="admin-productos-modal-header">
+              <div>
+                <span>{productoVarianteActivo.nombre}</span>
+                <h2 id="admin-variante-form-title">{varianteActiva ? "Editar variante" : "Nueva variante"}</h2>
+              </div>
+              <button type="button" aria-label="Cerrar" onClick={cerrarVariante}>×</button>
+            </header>
+            <form onSubmit={guardarVariante}>
+              <div className="admin-productos-form-grid">
+                <label className="span-two">Nombre<input value={formularioVariante.nombre} onChange={(event) => setFormularioVariante((actual) => ({ ...actual, nombre: event.target.value }))} required /></label>
+                <label className="span-two">Atributos<textarea rows="2" placeholder="Ej: COLOR: ROJO, TALLA: M" value={formularioVariante.atributos} onChange={(event) => setFormularioVariante((actual) => ({ ...actual, atributos: event.target.value }))} /></label>
+                <label>Stock<input type="number" min="0" step="1" value={formularioVariante.stock} onChange={(event) => setFormularioVariante((actual) => ({ ...actual, stock: event.target.value }))} required /></label>
+                <label>Precio tienda física<input type="number" min="0" step="any" value={formularioVariante.precio} onChange={(event) => setFormularioVariante((actual) => ({ ...actual, precio: event.target.value }))} /></label>
+                <label>Precio mayorista<input type="number" min="0" step="any" value={formularioVariante.precio_emprendedor} onChange={(event) => setFormularioVariante((actual) => ({ ...actual, precio_emprendedor: event.target.value }))} /></label>
+                <label>Precio supermayorista<input type="number" min="0" step="any" value={formularioVariante.precio_mayorista} onChange={(event) => setFormularioVariante((actual) => ({ ...actual, precio_mayorista: event.target.value }))} /></label>
+                <fieldset className="span-two admin-producto-images">
+                  <legend>Imágenes <span>{formularioVariante.imagenes.length}/5</span></legend>
+                  <label className="admin-productos-upload">Añadir imágenes<input type="file" accept="image/*" multiple onChange={agregarImagenesVariante} disabled={formularioVariante.imagenes.length >= 5} /></label>
+                  <div className="admin-productos-previews">
+                    {formularioVariante.imagenes.map((imagen, indice) => (
+                      <div key={`${indice}-${imagen.slice(0, 24)}`}>
+                        <img src={imagen} alt={`Imagen ${indice + 1} de variante`} />
+                        <button type="button" aria-label={`Quitar imagen ${indice + 1}`} onClick={() => setFormularioVariante((actual) => ({ ...actual, imagenes: actual.imagenes.filter((_, posicion) => posicion !== indice) }))}>×</button>
+                      </div>
+                    ))}
+                    {formularioVariante.imagenes.length === 0 && <span>Sin imágenes</span>}
+                  </div>
+                </fieldset>
+              </div>
+              {errorVariante && <p className="admin-productos-form-error" role="alert">{errorVariante}</p>}
+              <footer className="admin-productos-form-actions">
+                <button type="button" className="admin-productos-secondary" onClick={cerrarVariante} disabled={guardandoVariante}>Cancelar</button>
+                <button type="submit" className="admin-productos-primary" disabled={guardandoVariante}>{guardandoVariante ? "Guardando..." : varianteActiva ? "Guardar cambios" : "Agregar variante"}</button>
               </footer>
             </form>
           </section>
