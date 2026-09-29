@@ -1335,7 +1335,7 @@ export default function Producto() {
   const obtenerNombreCarrito = (item) => {
     if (!item.variante) return item.nombre;
     const atributos = formatearAtributosVariante(item.variante.atributos);
-    const varianteNombre = item.variante.nombre || (atributos === "Sin atributos" ? "Variante" : atributos);
+    const varianteNombre = atributos !== "Sin atributos" ? atributos : item.variante.nombre || "Variante";
     return `${item.nombre} (${varianteNombre})`;
   };
 
