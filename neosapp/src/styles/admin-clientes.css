@@ -123,8 +123,7 @@
   cursor: pointer;
 }
 
-.select-vendedor,
-.select-vendedor-row {
+.select-vendedor {
   min-width: 100%;
   padding: 10px 12px;
   border: 1px solid #ddd;
@@ -136,7 +135,6 @@
   transition: all 0.2s ease;
 }
 
-.select-vendedor-row:focus,
 .select-vendedor:focus {
   outline: none;
   border-color: #1e40af;
@@ -211,7 +209,7 @@
 
 .table-header {
   display: grid;
-  grid-template-columns: 0.8fr 1.2fr 1.5fr 1fr 1.2fr 1fr;
+  grid-template-columns: 0.8fr 1.2fr 1.5fr 1fr 1.2fr 1fr minmax(120px, auto);
   background: #f8f9fa;
   border-bottom: 2px solid #e0e0e0;
   padding: 12px;
@@ -224,7 +222,7 @@
 
 .table-row {
   display: grid;
-  grid-template-columns: 0.8fr 1.2fr 1.5fr 1fr 1.2fr 1fr;
+  grid-template-columns: 0.8fr 1.2fr 1.5fr 1fr 1.2fr 1fr minmax(120px, auto);
   align-items: center;
   padding: 14px 12px;
   gap: 12px;
@@ -267,6 +265,108 @@
   color: #666;
   font-weight: 500;
 }
+
+.col-acciones {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.btn-cliente-editar,
+.btn-cliente-eliminar {
+  padding: 6px 9px;
+  border: 1px solid #d5dbe5;
+  border-radius: 4px;
+  background: #fff;
+  color: #26344a;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-cliente-editar:hover { border-color: #1e40af; color: #1e40af; }
+.btn-cliente-eliminar { color: #b42318; }
+.btn-cliente-eliminar:hover { border-color: #b42318; background: #fff5f4; }
+
+.admin-cliente-modal-overlay {
+  position: fixed;
+  z-index: 1100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(17, 24, 39, 0.52);
+}
+
+.admin-cliente-modal {
+  width: min(620px, 100%);
+  max-height: min(90vh, 780px);
+  overflow: auto;
+  border-radius: 7px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.24);
+}
+
+.admin-cliente-modal-header {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fff;
+}
+
+.admin-cliente-modal-header span {
+  color: #1e40af;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.admin-cliente-modal-header h2 {
+  margin-top: 4px;
+  color: #202a36;
+  font-size: 22px;
+}
+
+.admin-cliente-modal-header > button {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #d5dbe5;
+  border-radius: 4px;
+  color: #26344a;
+  background: #fff;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.admin-cliente-modal form { padding: 20px 22px 22px; }
+.admin-cliente-modal-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.admin-cliente-modal-fields .span-two { grid-column: 1 / -1; }
+.admin-cliente-modal-fields label { display: grid; gap: 6px; color: #5f6875; font-size: 12px; font-weight: 700; }
+.admin-cliente-modal-fields input,
+.admin-cliente-modal-fields select {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid #d5dbe5;
+  border-radius: 4px;
+  color: #26344a;
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+}
+.admin-cliente-modal-fields input:focus,
+.admin-cliente-modal-fields select:focus { outline: 2px solid #9bb8ef; outline-offset: 1px; }
+.admin-cliente-modal-error { margin-top: 14px; color: #b42318; font-size: 13px; }
+.admin-cliente-modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #e5e7eb; }
+.btn-cancelar-edicion { min-height: 40px; padding: 0 14px; border: 1px solid #d5dbe5; border-radius: 5px; color: #26344a; background: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.admin-cliente-modal-actions button:disabled,
+.admin-cliente-modal-header button:disabled { opacity: .6; cursor: wait; }
 
 .table-empty {
   padding: 40px;
@@ -355,6 +455,12 @@
     color: #666;
   }
 
+  .col-acciones::before {
+    content: "Acciones: ";
+    font-weight: 600;
+    color: #666;
+  }
+
   .table-row {
     padding: 16px 12px;
     border-bottom: 1px solid #e0e0e0;
@@ -364,6 +470,14 @@
   .table-row > div {
     margin-bottom: 8px;
   }
+
+  .admin-cliente-modal-overlay { place-items: end center; padding: 0; }
+  .admin-cliente-modal { width: 100%; max-height: 94dvh; border-radius: 9px 9px 0 0; }
+  .admin-cliente-modal-header { padding: 15px; }
+  .admin-cliente-modal form { padding: 15px 15px calc(18px + env(safe-area-inset-bottom)); }
+  .admin-cliente-modal-fields { grid-template-columns: minmax(0, 1fr); }
+  .admin-cliente-modal-fields .span-two { grid-column: auto; }
+  .admin-cliente-modal-actions > button { flex: 1; }
 }
 
 @media (max-width: 480px) {

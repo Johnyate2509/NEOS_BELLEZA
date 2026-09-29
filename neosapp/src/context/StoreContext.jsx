@@ -1636,6 +1636,52 @@ const datosCliente = {
     return true;
   };
 
+  const actualizarClienteCompleto = async (clienteId, datos) => {
+    const datosActualizados = {
+      cedula: datos.cedula,
+      nombre: datos.nombre,
+      direccion: datos.direccion,
+      telefono: datos.telefono || "",
+      correo: datos.correo || "",
+      vendedor_usuario_id: datos.vendedor_id || null,
+    };
+    const { error } = await supabase
+      .from("clientes")
+      .update(datosActualizados)
+      .eq("id", clienteId);
+
+    if (error) {
+      console.error("Error actualizando cliente:", error);
+      return { error: error.message || "No se pudo actualizar el cliente." };
+    }
+
+    setClientes((prev) => prev.map((cliente) => (
+      String(cliente.id) === String(clienteId)
+        ? {
+            ...cliente,
+            ...datosActualizados,
+            vendedor_id: datosActualizados.vendedor_usuario_id,
+          }
+        : cliente
+    )));
+    return { success: true };
+  };
+
+  const eliminarCliente = async (clienteId) => {
+    const { error } = await supabase
+      .from("clientes")
+      .delete()
+      .eq("id", clienteId);
+
+    if (error) {
+      console.error("Error eliminando cliente:", error);
+      return { error: error.message || "No se pudo eliminar el cliente." };
+    }
+
+    setClientes((prev) => prev.filter((cliente) => String(cliente.id) !== String(clienteId)));
+    return { success: true };
+  };
+
   const obtenerClienteActual = (usuarioId, emailFallback = null) => {
     if (!usuarioId && !emailFallback) return null;
     
@@ -2073,6 +2119,8 @@ return (
       agotarProducto,
       crearPedido,
       crearCliente,
+      actualizarClienteCompleto,
+      eliminarCliente,
       crearVendedor,
       actualizarClienteVendedor,
       obtenerClientesPorVendedor,
