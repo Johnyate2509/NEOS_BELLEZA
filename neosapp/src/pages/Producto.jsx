@@ -220,6 +220,7 @@ export default function Producto() {
   };
 
   const obtenerTextoStockCliente = (stock) => {
+    if (tipoCatalogo !== "General") return "Disponible";
     const cantidad = Number(stock || 0);
 
     if (cantidad <= 0) {
@@ -234,6 +235,7 @@ export default function Producto() {
   };
 
   const obtenerClaseStockCliente = (stock) => {
+    if (tipoCatalogo !== "General") return "constock";
     const cantidad = Number(stock || 0);
 
     if (cantidad <= 0) {
@@ -354,6 +356,7 @@ export default function Producto() {
   const [busquedaProducto, setBusquedaProducto] = useState("");
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState("Todas");
   const [tipoCatalogo, setTipoCatalogo] = useState("General");
+  const controlaStock = tipoCatalogo === "General";
   const [nombresCatalogos, setNombresCatalogos] = useState(NOMBRES_CATALOGOS_DEFAULT);
   const [busquedaCliente, setBusquedaCliente] = useState("");
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
@@ -1279,7 +1282,7 @@ export default function Producto() {
   };
 
   const agregarAlCarrito = async (producto) => {
-    if (producto.stock <= 0) return;
+    if (controlaStock && producto.stock <= 0) return;
 
     const precioSeleccionado = obtenerPrecioProducto(producto);
     if (precioSeleccionado == null) {
@@ -1303,7 +1306,7 @@ export default function Producto() {
     const productoEnCarrito = carrito.find((p) => p.id === producto.id && !p.variante);
 
     if (productoEnCarrito) {
-      if (productoEnCarrito.cantidad >= producto.stock) return;
+      if (controlaStock && productoEnCarrito.cantidad >= producto.stock) return;
       setCarrito(
         carrito.map((p) =>
           p.id === producto.id && !p.variante
@@ -1350,7 +1353,7 @@ export default function Producto() {
     }
 
     const stockDisponible = item.variante?.stock ?? item.stock;
-    if (cantidad > stockDisponible) return;
+    if (controlaStock && cantidad > stockDisponible) return;
 
     setCarrito(
       carrito.map((p) =>
@@ -1366,7 +1369,9 @@ export default function Producto() {
     const cantidadEnCarrito = carrito.find(
       (item) => item.id === productoDetalles.id && item.variante?.id === variante.id
     )?.cantidad || 0;
-    const stockDisponible = Math.max(0, Number(variante.stock || 0) - cantidadEnCarrito);
+    const stockDisponible = controlaStock
+      ? Math.max(0, Number(variante.stock || 0) - cantidadEnCarrito)
+      : Infinity;
     setMensajeConfirmacionVariantes("");
     setCantidadesVariantesSeleccionadas((actuales) => ({
       ...actuales,
@@ -1397,7 +1402,7 @@ export default function Producto() {
       );
       if (indiceExistente >= 0) {
         const cantidadFinal = carritoActualizado[indiceExistente].cantidad + cantidad;
-        if (cantidadFinal > Number(variante.stock || 0)) return;
+        if (controlaStock && cantidadFinal > Number(variante.stock || 0)) return;
         carritoActualizado[indiceExistente] = {
           ...carritoActualizado[indiceExistente],
           cantidad: cantidadFinal,
@@ -1443,7 +1448,7 @@ export default function Producto() {
             event.stopPropagation();
             agregarAlCarrito(producto);
           }}
-          disabled={producto.stock <= 0}
+          disabled={controlaStock && producto.stock <= 0}
         >
           Agregar
         </button>
@@ -1470,7 +1475,7 @@ export default function Producto() {
           type="button"
           aria-label={`Agregar una unidad de ${producto.nombre}`}
           onClick={() => actualizarCantidad(itemKey, cantidad + 1)}
-          disabled={cantidad >= producto.stock}
+          disabled={controlaStock && cantidad >= producto.stock}
         >
           +
         </button>
@@ -2673,7 +2678,7 @@ const obtenerProductosFiltrados = (categoria) => {
                         setMensajeConfirmacionVariantes("");
                         setMostrarModalSeleccionarVariante(true);
                       }}
-                      disabled={productoDetalles.stock <= 0}
+                      disabled={controlaStock && productoDetalles.stock <= 0}
                     >
                       Seleccionar variante
                     </button>
@@ -2693,16 +2698,16 @@ const obtenerProductosFiltrados = (categoria) => {
                             value={cantidadDetalles}
                             onChange={(e) => {
                               const valor = Number(e.target.value);
-                              if (valor > 0 && valor <= productoDetalles.stock) {
+                              if (valor > 0 && (!controlaStock || valor <= productoDetalles.stock)) {
                                 setCantidadDetalles(valor);
                               }
                             }}
                             min="1"
-                            max={productoDetalles.stock}
+                            max={controlaStock ? productoDetalles.stock : undefined}
                             className="cantidad-input-detalles"
                           />
                           <button
-                            onClick={() => setCantidadDetalles(Math.min(productoDetalles.stock, cantidadDetalles + 1))}
+                            onClick={() => setCantidadDetalles(controlaStock ? Math.min(productoDetalles.stock, cantidadDetalles + 1) : cantidadDetalles + 1)}
                             className="btn-cantidad-detalles"
                           >
                             +
@@ -2713,7 +2718,7 @@ const obtenerProductosFiltrados = (categoria) => {
                       <button
                         className="btn-agregar-grande"
                         onClick={() => {
-                          if (cantidadDetalles <= 0 || cantidadDetalles > productoDetalles.stock) {
+                          if (cantidadDetalles <= 0 || (controlaStock && cantidadDetalles > productoDetalles.stock)) {
                             alert("Cantidad inválida");
                             return;
                           }
@@ -2727,7 +2732,7 @@ const obtenerProductosFiltrados = (categoria) => {
                           const productoEnCarrito = carrito.find((p) => p.id === productoDetalles.id && !p.variante);
                           if (productoEnCarrito) {
                             const nuevaCantidad = productoEnCarrito.cantidad + cantidadDetalles;
-                            if (nuevaCantidad > productoDetalles.stock) {
+                            if (controlaStock && nuevaCantidad > productoDetalles.stock) {
                               alert(`No hay suficiente stock. Máximo disponible: ${productoDetalles.stock}`);
                               return;
                             }
@@ -2752,7 +2757,7 @@ const obtenerProductosFiltrados = (categoria) => {
                           setMostrarDetalles(false);
                           setCantidadDetalles(1);
                         }}
-                        disabled={productoDetalles.stock <= 0 || obtenerPrecioProducto(productoDetalles) == null}
+                        disabled={(controlaStock && productoDetalles.stock <= 0) || obtenerPrecioProducto(productoDetalles) == null}
                       >
                         🛒 Agregar al carrito
                       </button>
@@ -2781,7 +2786,9 @@ const obtenerProductosFiltrados = (categoria) => {
                   const precioVar = tipoCatalogo === "Emprendedor" && v.precio_emprendedor != null ? v.precio_emprendedor : tipoCatalogo === "Mayorista" && v.precio_mayorista != null ? v.precio_mayorista : v.precio != null ? v.precio : obtenerPrecioProducto(productoDetalles);
                   const cantidadSeleccionada = cantidadesVariantesSeleccionadas[v.id] || 0;
                   const cantidadEnCarrito = carrito.find((item) => item.id === productoDetalles.id && item.variante?.id === v.id)?.cantidad || 0;
-                  const stockDisponible = Math.max(0, Number(v.stock || 0) - cantidadEnCarrito);
+                  const stockDisponible = controlaStock
+                    ? Math.max(0, Number(v.stock || 0) - cantidadEnCarrito)
+                    : Infinity;
                   return (
                     <div key={v.id} className="variante-item">
                       <div className="variante-meta">
@@ -2795,7 +2802,7 @@ const obtenerProductosFiltrados = (categoria) => {
                         <div className="variante-detalles">
                           <strong>{v.nombre || "Variante"}</strong>
                           <span>{formatearAtributosVariante(v.atributos)}</span>
-                          <span>Stock: {v.stock}</span>
+                          <span>{controlaStock ? `Stock: ${v.stock}` : "Disponible"}</span>
                           <span>Precio: ${Number(precioVar).toLocaleString()}</span>
                         </div>
                       </div>
@@ -2807,7 +2814,7 @@ const obtenerProductosFiltrados = (categoria) => {
                           <output aria-live="polite">{cantidadSeleccionada}</output>
                           <button type="button" aria-label={`Aumentar ${v.nombre || "variante"}`} onClick={() => cambiarCantidadVariante(v, 1)} disabled={cantidadSeleccionada >= stockDisponible || precioVar == null || Number(precioVar) <= 0}>+</button>
                         </div>
-                        <small className="variante-en-carrito">En carrito: {cantidadEnCarrito} / Stock: {v.stock ?? 0}</small>
+                        <small className="variante-en-carrito">{controlaStock ? `En carrito: ${cantidadEnCarrito} / Stock: ${v.stock ?? 0}` : `En carrito: ${cantidadEnCarrito}`}</small>
                       </div>
                     </div>
                   );
