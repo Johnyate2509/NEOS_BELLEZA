@@ -24,6 +24,25 @@ const CATEGORIAS_POR_DEFECTO = [
 
 const FORMAS_PAGO = ["Efectivo", "Crédito", "Abono"];
 const CATALOGOS = ["General", "Emprendedor", "Mayorista"];
+const formatearAtributosVariante = (atributos) => {
+  if (atributos == null || atributos === "") return "Sin atributos";
+  if (typeof atributos === "string") return atributos;
+
+  const formatearValor = (valor) => {
+    if (Array.isArray(valor)) return valor.map(formatearValor).filter(Boolean).join(", ");
+    if (valor && typeof valor === "object") {
+      return Object.entries(valor)
+        .map(([clave, valorAnidado]) => clave.toLowerCase() === "variante"
+          ? formatearValor(valorAnidado)
+          : `${clave}: ${formatearValor(valorAnidado)}`)
+        .filter(Boolean)
+        .join(", ");
+    }
+    return valor == null ? "" : String(valor);
+  };
+
+  return formatearValor(atributos) || "Sin atributos";
+};
 const NOMBRES_CATALOGOS_DEFAULT = {
   General: "Tienda física",
   Emprendedor: "Mayorista",
@@ -1240,7 +1259,8 @@ export default function Producto() {
 
   const obtenerNombreCarrito = (item) => {
     if (!item.variante) return item.nombre;
-    const varianteNombre = item.variante.nombre || item.variante.atributos || "Variante";
+    const atributos = formatearAtributosVariante(item.variante.atributos);
+    const varianteNombre = item.variante.nombre || (atributos === "Sin atributos" ? "Variante" : atributos);
     return `${item.nombre} (${varianteNombre})`;
   };
 
@@ -2616,7 +2636,7 @@ const obtenerProductosFiltrados = (categoria) => {
                         </div>
                         <div className="variante-detalles">
                           <strong>{v.nombre || "Variante"}</strong>
-                          <span>{v.atributos || "Sin atributos"}</span>
+                          <span>{formatearAtributosVariante(v.atributos)}</span>
                           <span>Stock: {v.stock}</span>
                           <span>Precio: ${Number(precioVar).toLocaleString()}</span>
                         </div>
