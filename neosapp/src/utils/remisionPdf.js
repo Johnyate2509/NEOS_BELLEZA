@@ -1,7 +1,8 @@
 import { jsPDF } from "jspdf";
 
-const cargarFaviconComoPng = () => new Promise((resolve, reject) => {
+const cargarImagenComoPng = (src = "/favicon.ico") => new Promise((resolve, reject) => {
   const image = new Image();
+  if (!src.startsWith("/") && !src.startsWith("data:")) image.crossOrigin = "anonymous";
   image.onload = () => {
     try {
       const canvas = document.createElement("canvas");
@@ -15,8 +16,8 @@ const cargarFaviconComoPng = () => new Promise((resolve, reject) => {
       reject(error);
     }
   };
-  image.onerror = () => reject(new Error("No se pudo cargar el favicon de NEOS."));
-  image.src = "/favicon.ico";
+  image.onerror = () => reject(new Error("No se pudo cargar el logo de la remisión."));
+  image.src = src;
 });
 
 const normalizarItemsPedido = (pedido) => {
@@ -74,6 +75,13 @@ export const generarRemisionPedidoPDF = async (pedido = {}) => {
   const left = 40;
   const top = 40;
   const innerWidth = pageWidth - left * 2;
+  const configuracion = {
+    logoUrl: "/favicon.ico",
+    encabezado: "Remisión de pedido",
+    pieTexto: "NEOS BELLEZA · Cualquier duda, comunícate con nosotros:",
+    pieTelefono: "3001234567",
+    ...(pedido.configRemision || {}),
+  };
   const items = normalizarItemsPedido(pedido);
   const totalPedido = Number(pedido.total ?? items.reduce(
     (sum, item) => sum + Number(item.precio ?? 0) * Number(item.cantidad ?? 1),
@@ -118,8 +126,13 @@ export const generarRemisionPedidoPDF = async (pedido = {}) => {
 
   doc.setFillColor(17, 17, 17);
   doc.roundedRect(left, top, innerWidth, 88, 12, 12, "F");
-  const faviconPng = await cargarFaviconComoPng();
-  doc.addImage(faviconPng, "PNG", left + 18, top + 20, 48, 48);
+  let logoPng;
+  try {
+    logoPng = await cargarImagenComoPng(configuracion.logoUrl);
+  } catch {
+    logoPng = await cargarImagenComoPng("/favicon.ico");
+  }
+  doc.addImage(logoPng, "PNG", left + 18, top + 20, 48, 48);
 
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
@@ -127,7 +140,7 @@ export const generarRemisionPedidoPDF = async (pedido = {}) => {
   doc.text("NEOS BELLEZA", left + 78, top + 38);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
-  doc.text("Remisión de pedido", left + 78, top + 58);
+  doc.text(configuracion.encabezado, left + 78, top + 58);
 
   const rightX = pageWidth - left - 130;
   doc.setTextColor(255, 255, 255);
@@ -231,8 +244,9 @@ export const generarRemisionPedidoPDF = async (pedido = {}) => {
     doc.setTextColor(70, 70, 70);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
-    doc.text("NEOS BELLEZA · Cualquier duda, comunícate con nosotros:", left, footerY + 4);
-    doc.text(getNumeroContacto(pedido), left, footerY + 17);
+    const pieLineas = doc.splitTextToSize(configuracion.pieTexto, innerWidth - 100);
+    doc.text(pieLineas, left, footerY + 4);
+    doc.text(configuracion.pieTelefono || getNumeroContacto(pedido), left, footerY + 17 + (pieLineas.length - 1) * 9);
     doc.text(`Página ${page} de ${pageCount}`, pageWidth - left, footerY + 17, { align: "right" });
   }
 

@@ -1,8 +1,17 @@
 import { useState, useEffect } from "react";
 import { useStore } from "../context/StoreContext";
 import { useAuth } from "../context/AuthContext";
+import { supabase } from "../context/supabaseClient";
 import { descargarRemisionPedido } from "../utils/remisionPdf";
 import "../styles/pedidos.css";
+
+const REMISION_CONFIG_KEY = "remision_config";
+const REMISION_CONFIG_DEFAULT = {
+  logoUrl: "/favicon.ico",
+  encabezado: "Remisión de pedido",
+  pieTexto: "NEOS BELLEZA · Cualquier duda, comunícate con nosotros:",
+  pieTelefono: "3001234567",
+};
 
 export default function Pedidos() {
   const { 
@@ -24,6 +33,14 @@ export default function Pedidos() {
   const [searchTerm, setSearchTerm] = useState("");
   const [modalPedido, setModalPedido] = useState(null);
   const [imagenModal, setImagenModal] = useState(null);
+  const [mostrarMenuRemision, setMostrarMenuRemision] = useState(false);
+  const [mostrarEditorRemision, setMostrarEditorRemision] = useState(false);
+  const [configRemision, setConfigRemision] = useState(REMISION_CONFIG_DEFAULT);
+  const [configRemisionTemporal, setConfigRemisionTemporal] = useState(REMISION_CONFIG_DEFAULT);
+  const [logoRemisionFile, setLogoRemisionFile] = useState(null);
+  const [logoRemisionPreview, setLogoRemisionPreview] = useState("");
+  const [guardandoConfigRemision, setGuardandoConfigRemision] = useState(false);
+  const [errorConfigRemision, setErrorConfigRemision] = useState("");
 
   useEffect(() => {
     if (imagenModal) {
@@ -34,6 +51,30 @@ export default function Pedidos() {
     }
     return undefined;
   }, [imagenModal]);
+
+  useEffect(() => {
+    let activo = true;
+    const cargarConfiguracionRemision = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("site_settings")
+          .select("value")
+          .eq("key", REMISION_CONFIG_KEY)
+          .maybeSingle();
+        if (error) throw error;
+        if (!data?.value || !activo) return;
+        const valor = typeof data.value === "string" ? JSON.parse(data.value) : data.value;
+        if (valor && typeof valor === "object") {
+          setConfigRemision({ ...REMISION_CONFIG_DEFAULT, ...valor });
+          setConfigRemisionTemporal({ ...REMISION_CONFIG_DEFAULT, ...valor });
+        }
+      } catch (error) {
+        console.warn("No se pudo cargar la configuración de remisión:", error);
+      }
+    };
+    cargarConfiguracionRemision();
+    return () => { activo = false; };
+  }, []);
 
   const obtenerNombreRepartidor = (repartidorId) => {
     if (!repartidorId) return "No asignado";
@@ -101,9 +142,85 @@ export default function Pedidos() {
       estado: pedido.estado || "Pendiente",
       items: pedido.items ?? pedido.detalles ?? [],
       productos,
+      configRemision,
     };
 
     descargarRemisionPedido(pedidoPdf);
+  };
+
+  const abrirEditorRemision = () => {
+    setConfigRemisionTemporal({ ...configRemision });
+    setLogoRemisionFile(null);
+    setLogoRemisionPreview("");
+    setErrorConfigRemision("");
+    setMostrarMenuRemision(false);
+    setMostrarEditorRemision(true);
+  };
+
+  const seleccionarLogoRemision = (event) => {
+    const archivo = event.target.files?.[0];
+    event.target.value = "";
+    if (!archivo) return;
+    if (!archivo.type.startsWith("image/")) {
+      setErrorConfigRemision("Selecciona un archivo de imagen.");
+      return;
+    }
+    if (archivo.size > 2 * 1024 * 1024) {
+      setErrorConfigRemision("El logo debe pesar menos de 2 MB.");
+      return;
+    }
+    const lector = new FileReader();
+    lector.onload = () => {
+      setLogoRemisionFile(archivo);
+      setLogoRemisionPreview(String(lector.result || ""));
+      setErrorConfigRemision("");
+    };
+    lector.onerror = () => setErrorConfigRemision("No se pudo leer el archivo del logo.");
+    lector.readAsDataURL(archivo);
+  };
+
+  const guardarConfiguracionRemision = async (event) => {
+    event.preventDefault();
+    setGuardandoConfigRemision(true);
+    setErrorConfigRemision("");
+    try {
+      let logoUrl = configRemisionTemporal.logoUrl || "/favicon.ico";
+      if (logoRemisionFile) {
+        const extension = logoRemisionFile.name.split(".").pop()?.toLowerCase() || "png";
+        const rutaLogo = `remisiones/logo-${Date.now()}.${extension}`;
+        const { data: archivoSubido, error: errorSubida } = await supabase.storage
+          .from("banners")
+          .upload(rutaLogo, logoRemisionFile, {
+            cacheControl: "3600",
+            upsert: true,
+            contentType: logoRemisionFile.type,
+          });
+        if (errorSubida) throw errorSubida;
+        logoUrl = supabase.storage.from("banners").getPublicUrl(archivoSubido.path).data.publicUrl;
+      }
+
+      const configuracion = {
+        ...configRemisionTemporal,
+        logoUrl,
+        encabezado: configRemisionTemporal.encabezado.trim() || REMISION_CONFIG_DEFAULT.encabezado,
+        pieTexto: configRemisionTemporal.pieTexto.trim() || REMISION_CONFIG_DEFAULT.pieTexto,
+        pieTelefono: configRemisionTemporal.pieTelefono.trim(),
+      };
+      const { error } = await supabase
+        .from("site_settings")
+        .upsert({ key: REMISION_CONFIG_KEY, value: JSON.stringify(configuracion) }, { onConflict: "key" });
+      if (error) throw error;
+
+      setConfigRemision(configuracion);
+      setConfigRemisionTemporal(configuracion);
+      setMostrarEditorRemision(false);
+      setLogoRemisionFile(null);
+      setLogoRemisionPreview("");
+    } catch (error) {
+      setErrorConfigRemision(error.message || "No se pudo guardar la configuración de remisión.");
+    } finally {
+      setGuardandoConfigRemision(false);
+    }
   };
 
   const abrirEdicion = (pedido) => {
@@ -193,8 +310,74 @@ export default function Pedidos() {
 
   return (
     <div className="pedidos-page">
-      <h2>Pedidos</h2>
-      <p>Gestión de pedidos creados desde la tienda</p>
+      <div className="pedidos-page-heading">
+        <div>
+          <h2>Pedidos</h2>
+          <p>Gestión de pedidos creados desde la tienda</p>
+        </div>
+        {esAdmin() && (
+          <div className="remision-settings-menu">
+            <button
+              type="button"
+              className="remision-settings-trigger"
+              aria-label="Configuración de remisión"
+              aria-expanded={mostrarMenuRemision}
+              onClick={() => setMostrarMenuRemision((mostrar) => !mostrar)}
+            >
+              ⚙
+            </button>
+            {mostrarMenuRemision && (
+              <div className="remision-settings-dropdown" role="menu">
+                <button type="button" role="menuitem" onClick={abrirEditorRemision}>Editar Remisión</button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {esAdmin() && mostrarEditorRemision && (
+        <div className="remision-config-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget && !guardandoConfigRemision) setMostrarEditorRemision(false); }}>
+          <section className="remision-config-modal" role="dialog" aria-modal="true" aria-labelledby="remision-config-title">
+            <header className="remision-config-header">
+              <div><span>ADMINISTRACIÓN</span><h2 id="remision-config-title">Editar Remisión</h2></div>
+              <button type="button" aria-label="Cerrar" onClick={() => setMostrarEditorRemision(false)} disabled={guardandoConfigRemision}>×</button>
+            </header>
+            <form onSubmit={guardarConfiguracionRemision}>
+              <div className="remision-config-fields">
+                <div className="remision-logo-field">
+                  <label htmlFor="remision-logo-input">Logo de la remisión</label>
+                  <div className="remision-logo-controls">
+                    <img src={logoRemisionPreview || configRemisionTemporal.logoUrl || "/favicon.ico"} alt="Vista previa del logo de remisión" />
+                    <div>
+                      <input id="remision-logo-input" type="file" accept="image/*" onChange={seleccionarLogoRemision} />
+                      <button
+                        type="button"
+                        className="remision-logo-reset"
+                        onClick={() => {
+                          setLogoRemisionFile(null);
+                          setLogoRemisionPreview("");
+                          setConfigRemisionTemporal((actual) => ({ ...actual, logoUrl: "/favicon.ico" }));
+                        }}
+                      >
+                        Usar favicon de NEOS
+                      </button>
+                    </div>
+                  </div>
+                  <small>Imagen de hasta 2 MB.</small>
+                </div>
+                <label>Encabezado<input value={configRemisionTemporal.encabezado} onChange={(event) => setConfigRemisionTemporal((actual) => ({ ...actual, encabezado: event.target.value }))} maxLength={80} required /></label>
+                <label className="remision-config-span-two">Texto del pie de página<textarea rows="3" value={configRemisionTemporal.pieTexto} onChange={(event) => setConfigRemisionTemporal((actual) => ({ ...actual, pieTexto: event.target.value }))} maxLength={180} required /></label>
+                <label>Teléfono del pie<input type="tel" value={configRemisionTemporal.pieTelefono} onChange={(event) => setConfigRemisionTemporal((actual) => ({ ...actual, pieTelefono: event.target.value }))} maxLength={30} /></label>
+              </div>
+              {errorConfigRemision && <p className="remision-config-error" role="alert">{errorConfigRemision}</p>}
+              <footer className="remision-config-actions">
+                <button type="button" className="remision-config-cancel" onClick={() => setMostrarEditorRemision(false)} disabled={guardandoConfigRemision}>Cancelar</button>
+                <button type="submit" className="remision-config-save" disabled={guardandoConfigRemision}>{guardandoConfigRemision ? "Guardando..." : "Guardar cambios"}</button>
+              </footer>
+            </form>
+          </section>
+        </div>
+      )}
 
       {/* Buscador */}
       <div className="buscador-container">

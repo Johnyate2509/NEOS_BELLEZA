@@ -16,6 +16,130 @@
   font-size: 14px;
 }
 
+.pedidos-page-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.pedidos-page-heading h2 { margin-bottom: 8px; }
+.pedidos-page-heading p { margin: 0; color: #666; font-size: 14px; }
+.remision-settings-menu { position: relative; z-index: 20; }
+.remision-settings-trigger {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #d5dbe5;
+  border-radius: 5px;
+  color: #202124;
+  background: #fff;
+  font-size: 21px;
+  cursor: pointer;
+}
+.remision-settings-trigger:hover { border-color: #777; background: #f7f7f7; }
+.remision-settings-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 170px;
+  padding: 5px;
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+}
+.remision-settings-dropdown button {
+  width: 100%;
+  padding: 10px;
+  border: 0;
+  border-radius: 3px;
+  color: #202124;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.remision-settings-dropdown button:hover { background: #f1f3f4; }
+
+.remision-config-overlay {
+  position: fixed;
+  z-index: 1200;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.52);
+}
+.remision-config-modal {
+  width: min(620px, 100%);
+  max-height: min(90vh, 780px);
+  overflow: auto;
+  border-radius: 7px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.24);
+}
+.remision-config-header {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fff;
+}
+.remision-config-header span { color: #202124; font-size: 10px; font-weight: 800; }
+.remision-config-header h2 { margin-top: 4px; color: #202124; font-size: 22px; }
+.remision-config-header > button {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #d5dbe5;
+  border-radius: 4px;
+  color: #26344a;
+  background: #fff;
+  font-size: 22px;
+  cursor: pointer;
+}
+.remision-config-modal form { padding: 20px 22px 22px; }
+.remision-config-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
+.remision-config-fields > label,
+.remision-logo-field > label { display: grid; gap: 6px; color: #5f6875; font-size: 12px; font-weight: 700; }
+.remision-config-fields .remision-config-span-two { grid-column: 1 / -1; }
+.remision-config-fields input:not([type="file"]),
+.remision-config-fields textarea {
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 10px;
+  border: 1px solid #d5dbe5;
+  border-radius: 4px;
+  color: #26344a;
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+}
+.remision-config-fields textarea { resize: vertical; }
+.remision-logo-field { grid-column: 1 / -1; }
+.remision-logo-controls { display: flex; align-items: center; gap: 16px; }
+.remision-logo-controls > img { width: 72px; height: 72px; object-fit: contain; border: 1px solid #e5e7eb; border-radius: 4px; background: #f7f7f7; }
+.remision-logo-controls > div { display: grid; gap: 8px; }
+.remision-logo-controls input { max-width: 100%; font: inherit; font-size: 12px; }
+.remision-logo-reset { width: fit-content; padding: 5px 0; border: 0; color: #333; background: none; font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }
+.remision-logo-field small { display: block; margin-top: 6px; color: #777; font-size: 11px; }
+.remision-config-error { margin-top: 14px; color: #b42318; font-size: 13px; }
+.remision-config-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #e5e7eb; }
+.remision-config-cancel,
+.remision-config-save { min-height: 40px; padding: 0 14px; border-radius: 5px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.remision-config-cancel { border: 1px solid #d5dbe5; color: #26344a; background: #fff; }
+.remision-config-save { border: 1px solid #202124; color: #fff; background: #111; }
+.remision-config-actions button:disabled,
+.remision-config-header button:disabled { opacity: .6; cursor: wait; }
+
 .sin-pedidos {
   text-align: center;
   padding: 40px 24px;
@@ -792,6 +916,17 @@
 
 /* RESPONSIVE */
 @media (max-width: 768px) {
+  .pedidos-page-heading { align-items: center; }
+  .pedidos-page-heading h2 { text-align: left; }
+  .remision-config-overlay { align-items: flex-end; padding: 0; }
+  .remision-config-modal { width: 100%; max-height: 94dvh; border-radius: 10px 10px 0 0; }
+  .remision-config-header { padding: 15px; }
+  .remision-config-modal form { padding: 15px 15px calc(18px + env(safe-area-inset-bottom)); }
+  .remision-config-fields { grid-template-columns: minmax(0, 1fr); }
+  .remision-config-fields .remision-config-span-two,
+  .remision-logo-field { grid-column: auto; }
+  .remision-config-actions > button { flex: 1; }
+
   .pedidos-page {
     padding: 16px;
   }
