@@ -27,6 +27,8 @@
   letter-spacing: 0;
 }
 
+.admin-productos-eyebrow { color: #987329; }
+
 .admin-productos-header h1 {
   margin: 6px 0 4px;
   font-family: Georgia, "Times New Roman", serif;
@@ -49,6 +51,16 @@
 .admin-productos-primary { color: white; background: var(--ap-green); }
 .admin-productos-primary:hover { background: #18563f; }
 .admin-productos-primary:disabled { opacity: .65; cursor: wait; }
+.admin-productos-header > .admin-productos-primary {
+  border-color: #191919;
+  color: #dfbd68;
+  background: #191919;
+}
+.admin-productos-header > .admin-productos-primary:hover {
+  border-color: #c5a34e;
+  color: #191919;
+  background: #c5a34e;
+}
 .admin-productos-secondary { color: var(--ap-ink); background: white; border-color: var(--ap-line); }
 
 .admin-productos-toolbar {
