@@ -30,6 +30,15 @@ const VARIANTE_VACIA = {
 };
 
 const BORRADOR_STORAGE_KEY = "neosapp_admin_productos_borrador";
+const BUSQUEDA_STORAGE_KEY = "neosapp_admin_productos_busqueda";
+
+const leerBusquedaGuardada = () => {
+  try {
+    return window.localStorage.getItem(BUSQUEDA_STORAGE_KEY) || "";
+  } catch {
+    return "";
+  }
+};
 
 const leerBorrador = () => {
   try {
@@ -85,7 +94,7 @@ export default function AdminProductos() {
   const { esAdmin } = useAuth();
   const { productos, categorias, crearProducto, actualizarProducto, eliminarProducto } = useStore();
   const [borradorInicial] = useState(leerBorrador);
-  const [busqueda, setBusqueda] = useState("");
+  const [busqueda, setBusqueda] = useState(leerBusquedaGuardada);
   const [filtroVisibilidad, setFiltroVisibilidad] = useState("todos");
   const [productoActivo, setProductoActivo] = useState(borradorInicial?.productoActivo ?? null);
   const [formularioAbierto, setFormularioAbierto] = useState(Boolean(borradorInicial));
@@ -115,6 +124,18 @@ export default function AdminProductos() {
       return;
     }
   }, [formularioAbierto, formulario, productoActivo]);
+
+  useEffect(() => {
+    try {
+      if (busqueda) {
+        window.localStorage.setItem(BUSQUEDA_STORAGE_KEY, busqueda);
+      } else {
+        window.localStorage.removeItem(BUSQUEDA_STORAGE_KEY);
+      }
+    } catch {
+      return;
+    }
+  }, [busqueda]);
 
   const productosFiltrados = useMemo(() => {
     const texto = busqueda.trim().toLocaleLowerCase("es");
