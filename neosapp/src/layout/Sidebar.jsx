@@ -1,8 +1,10 @@
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useStore } from "../context/StoreContext";
 
 export default function Sidebar() {
   const { esAdmin, esVendedor, esRepartidor } = useAuth();
+  const { pedidos } = useStore();
   const esAdministrador = esAdmin();
   const esVend = esVendedor();
   const esRepar = esRepartidor();
@@ -58,8 +60,11 @@ export default function Sidebar() {
               Administrar productos
             </NavLink>
 
-            <NavLink to="/pedidos">
-               Pedidos
+            <NavLink to="/pedidos" className="sidebar-link-with-badge">
+              <span>Pedidos</span>
+              <span className="sidebar-count-badge" aria-label={`${pedidos.length} pedidos actuales`} title={`${pedidos.length} pedidos actuales`}>
+                {pedidos.length}
+              </span>
             </NavLink>
 
             <NavLink to="/repartidores">
