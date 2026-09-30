@@ -555,9 +555,9 @@ export default function Pedidos() {
                       type="button"
                       className="admin-action-control"
                       onClick={() => abrirAsignacionRepartidor(p)}
-                      aria-label={`Asignar repartidor al pedido ${p.id}`}
+                      aria-label={`${p.repartidor_id ? "Cambiar" : "Asignar"} repartidor del pedido ${p.id}`}
                     >
-                      Asignar
+                      {p.repartidor_id ? "Cambiar" : "Asignar"}
                     </button>
                   </div>
                 </td>
@@ -870,7 +870,7 @@ export default function Pedidos() {
                           className="admin-action-control"
                           onClick={() => abrirAsignacionRepartidor(modalPedido)}
                         >
-                          Asignar
+                          {modalPedido.repartidor_id ? "Cambiar" : "Asignar"}
                         </button>
                       </div>
                     </div>
