@@ -1535,3 +1535,65 @@
     text-align: left;
   }
 }
+
+@media (max-width: 768px) {
+  .pedidos-table td[data-label="Asignación de repartidor"],
+  .pedidos-table td[data-label="Acción"] {
+    padding-left: 0;
+  }
+
+  .pedidos-table td[data-label="Asignación de repartidor"]::before,
+  .pedidos-table td[data-label="Acción"]::before {
+    position: static;
+    display: block;
+    width: auto;
+    margin-bottom: 7px;
+    padding-right: 0;
+    white-space: normal;
+  }
+
+  .repartidor-asignacion {
+    width: 100%;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .repartidor-asignacion > span {
+    flex: 1 1 120px;
+  }
+
+  .repartidor-asignacion > button {
+    flex: 0 1 auto;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .acciones-pedido {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .acciones-pedido .btn-detalle {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-width: 0;
+    margin-top: 0;
+  }
+
+  .acciones-pedido .btn-pdf {
+    grid-column: 1;
+    justify-self: start;
+  }
+
+  .acciones-pedido .btn-delete {
+    grid-column: 2;
+    width: 100%;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
