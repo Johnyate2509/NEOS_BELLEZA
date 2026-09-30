@@ -135,7 +135,7 @@ export default function Vendedores() {
                   </div>
                   <div className="vendedor-actions">
                     <button
-                      className="btn-accion-vendedor btn-eliminar-vendedor"
+                      className="btn-accion-vendedor btn-eliminar-vendedor admin-action-control admin-action-control--danger"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleEliminarVendedor(vendedor.usuario_id);

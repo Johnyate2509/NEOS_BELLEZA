@@ -406,7 +406,7 @@ export default function Pedidos() {
             </button>
             {mostrarMenuRemision && (
               <div className="remision-settings-dropdown" role="menu">
-                <button type="button" role="menuitem" onClick={abrirEditorRemision}>Editar Remisión</button>
+                <button type="button" role="menuitem" className="admin-action-control" onClick={abrirEditorRemision}>Editar Remisión</button>
               </div>
             )}
           </div>
@@ -540,7 +540,7 @@ export default function Pedidos() {
                     </button>
                     <button
                       type="button"
-                      className="btn-delete"
+                      className="btn-delete admin-action-control admin-action-control--danger"
                       onClick={() => confirmarEliminarPedido(p)}
                       title={`Eliminar pedido ${p.id}`}
                       aria-label={`Eliminar pedido ${p.id}`}
@@ -564,7 +564,7 @@ export default function Pedidos() {
                 <strong>Pedido #{modalPedido.id}</strong>
                 <div className="pedido-header-acciones">
                   <button
-                    className="btn-editar"
+                    className="btn-editar admin-action-control"
                     onClick={() => abrirEdicion(modalPedido)}
                     title="Editar items"
                   >
@@ -646,7 +646,7 @@ export default function Pedidos() {
                           </div>
                           <span className="item-subtotal">${(item.precio * item.cantidad).toLocaleString()}</span>
                           <button
-                            className="btn-eliminar-item"
+                            className="btn-eliminar-item admin-action-control admin-action-control--danger admin-action-control--icon"
                             onClick={() => handleEliminarItem(modalPedido.id, item.id)}
                             title="Eliminar este item"
                           >

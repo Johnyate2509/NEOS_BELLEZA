@@ -11,3 +11,62 @@
 body {
   overflow-x: hidden;
 }
+
+body button.admin-action-control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 6px 8px;
+  border: 1px solid #dce4df;
+  border-radius: 3px;
+  color: #202a26;
+  background: #fff;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: border-color 0.16s ease, color 0.16s ease, background 0.16s ease;
+}
+
+body button.admin-action-control:hover {
+  border-color: #202a26;
+  color: #202a26;
+  background: #f7f9f7;
+}
+
+body button.admin-action-control.admin-action-control--danger {
+  color: #c35b48;
+}
+
+body button.admin-action-control.admin-action-control--danger:hover {
+  border-color: #c35b48;
+  color: #a74737;
+  background: #fff7f5;
+}
+
+body button.admin-action-control.admin-action-control--icon {
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  padding: 5px;
+}
+
+body button.admin-action-control.admin-action-control--icon img {
+  display: block;
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+}
+
+body button.admin-action-control:focus-visible {
+  outline: 2px solid #9b7b37;
+  outline-offset: 2px;
+}
+
+body button.admin-action-control:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

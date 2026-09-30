@@ -86,9 +86,9 @@
   width: 26px;
   height: 26px;
   padding: 5px;
-  border: 0;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid #dce4df;
+  border-radius: 6px;
+  background: #fff;
   cursor: pointer;
   transform: translateY(-50%);
 }
@@ -101,7 +101,8 @@
 }
 
 .catalogo-editar-btn:hover {
-  background: #e5e7eb;
+  border-color: #c5a34e;
+  background: #fffaf0;
 }
 
 .catalogo-btn:focus-visible,

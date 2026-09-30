@@ -368,7 +368,7 @@ export default function VendedorDashboard() {
                             <td>${(item.precio * item.cantidad).toLocaleString()}</td>
                             <td>
                               <button
-                                className="btn-eliminar"
+                                className="btn-eliminar admin-action-control admin-action-control--danger admin-action-control--icon"
                                 onClick={() => handleEliminarProducto(item.id)}
                               >
                                 ✕

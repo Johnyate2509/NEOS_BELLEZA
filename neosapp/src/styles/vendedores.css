@@ -4,35 +4,32 @@
   padding: 20px;
   max-width: 1200px;
   margin: 0 auto;
+  color: #1c1c1c;
 }
 
-.vendedores-header {
-  margin-bottom: 30px;
-}
+.vendedores-header { margin-bottom: 30px; }
 
 .vendedores-header h2 {
-  font-size: 28px;
-  color: #2c3e50;
   margin-bottom: 10px;
+  color: #1c1c1c;
+  font-size: 28px;
 }
 
-.total-vendedores {
-  color: #7f8c8d;
-  font-size: 14px;
-}
+.total-vendedores { color: #706b5e; font-size: 14px; }
 
 .vendedores-formulario {
-  background: white;
-  border-radius: 12px;
-  padding: 24px;
   margin-bottom: 24px;
+  padding: 24px;
+  border: 1px solid #e0e0e0;
+  border-left: 4px solid var(--gold);
+  border-radius: 6px;
+  background: #fff;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
-  border-left: 4px solid #667eea;
 }
 
 .vendedores-formulario h3 {
   margin: 0 0 14px;
-  color: #2c3e50;
+  color: #1c1c1c;
   font-size: 18px;
 }
 
@@ -45,124 +42,128 @@
 
 .form-group input,
 .form-group select {
+  min-width: 0;
   padding: 12px 14px;
-  border: 1px solid #dcdfe6;
-  border-radius: 10px;
-  font-size: 14px;
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+  color: #1c1c1c;
+  background: #fff;
   font-family: inherit;
+  font-size: 14px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
-  background: white;
 }
 
 .form-group input:focus,
 .form-group select:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(200, 169, 81, 0.18);
 }
 
 .btn-crear-vendedor {
-  padding: 12px 24px;
-  background: #667eea;
-  color: white;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  font-weight: 700;
-  font-size: 14px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
-  align-self: flex-end;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  align-self: flex-end;
+  padding: 12px 24px;
+  border: 1px solid #1c1c1c;
+  border-radius: 5px;
+  color: var(--gold-soft);
+  background: #1c1c1c;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
-.btn-crear-vendedor .btn-icon {
-  margin-right: 8px;
-  font-size: 16px;
-  line-height: 1;
-}
+.btn-crear-vendedor .btn-icon { margin-right: 8px; font-size: 16px; line-height: 1; }
 
 .btn-crear-vendedor:hover {
-  background: #5568d3;
   transform: translateY(-1px);
-  box-shadow: 0 10px 20px rgba(102, 126, 234, 0.18);
+  border-color: var(--gold);
+  color: #1c1c1c;
+  background: var(--gold);
+  box-shadow: 0 6px 14px rgba(200, 169, 81, 0.22);
 }
 
 .mensaje {
-  padding: 13px 16px;
-  border-radius: 8px;
   margin-bottom: 18px;
+  padding: 13px 16px;
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
   font-size: 13px;
   font-weight: 600;
 }
 
 .mensaje.exito {
-  background: #e9f9f0;
-  color: #27ae60;
-  border-left: 4px solid #27ae60;
+  border-left: 4px solid var(--gold);
+  color: #4b3b1c;
+  background: #f8f4e8;
 }
 
 .mensaje.error {
-  background: #fdeaea;
-  color: #e63946;
-  border-left: 4px solid #e63946;
+  border-left: 4px solid #8d5630;
+  color: #5e311e;
+  background: #f7eee8;
 }
 
-.vendedores-grid {
-  display: grid;
-  gap: 20px;
-}
+.vendedores-grid { display: grid; gap: 20px; }
 
 .vendedor-card {
-  border: 1px solid #ecf0f1;
-  border-radius: 8px;
-  background: white;
   overflow: hidden;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  transition: box-shadow 0.3s ease;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .vendedor-card:hover {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  border-color: var(--gold);
+  box-shadow: 0 4px 12px rgba(120, 94, 28, 0.12);
 }
 
 .vendedor-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 18px;
   padding: 20px;
-  background: white;
-  color: #0b0b0b;
+  color: #fff;
+  background: #1c1c1c;
   cursor: pointer;
   user-select: none;
-  transition: background 0.3s ease;
+  transition: color 0.2s ease, background 0.2s ease;
 }
 
 .vendedor-header:hover {
-  background: linear-gradient(135deg, #5568d3 0%, #6b3d90 100%);
+  color: #1c1c1c;
+  background: var(--gold);
 }
 
-.vendedor-info {
-  flex: 1;
-}
+.vendedor-info { flex: 1; min-width: 0; }
 
 .vendedor-info h3 {
-  margin: 0;
+  margin: 0 0 8px;
   font-size: 20px;
   font-weight: 600;
-  margin-bottom: 8px;
+  overflow-wrap: anywhere;
 }
 
 .zona-badge {
   display: inline-block;
-  background: rgba(255, 255, 255, 0.3);
   padding: 4px 12px;
-  border-radius: 20px;
+  border-radius: 4px;
+  color: #1c1c1c;
+  background: var(--gold);
   font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+}
+
+.vendedor-header:hover .zona-badge {
+  color: var(--gold-soft);
+  background: #1c1c1c;
 }
 
 .vendedor-stats {
@@ -171,31 +172,8 @@
   margin: 0 20px;
 }
 
-.vendedor-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.btn-accion-vendedor {
-  padding: 10px 18px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 700;
-  transition: transform 0.2s ease, background 0.2s ease;
-}
-
-.btn-eliminar-vendedor {
-  background: #e53935;
-  color: white;
-}
-
-.btn-eliminar-vendedor:hover {
-  background: #c62828;
-  transform: translateY(-1px);
-}
+.vendedor-actions { display: flex; align-items: center; gap: 12px; }
+.btn-accion-vendedor { cursor: pointer; }
 
 .stat {
   display: flex;
@@ -203,131 +181,83 @@
   align-items: center;
 }
 
-.stat-label {
-  font-size: 12px;
-  opacity: 0.9;
-  margin-bottom: 4px;
-}
-
-.stat-value {
-  font-size: 18px;
-  font-weight: 700;
-}
+.stat-label { margin-bottom: 4px; font-size: 12px; opacity: 0.9; }
+.stat-value { color: var(--gold-soft); font-size: 18px; font-weight: 700; }
+.vendedor-header:hover .stat-value { color: #1c1c1c; }
 
 .expand-icon {
-  font-size: 18px;
-  transition: transform 0.3s ease;
   display: flex;
   align-items: center;
+  font-size: 18px;
+  transition: transform 0.3s ease;
 }
 
-.expand-icon.expanded {
-  transform: rotate(180deg);
-}
+.expand-icon.expanded { transform: rotate(180deg); }
 
 .vendedor-clientes {
   padding: 20px;
-  background: #f8f9fa;
-  border-top: 1px solid #ecf0f1;
+  border-top: 1px solid #e0e0e0;
+  background: #fbfaf6;
 }
 
 .clientes-list h4 {
-  margin: 0 0 15px 0;
-  color: #2c3e50;
+  margin: 0 0 15px;
+  color: #1c1c1c;
   font-size: 16px;
   font-weight: 600;
 }
 
 .clientes-table {
-  background: white;
-  border-radius: 6px;
   overflow: hidden;
-  border: 1px solid #ecf0f1;
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+  background: #fff;
 }
 
-.table-header {
-  display: grid;
-  grid-template-columns: 2fr 1.5fr 2fr 1fr;
-  gap: 15px;
-  padding: 12px 15px;
-  background: #ecf0f1;
-  font-weight: 600;
-  font-size: 12px;
-  text-transform: uppercase;
-  color: #34495e;
-}
-
+.table-header,
 .table-row {
   display: grid;
   grid-template-columns: 2fr 1.5fr 2fr 1fr;
   gap: 15px;
   padding: 12px 15px;
-  border-bottom: 1px solid #ecf0f1;
-  align-items: center;
-  font-size: 14px;
-  color: #2c3e50;
 }
 
-.table-row:last-child {
-  border-bottom: none;
-}
-
-.table-row:hover {
-  background: #f8f9fa;
-}
-
-.col-nombre {
-  font-weight: 500;
-}
-
-.col-cedula {
-  color: #7f8c8d;
-}
-
-.col-correo {
-  color: #7f8c8d;
-  word-break: break-word;
-}
-
-.col-ventas {
+.table-header {
+  color: var(--gold-soft);
+  background: #1c1c1c;
+  font-size: 12px;
   font-weight: 600;
-  color: #27ae60;
-  text-align: right;
+  text-transform: uppercase;
 }
 
-.sin-clientes {
-  padding: 30px;
-  text-align: center;
-  color: #95a5a6;
+.table-row {
+  align-items: center;
+  border-bottom: 1px solid #e8e3d5;
+  color: #1c1c1c;
+  font-size: 14px;
 }
 
-.sin-clientes p {
-  margin: 0;
-  font-size: 16px;
-}
+.table-row:last-child { border-bottom: none; }
+.table-row:hover { background: #fbf8ed; }
+.col-nombre { font-weight: 500; }
+.col-cedula, .col-correo { color: #706b5e; }
+.col-correo { word-break: break-word; }
+.col-ventas { color: #8d702e; font-weight: 600; text-align: right; }
 
+.sin-clientes,
 .empty-state {
+  color: #706b5e;
   text-align: center;
-  padding: 60px 20px;
-  color: #95a5a6;
 }
 
-.empty-state p {
-  margin: 0;
-  font-size: 18px;
-}
+.sin-clientes { padding: 30px; }
+.sin-clientes p { margin: 0; font-size: 16px; }
+.empty-state { padding: 60px 20px; }
+.empty-state p { margin: 0; font-size: 18px; }
 
-/* Responsive */
 @media (max-width: 768px) {
-  .vendedor-header {
-    flex-wrap: wrap;
-    padding: 15px;
-  }
-
-  .vendedor-stats {
-    gap: 15px;
-    margin: 10px 0 0 0;
-  }
+  .vendedor-header { flex-wrap: wrap; padding: 15px; }
+  .vendedor-stats { gap: 15px; margin: 10px 0 0; }
 
   .table-header,
   .table-row {
@@ -336,11 +266,6 @@
     font-size: 12px;
   }
 
-  .col-correo {
-    display: none;
-  }
-
-  .stat-value {
-    font-size: 16px;
-  }
+  .col-correo { display: none; }
+  .stat-value { font-size: 16px; }
 }

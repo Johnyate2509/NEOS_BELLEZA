@@ -241,8 +241,8 @@ export default function AdminClientes() {
                   <div className="col-correo">{cliente.correo || "-"}</div>
                   <div className="col-vendedor">{vendedor?.nombre || "Sin vendedor"}</div>
                   <div className="col-acciones">
-                    <button type="button" className="btn-cliente-editar" onClick={() => editarCliente(cliente)}>Editar</button>
-                    <button type="button" className="btn-cliente-eliminar" onClick={() => confirmarEliminarCliente(cliente)}>Eliminar</button>
+                    <button type="button" className="btn-cliente-editar admin-action-control" onClick={() => editarCliente(cliente)}>Editar</button>
+                    <button type="button" className="btn-cliente-eliminar admin-action-control admin-action-control--danger" onClick={() => confirmarEliminarCliente(cliente)}>Eliminar</button>
                   </div>
                 </div>
               );

@@ -123,7 +123,7 @@ export default function Repartidores() {
             <p>Zona: {repartidor.zona}</p>
 
             <button
-              className="btn-eliminar"
+              className="btn-eliminar admin-action-control admin-action-control--danger"
               onClick={() => handleEliminarRepartidor(repartidor.id)}
             >
               Eliminar

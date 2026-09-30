@@ -1832,7 +1832,7 @@ const obtenerProductosFiltrados = (categoria) => {
           <div className="banner-admin-controls">
             <button
               type="button"
-              className="btn-primary btn-banner-editor"
+              className="btn-primary btn-banner-editor admin-action-control"
               onClick={abrirEditorBanner}
             >
               ✏️ Editar banner
@@ -1979,7 +1979,7 @@ const obtenerProductosFiltrados = (categoria) => {
                   <div className="categoria-admin-actions">
                     <button
                       type="button"
-                      className="categoria-action-btn"
+                      className="categoria-action-btn admin-action-control admin-action-control--icon"
                       onClick={() => editarCategoria(categoria)}
                       title="Editar categoría"
                       aria-label={`Editar categoría ${categoria}`}
@@ -1988,7 +1988,7 @@ const obtenerProductosFiltrados = (categoria) => {
                     </button>
                     <button
                       type="button"
-                      className="categoria-action-btn danger"
+                      className="categoria-action-btn danger admin-action-control admin-action-control--danger admin-action-control--icon"
                       onClick={() => eliminarCategoria(categoria)}
                       title="Eliminar categoría"
                       aria-label={`Eliminar categoría ${categoria}`}
@@ -2135,7 +2135,7 @@ const obtenerProductosFiltrados = (categoria) => {
                               Actualizar stock
                             </button>
                             <button
-                              className="btn-delete"
+                              className="btn-delete admin-action-control admin-action-control--danger"
                               onClick={async (e) => {
                                 e.stopPropagation();
                                 const confirmar = window.confirm("¿Eliminar este producto? Esta acción es irreversible.");
@@ -2237,7 +2237,7 @@ const obtenerProductosFiltrados = (categoria) => {
                                 Actualizar stock
                               </button>
                               <button
-                                className="btn-delete"
+                                className="btn-delete admin-action-control admin-action-control--danger"
                                 onClick={async (e) => {
                                   e.stopPropagation();
                                   const confirmar = window.confirm("¿Eliminar este producto? Esta acción es irreversible.");
@@ -2371,7 +2371,7 @@ const obtenerProductosFiltrados = (categoria) => {
                       <img src={imagen} alt={`Preview ${index + 1}`} />
                       <button
                         type="button"
-                        className="btn-eliminar-imagen"
+                        className="btn-eliminar-imagen admin-action-control admin-action-control--danger admin-action-control--icon"
                         onClick={() => eliminarImagen(index)}
                         title="Eliminar imagen"
                       >
@@ -2413,7 +2413,7 @@ const obtenerProductosFiltrados = (categoria) => {
                         {varianteTemp.imagenes.map((imagen, index) => (
                           <div key={index} className="item-imagen-preview">
                             <img src={imagen} alt={`Preview variante ${index + 1}`} />
-                            <button type="button" className="btn-eliminar-imagen" onClick={() => eliminarImagenVarianteTemp(index)} title="Eliminar imagen">
+                            <button type="button" className="btn-eliminar-imagen admin-action-control admin-action-control--danger admin-action-control--icon" onClick={() => eliminarImagenVarianteTemp(index)} title="Eliminar imagen">
                               ✕
                             </button>
                           </div>
@@ -2531,7 +2531,7 @@ const obtenerProductosFiltrados = (categoria) => {
                       <img src={imagen} alt={`Preview ${index + 1}`} />
                       <button
                         type="button"
-                        className="btn-eliminar-imagen"
+                        className="btn-eliminar-imagen admin-action-control admin-action-control--danger admin-action-control--icon"
                         onClick={() => eliminarImagenEdicion(index)}
                         title="Eliminar imagen"
                       >
@@ -2815,7 +2815,7 @@ const obtenerProductosFiltrados = (categoria) => {
                       </div>
 
                       <div className="variante-actions">
-                        {getUserRole() === "admin" && <button type="button" className="btn-secundario btn-icon" onClick={() => abrirEdicionVariante(v)}>✎ Editar</button>}
+                        {getUserRole() === "admin" && <button type="button" className="btn-secundario btn-icon admin-action-control" onClick={() => abrirEdicionVariante(v)}>✎ Editar</button>}
                         <div className="variante-cantidad-control" aria-label={`Cantidad de ${v.nombre || "variante"}`}>
                           <button type="button" aria-label={`Disminuir ${v.nombre || "variante"}`} onClick={() => cambiarCantidadVariante(v, -1)} disabled={cantidadSeleccionada === 0}>−</button>
                           <output aria-live="polite">{cantidadSeleccionada}</output>
@@ -2860,7 +2860,7 @@ const obtenerProductosFiltrados = (categoria) => {
                   {varianteEditTemp.imagenes.map((imagen, index) => (
                     <div key={index} className="item-imagen-preview">
                       <img src={imagen} alt={`Preview variante ${index + 1}`} />
-                      <button type="button" className="btn-eliminar-imagen" onClick={() => eliminarImagenVarianteEdit(index)} title="Eliminar imagen">
+                      <button type="button" className="btn-eliminar-imagen admin-action-control admin-action-control--danger admin-action-control--icon" onClick={() => eliminarImagenVarianteEdit(index)} title="Eliminar imagen">
                         ✕
                       </button>
                     </div>
@@ -2959,7 +2959,7 @@ const obtenerProductosFiltrados = (categoria) => {
                       </div>
                       <p><strong>${(item.precio * item.cantidad).toLocaleString()}</strong></p>
                       <button
-                        className="btn-delete-small"
+                        className="btn-delete-small admin-action-control admin-action-control--danger admin-action-control--icon"
                         onClick={() => eliminarDelCarrito(itemKey)}
                       >
                         ✕
