@@ -13,11 +13,23 @@ const REMISION_CONFIG_DEFAULT = {
   pieTelefono: "3001234567",
 };
 
+const obtenerNombreVariante = (variante) => {
+  if (variante?.nombre) return variante.nombre;
+  if (typeof variante?.atributos === "string") return variante.atributos;
+  if (variante?.atributos && typeof variante.atributos === "object") {
+    return Object.entries(variante.atributos)
+      .map(([nombre, valor]) => `${nombre}: ${Array.isArray(valor) ? valor.join(", ") : String(valor)}`)
+      .join(" · ");
+  }
+  return "Variante";
+};
+
 export default function Pedidos() {
   const { 
     pedidos, 
     repartidores, 
     productos,
+    categorias,
     cambiarEstadoPedido, 
     asignarRepartidor,
     agregarItemPedido,
@@ -32,6 +44,12 @@ export default function Pedidos() {
   const [pedidoTemp, setPedidoTemp] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
   const [modalPedido, setModalPedido] = useState(null);
+  const [mostrarSelectorProductos, setMostrarSelectorProductos] = useState(false);
+  const [busquedaProductosPedido, setBusquedaProductosPedido] = useState("");
+  const [categoriaProductosPedido, setCategoriaProductosPedido] = useState("");
+  const [variantesProductosPedido, setVariantesProductosPedido] = useState([]);
+  const [cargandoVariantesPedido, setCargandoVariantesPedido] = useState(false);
+  const [errorVariantesPedido, setErrorVariantesPedido] = useState("");
   const [imagenModal, setImagenModal] = useState(null);
   const [mostrarMenuRemision, setMostrarMenuRemision] = useState(false);
   const [mostrarEditorRemision, setMostrarEditorRemision] = useState(false);
@@ -252,18 +270,44 @@ export default function Pedidos() {
     );
   };
 
-  const handleAgregarItem = async (pedidoId, productoId) => {
-    const producto = productos.find((p) => p.id === productoId);
-    if (!producto) return;
+  const handleAgregarItem = async (pedidoId, productoId, variante = null) => {
+    const producto = productos.find((p) => String(p.id) === String(productoId));
+    if (!producto) return false;
 
-    const success = await agregarItemPedido(pedidoId, productoId, producto.nombre, producto.precio, 1);
-    if (!success) return;
+    const etiquetaVariante = variante ? obtenerNombreVariante(variante) : "";
+    const nombre = etiquetaVariante ? `${producto.nombre} - ${etiquetaVariante}` : producto.nombre;
+    const precio = Number(variante?.precio ?? producto.precio ?? 0);
+    const success = await agregarItemPedido(pedidoId, producto.id, nombre, precio, 1);
+    if (!success) return false;
 
     const nuevosItems = [
       ...(pedidoTemp.items || []),
-      { id: productoId, nombre: producto.nombre, precio: producto.precio, cantidad: 1 },
+      { id: producto.id, nombre, precio, cantidad: 1 },
     ];
     actualizarItemsLocal(nuevosItems);
+    return true;
+  };
+
+  const abrirSelectorProductos = async () => {
+    setMostrarSelectorProductos(true);
+    setBusquedaProductosPedido("");
+    setCategoriaProductosPedido("");
+    setCargandoVariantesPedido(true);
+    setErrorVariantesPedido("");
+    const { data, error } = await supabase.from("producto_variantes").select("*");
+    if (error) {
+      setErrorVariantesPedido("No se pudieron cargar las variantes. Puedes agregar productos sin variante.");
+      setVariantesProductosPedido([]);
+    } else {
+      setVariantesProductosPedido(data || []);
+    }
+    setCargandoVariantesPedido(false);
+  };
+
+  const agregarProductoSeleccionado = async (producto, variante = null) => {
+    const success = await handleAgregarItem(modalPedido.id, producto.id, variante);
+    if (!success) return;
+    setMostrarSelectorProductos(false);
   };
 
   const handleEliminarItem = async (pedidoId, productoId) => {
@@ -287,8 +331,18 @@ export default function Pedidos() {
   };
 
   const productosDisponibles = productos.filter(
-    (p) => !pedidoTemp.items?.some((item) => item.id === p.id)
+    (p) => !pedidoTemp.items?.some((item) => String(item.id) === String(p.id))
   );
+  const productosFiltradosPedido = productosDisponibles.filter((producto) => {
+    const busqueda = busquedaProductosPedido.trim().toLocaleLowerCase();
+    const categoria = producto.categoria || producto.categorias?.nombre || "";
+    const variantes = variantesProductosPedido.filter((variante) => String(variante.producto_id) === String(producto.id));
+    const textoVariantes = variantes.flatMap((variante) => [variante.nombre, variante.atributos])
+      .map((valor) => typeof valor === "string" ? valor : JSON.stringify(valor || ""))
+      .join(" ");
+    return (!categoriaProductosPedido || String(producto.categoria_id) === categoriaProductosPedido || categoria === categoriaProductosPedido)
+      && (!busqueda || `${producto.nombre} ${categoria} ${textoVariantes}`.toLocaleLowerCase().includes(busqueda));
+  });
 
   const normalizedSearchTerm = searchTerm.trim().toLowerCase();
 
@@ -471,7 +525,7 @@ export default function Pedidos() {
       {/* Modal de detalle */}
       {modalPedido && (
         <div className="modal-overlay" onClick={() => setModalPedido(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content" translate="no" onClick={(e) => e.stopPropagation()}>
             <div className="pedido-card">
               <div className="pedido-header">
                 <strong>Pedido #{modalPedido.id}</strong>
@@ -573,23 +627,9 @@ export default function Pedidos() {
                     {productosDisponibles.length > 0 && (
                       <div className="agregar-item-container">
                         <label>Agregar producto:</label>
-                        <select
-                          defaultValue=""
-                          onChange={(e) => {
-                            if (e.target.value) {
-                              handleAgregarItem(modalPedido.id, parseInt(e.target.value));
-                              e.target.value = "";
-                            }
-                          }}
-                          className="select-agregar"
-                        >
-                          <option value="">Seleccionar producto...</option>
-                          {productosDisponibles.map((prod) => (
-                            <option key={prod.id} value={prod.id}>
-                              {prod.nombre} - ${prod.precio.toLocaleString()} (Stock: {prod.stock})
-                            </option>
-                          ))}
-                        </select>
+                        <button type="button" className="select-agregar" onClick={abrirSelectorProductos}>
+                          + Seleccionar producto
+                        </button>
                       </div>
                     )}
 
@@ -692,6 +732,65 @@ export default function Pedidos() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {mostrarSelectorProductos && (
+        <div className="selector-productos-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) setMostrarSelectorProductos(false); }}>
+          <section className="selector-productos-modal" role="dialog" aria-modal="true" aria-labelledby="selector-productos-titulo">
+            <header className="selector-productos-header">
+              <div><span>EDITAR PEDIDO #{modalPedido?.id}</span><h2 id="selector-productos-titulo">Agregar producto</h2></div>
+              <button type="button" aria-label="Cerrar selector" onClick={() => setMostrarSelectorProductos(false)}>×</button>
+            </header>
+            <div className="selector-productos-filtros">
+              <input
+                type="search"
+                autoFocus
+                placeholder="Buscar producto o variante..."
+                value={busquedaProductosPedido}
+                onChange={(event) => setBusquedaProductosPedido(event.target.value)}
+              />
+              <select value={categoriaProductosPedido} onChange={(event) => setCategoriaProductosPedido(event.target.value)}>
+                <option value="">Todas las categorías</option>
+                {categorias.map((categoria) => <option key={categoria.id} value={String(categoria.id)}>{categoria.nombre}</option>)}
+              </select>
+            </div>
+            {errorVariantesPedido && <p className="selector-productos-error" role="status">{errorVariantesPedido}</p>}
+            <div className="selector-productos-lista">
+              {productosFiltradosPedido.length ? productosFiltradosPedido.map((producto) => {
+                const variantes = variantesProductosPedido.filter((variante) => String(variante.producto_id) === String(producto.id));
+                return (
+                  <article className="selector-producto" key={producto.id}>
+                    <div className="selector-producto-base">
+                      <div>
+                        <strong>{producto.nombre}</strong>
+                        <span>{producto.categoria || producto.categorias?.nombre || "Sin categoría"} · Stock: {producto.stock}</span>
+                      </div>
+                      <button type="button" onClick={() => agregarProductoSeleccionado(producto)}>
+                        Agregar · ${Number(producto.precio || 0).toLocaleString()}
+                      </button>
+                    </div>
+                    {variantes.length > 0 && (
+                      <div className="selector-producto-variantes">
+                        {variantes.map((variante) => {
+                          const detalle = obtenerNombreVariante(variante);
+                          return (
+                            <button type="button" key={variante.id} onClick={() => agregarProductoSeleccionado(producto, variante)}>
+                              <span>{detalle}</span>
+                              <strong>${Number(variante.precio ?? producto.precio ?? 0).toLocaleString()}</strong>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </article>
+                );
+              }) : (
+                <p className="selector-productos-vacio">No hay productos que coincidan con los filtros.</p>
+              )}
+              {cargandoVariantesPedido && <p className="selector-productos-cargando">Cargando variantes...</p>}
+            </div>
+          </section>
         </div>
       )}
 
