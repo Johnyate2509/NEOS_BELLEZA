@@ -45,6 +45,10 @@ export default function Pedidos() {
   const [pedidoTemp, setPedidoTemp] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
   const [modalPedido, setModalPedido] = useState(null);
+  const [pedidoAsignarRepartidor, setPedidoAsignarRepartidor] = useState(null);
+  const [repartidorSeleccionado, setRepartidorSeleccionado] = useState("");
+  const [guardandoAsignacionRepartidor, setGuardandoAsignacionRepartidor] = useState(false);
+  const [errorAsignacionRepartidor, setErrorAsignacionRepartidor] = useState("");
   const [mostrarSelectorProductos, setMostrarSelectorProductos] = useState(false);
   const [busquedaProductosPedido, setBusquedaProductosPedido] = useState("");
   const [categoriaProductosPedido, setCategoriaProductosPedido] = useState("");
@@ -112,6 +116,48 @@ export default function Pedidos() {
     if (resultado && modalPedido && modalPedido.id === pedidoId) {
       // Actualizar el modal local también
       setModalPedido((prev) => prev ? { ...prev, repartidor_id: valor } : null);
+    }
+    return resultado;
+  };
+
+  const abrirAsignacionRepartidor = (pedido) => {
+    const actual = repartidores.find((repartidor) =>
+      String(repartidor.id) === String(pedido.repartidor_id) ||
+      repartidor.nombre === pedido.repartidor_id
+    );
+    setPedidoAsignarRepartidor(pedido);
+    setRepartidorSeleccionado(actual ? String(actual.id) : "");
+    setErrorAsignacionRepartidor("");
+  };
+
+  const cerrarAsignacionRepartidor = () => {
+    if (guardandoAsignacionRepartidor) return;
+    setPedidoAsignarRepartidor(null);
+    setRepartidorSeleccionado("");
+    setErrorAsignacionRepartidor("");
+  };
+
+  const guardarAsignacionRepartidor = async (event) => {
+    event.preventDefault();
+    if (!repartidorSeleccionado) {
+      setErrorAsignacionRepartidor("Selecciona un repartidor para continuar.");
+      return;
+    }
+
+    setGuardandoAsignacionRepartidor(true);
+    setErrorAsignacionRepartidor("");
+    try {
+      const resultado = await manejarCambioRepartidor(pedidoAsignarRepartidor.id, repartidorSeleccionado);
+      if (!resultado) {
+        setErrorAsignacionRepartidor("No se pudo asignar el repartidor. Inténtalo de nuevo.");
+        return;
+      }
+      setPedidoAsignarRepartidor(null);
+      setRepartidorSeleccionado("");
+    } catch (error) {
+      setErrorAsignacionRepartidor(error.message || "Ocurrió un error al asignar el repartidor.");
+    } finally {
+      setGuardandoAsignacionRepartidor(false);
     }
   };
 
@@ -505,19 +551,14 @@ export default function Pedidos() {
                     ) : (
                       <span className="sin-repartidor">No asignado</span>
                     )}
-                    <select
-                      className="selector-repartidor"
-                      value={String(p.repartidor_id || "")}
-                      onChange={(e) => manejarCambioRepartidor(p.id, e.target.value)}
-                      title="Cambiar repartidor"
+                    <button
+                      type="button"
+                      className="admin-action-control"
+                      onClick={() => abrirAsignacionRepartidor(p)}
+                      aria-label={`Asignar repartidor al pedido ${p.id}`}
                     >
-                      <option value="">Cambiar...</option>
-                      {repartidores.map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.nombre} {r.zona ? `(${r.zona})` : ""}
-                        </option>
-                      ))}
-                    </select>
+                      Asignar
+                    </button>
                   </div>
                 </td>
                 <td data-label="Acción">
@@ -554,6 +595,82 @@ export default function Pedidos() {
           )}
         </tbody>
       </table>
+
+      {pedidoAsignarRepartidor && (
+        <div
+          className="asignacion-repartidor-overlay"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) cerrarAsignacionRepartidor();
+          }}
+        >
+          <section
+            className="asignacion-repartidor-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="asignacion-repartidor-titulo"
+          >
+            <header className="asignacion-repartidor-header">
+              <div>
+                <span>ASIGNACIÓN DE PEDIDO</span>
+                <h2 id="asignacion-repartidor-titulo">Elegir repartidor</h2>
+              </div>
+              <button
+                type="button"
+                className="admin-action-control admin-action-control--icon"
+                aria-label="Cerrar"
+                onClick={cerrarAsignacionRepartidor}
+                disabled={guardandoAsignacionRepartidor}
+              >
+                ×
+              </button>
+            </header>
+            <form onSubmit={guardarAsignacionRepartidor}>
+              <div className="asignacion-repartidor-pedido">
+                <span>Pedido #{pedidoAsignarRepartidor.id}</span>
+                <strong>{pedidoAsignarRepartidor.cliente || "Cliente sin nombre"}</strong>
+                <small>Actual: {obtenerNombreRepartidor(pedidoAsignarRepartidor.repartidor_id)}</small>
+              </div>
+              <label className="asignacion-repartidor-campo" htmlFor="pedido-repartidor-select">
+                Repartidor
+                <select
+                  id="pedido-repartidor-select"
+                  value={repartidorSeleccionado}
+                  onChange={(event) => {
+                    setRepartidorSeleccionado(event.target.value);
+                    setErrorAsignacionRepartidor("");
+                  }}
+                  disabled={guardandoAsignacionRepartidor}
+                >
+                  <option value="">Selecciona un repartidor</option>
+                  {repartidores.map((repartidor) => (
+                    <option key={repartidor.id} value={repartidor.id}>
+                      {repartidor.nombre}{repartidor.zona ? ` · ${repartidor.zona}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {errorAsignacionRepartidor && <p className="asignacion-repartidor-error" role="alert">{errorAsignacionRepartidor}</p>}
+              <footer className="asignacion-repartidor-acciones">
+                <button
+                  type="button"
+                  className="admin-action-control"
+                  onClick={cerrarAsignacionRepartidor}
+                  disabled={guardandoAsignacionRepartidor}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="admin-action-control"
+                  disabled={guardandoAsignacionRepartidor}
+                >
+                  {guardandoAsignacionRepartidor ? "Asignando..." : "Asignar repartidor"}
+                </button>
+              </footer>
+            </form>
+          </section>
+        </div>
+      )}
 
       {/* Modal de detalle */}
       {modalPedido && (
@@ -746,19 +863,16 @@ export default function Pedidos() {
 
                     <div className="control">
                       <label>Repartidor:</label>
-                      <select
-                        value={String(modalPedido.repartidor_id || "")}
-                        onChange={(e) =>
-                          manejarCambioRepartidor(modalPedido.id, e.target.value)
-                        }
-                      >
-                        <option value="">Asignar repartidor</option>
-                        {repartidores.map((r) => (
-                          <option key={r.id} value={r.id}>
-                            {r.nombre} - {r.zona}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="pedido-repartidor-actual">
+                        <span>{obtenerNombreRepartidor(modalPedido.repartidor_id)}</span>
+                        <button
+                          type="button"
+                          className="admin-action-control"
+                          onClick={() => abrirAsignacionRepartidor(modalPedido)}
+                        >
+                          Asignar
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}

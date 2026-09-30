@@ -463,6 +463,20 @@
   box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
 }
 
+.pedido-repartidor-actual {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pedido-repartidor-actual > span {
+  min-width: 0;
+  color: #444;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
 /* FORMA DE PAGO */
 .forma-pago {
   display: inline-block;
@@ -992,6 +1006,137 @@
 
 .pedidos-table tr:hover {
   background: #f8f9fa;
+}
+
+.repartidor-asignacion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 180px;
+}
+
+.repartidor-nombre,
+.sin-repartidor {
+  min-width: 0;
+  color: #343434;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.sin-repartidor { color: #777; }
+
+.asignacion-repartidor-overlay {
+  position: fixed;
+  z-index: 1500;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(15, 15, 15, 0.58);
+}
+
+.asignacion-repartidor-modal {
+  width: min(460px, 100%);
+  overflow: hidden;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+}
+
+.asignacion-repartidor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 17px 20px;
+  border-bottom: 1px solid #e8e3d5;
+  background: #1c1c1c;
+}
+
+.asignacion-repartidor-header span {
+  color: var(--gold-soft);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.asignacion-repartidor-header h2 {
+  margin: 4px 0 0;
+  color: #fff;
+  font-size: 20px;
+}
+
+.asignacion-repartidor-header > button {
+  flex: 0 0 30px;
+  color: #1c1c1c;
+}
+
+.asignacion-repartidor-modal form { padding: 20px; }
+
+.asignacion-repartidor-pedido {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border-left: 3px solid var(--gold);
+  background: #fbf8ed;
+}
+
+.asignacion-repartidor-pedido span {
+  color: #8d702e;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.asignacion-repartidor-pedido strong {
+  color: #1c1c1c;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.asignacion-repartidor-pedido small { color: #706b5e; font-size: 12px; }
+
+.asignacion-repartidor-campo {
+  display: grid;
+  gap: 7px;
+  color: #343434;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.asignacion-repartidor-campo select {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid #d5dbe5;
+  border-radius: 4px;
+  color: #222;
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+}
+
+.asignacion-repartidor-campo select:focus {
+  outline: 2px solid rgba(200, 169, 81, 0.25);
+  border-color: var(--gold);
+}
+
+.asignacion-repartidor-error {
+  margin-top: 10px;
+  color: #a74737;
+  font-size: 12px;
+}
+
+.asignacion-repartidor-acciones {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px solid #e8e3d5;
 }
 
 .btn-detalle {
