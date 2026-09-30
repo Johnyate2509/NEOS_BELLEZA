@@ -99,7 +99,8 @@ export default function Pedidos() {
       telefono: pedido.telefono || pedido.celular || pedido.clienteTelefono || pedido.cliente?.telefono || "3001234567",
       contactoTelefono: pedido.contactoTelefono || pedido.telefono || pedido.celular || "3001234567",
       estado: pedido.estado || "Pendiente",
-      items: Array.isArray(pedido.items) ? pedido.items : [],
+      items: pedido.items ?? pedido.detalles ?? [],
+      productos,
     };
 
     descargarRemisionPedido(pedidoPdf);
