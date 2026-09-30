@@ -3,6 +3,7 @@ import { useStore } from "../context/StoreContext";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../context/supabaseClient";
 import { descargarRemisionPedido } from "../utils/remisionPdf";
+import expedienteIcon from "../components/img/expediente.png";
 import "../styles/pedidos.css";
 
 const REMISION_CONFIG_KEY = "remision_config";
@@ -577,7 +578,7 @@ export default function Pedidos() {
                       title="Descargar remisión PDF"
                       aria-label={`Descargar remisión del pedido ${p.id}`}
                     >
-                      📄
+                      <img src={expedienteIcon} alt="" />
                     </button>
                     <button
                       type="button"
