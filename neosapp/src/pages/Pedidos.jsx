@@ -31,6 +31,7 @@ export default function Pedidos() {
     productos,
     categorias,
     cambiarEstadoPedido, 
+    eliminarPedido,
     asignarRepartidor,
     agregarItemPedido,
     eliminarItemPedido,
@@ -111,6 +112,29 @@ export default function Pedidos() {
     if (resultado && modalPedido && modalPedido.id === pedidoId) {
       // Actualizar el modal local también
       setModalPedido((prev) => prev ? { ...prev, repartidor_id: valor } : null);
+    }
+  };
+
+  const confirmarEliminarPedido = async (pedido) => {
+    const confirmar = window.confirm(
+      `¿Estás seguro de eliminar el pedido #${pedido.id} de ${pedido.cliente}? Esta acción no se puede deshacer.`
+    );
+    if (!confirmar) return;
+
+    try {
+      const eliminado = await eliminarPedido(pedido.id);
+      if (!eliminado) {
+        window.alert("No se pudo eliminar el pedido. Inténtalo de nuevo.");
+        return;
+      }
+      if (String(modalPedido?.id) === String(pedido.id)) {
+        setModalPedido(null);
+        setPedidoExpandido(null);
+        setPedidoTemp({});
+      }
+    } catch (error) {
+      console.error("Error eliminando pedido:", error);
+      window.alert("Ocurrió un error al eliminar el pedido. Inténtalo de nuevo.");
     }
   };
 
@@ -513,6 +537,15 @@ export default function Pedidos() {
                       aria-label={`Descargar remisión del pedido ${p.id}`}
                     >
                       📄
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-delete"
+                      onClick={() => confirmarEliminarPedido(p)}
+                      title={`Eliminar pedido ${p.id}`}
+                      aria-label={`Eliminar pedido ${p.id}`}
+                    >
+                       Eliminar
                     </button>
                   </div>
                 </td>
