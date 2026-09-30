@@ -534,7 +534,7 @@ export default function AdminProductos() {
                                         <td>{formatearPrecio(variante.precio)}</td>
                                         <td>{formatearPrecio(variante.precio_emprendedor)}</td>
                                         <td>{formatearPrecio(variante.precio_mayorista)}</td>
-                                        <td className="admin-productos-variant-actions">
+                                        <td className="admin-producto-actions admin-productos-variant-actions">
                                           <button type="button" onClick={() => abrirEdicionVariante(producto, variante)}>Editar</button>
                                           <button type="button" className="danger" onClick={() => eliminarVariante(producto, variante)}>Eliminar</button>
                                         </td>
