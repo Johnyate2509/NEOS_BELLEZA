@@ -3163,14 +3163,21 @@ const obtenerProductosFiltrados = (categoria) => {
 
       {/* Botón flotante del carrito */}
       {carrito.length > 0 && (
-        <button
-          className="carrito-flotante"
-          onClick={() => setMostrarModalPedido(true)}
-          title="Ver carrito"
-        >
-          <span className="carrito-icono">🛒</span>
-          <span className="carrito-cantidad">{carrito.length}</span>
-        </button>
+        <div className="carrito-flotante-container">
+          <div className="carrito-total-flotante" aria-live="polite">
+            <span>Total</span>
+            <strong>${calcularTotal().toLocaleString("es-CO")}</strong>
+          </div>
+          <button
+            className="carrito-flotante"
+            onClick={() => setMostrarModalPedido(true)}
+            title="Ver carrito"
+            aria-label={`Ver carrito, ${carrito.length} productos, total ${calcularTotal().toLocaleString("es-CO")}`}
+          >
+            <span className="carrito-icono">🛒</span>
+            <span className="carrito-cantidad">{carrito.length}</span>
+          </button>
+        </div>
       )}
     </div>
   );
