@@ -394,6 +394,7 @@ const cargarProductos = async () => {
       });
     };
 
+    const variantesLegacyUsadas = new Set();
     const detallesPorPedido = detalleData.reduce((acc, detalle) => {
       const pedidoId =
         detalle.pedido_id ?? detalle.Pedido_id ?? detalle.pedidoId ?? detalle.PedidoId;
@@ -406,7 +407,26 @@ const cargarProductos = async () => {
       const variantesDelProducto = variantesData.filter(
         (variante) => String(variante.producto_id) === String(productoId)
       );
-      const variante = variantesPorId.get(String(productoId)) || variantesDelProducto[0] || null;
+      const varianteId =
+        detalle.variante_id ??
+        detalle.producto_variante_id ??
+        detalle.variant_id ??
+        null;
+      const varianteGuardada = varianteId ? variantesPorId.get(String(varianteId)) : null;
+      const precioDetalle = Number(detalle.precio ?? detalle.Precio);
+      const variantesCoincidentes = variantesDelProducto.filter((variante) =>
+        [variante.precio, variante.precio_emprendedor, variante.precio_mayorista]
+          .some((precio) => precio != null && Number(precio) === precioDetalle)
+      );
+      const claveLegacy = `${pedidoId}-${productoId}`;
+      const variantesDisponiblesLegacy = (variantesCoincidentes.length > 0
+        ? variantesCoincidentes
+        : variantesDelProducto
+      ).filter((variante) => !variantesLegacyUsadas.has(`${claveLegacy}-${variante.id}`));
+      const variante = varianteGuardada || variantesDisponiblesLegacy[0] || null;
+      if (variante && !varianteId) {
+        variantesLegacyUsadas.add(`${claveLegacy}-${variante.id}`);
+      }
       const productoPadre = variante
         ? (productosCargados.length > 0 ? productosCargados : productos).find(
             (prod) => String(prod.id) === String(variante.producto_id)
@@ -421,7 +441,7 @@ const cargarProductos = async () => {
         : nombreBase;
 
       const item = {
-        id: productoId,
+        id: variante?.id ?? productoId,
         producto_id: variante ? variante.producto_id : productoPadre?.id ?? productoId,
         nombre: nombreItem,
         precio: Number(
@@ -978,6 +998,7 @@ const cargarProductos = async () => {
       const detalles = carrito.map((item) => ({
         pedido_id: pedidoCreado.id,
         producto_id: item.producto_id ?? item.id,
+          variante_id: item.variante?.id ?? item.variante_id ?? null,
         cantidad: item.cantidad || 1,
         precio: item.precio,
       }));
@@ -2141,6 +2162,7 @@ const datosCliente = {
         const detalles = items.map((item) => ({
           pedido_id: pedidoId,
           producto_id: item.producto_id ?? item.id,
+          variante_id: item.variante?.id ?? item.variante_id ?? null,
           cantidad: item.cantidad || 1,
           precio: item.precio,
         }));
