@@ -150,6 +150,18 @@ const adaptarProducto = (p) => {
   };
 };
 
+  const obtenerNombreVariantePedido = (variante) => {
+    if (!variante) return "";
+    if (variante.nombre) return variante.nombre;
+    if (typeof variante.atributos === "string" && variante.atributos.trim()) return variante.atributos;
+    if (variante.atributos && typeof variante.atributos === "object") {
+      return Object.entries(variante.atributos)
+        .map(([nombre, valor]) => `${nombre}: ${Array.isArray(valor) ? valor.join(", ") : String(valor)}`)
+        .join(" · ");
+    }
+    return "Variante";
+  };
+
   const adaptarPedido = (p, items = [], clientesData = []) => {
     const clienteId =
       p.cliente_id ??
@@ -303,18 +315,32 @@ const cargarProductos = async () => {
       .filter((id) => id != null);
 
     let detalleData = [];
+    let variantesData = [];
     if (pedidoIds.length > 0) {
-      const { data: detalles, error: detalleError } = await supabase
-        .from("pedido_detalle")
-        .select("*")
-        .in("pedido_id", pedidoIds);
+      const [detallesResponse, variantesResponse] = await Promise.all([
+        supabase
+          .from("pedido_detalle")
+          .select("*")
+          .in("pedido_id", pedidoIds),
+        supabase.from("producto_variantes").select("*")
+      ]);
 
-      if (detalleError) {
-        console.error("Error cargando detalles de pedidos:", detalleError);
+      if (detallesResponse.error) {
+        console.error("Error cargando detalles de pedidos:", detallesResponse.error);
       } else {
-        detalleData = detalles || [];
+        detalleData = detallesResponse.data || [];
+      }
+
+      if (variantesResponse.error) {
+        console.error("Error cargando variantes de productos:", variantesResponse.error);
+      } else {
+        variantesData = variantesResponse.data || [];
       }
     }
+
+    const variantesPorId = new Map(
+      variantesData.map((variante) => [String(variante.id), variante])
+    );
 
     const detallesPorPedido = detalleData.reduce((acc, detalle) => {
       const pedidoId =
@@ -325,33 +351,66 @@ const cargarProductos = async () => {
         detalle.productoId ??
         detalle.ProductoId;
 
-      const producto = (productosCargados.length > 0 ? productosCargados : productos).find(
-        (prod) => String(prod.id) === String(productoId)
-      );
+      const variante = variantesPorId.get(String(productoId)) || null;
+      const productoPadre = variante
+        ? (productosCargados.length > 0 ? productosCargados : productos).find(
+            (prod) => String(prod.id) === String(variante.producto_id)
+          )
+        : (productosCargados.length > 0 ? productosCargados : productos).find(
+            (prod) => String(prod.id) === String(productoId)
+          );
 
       const item = {
         id: productoId,
+        producto_id: variante ? variante.producto_id : productoPadre?.id ?? productoId,
         nombre:
-          producto?.nombre ||
-          detalle.nombre ||
-          `Producto #${productoId}`,
-        precio: Number(detalle.precio ?? detalle.Precio ?? producto?.precio ?? 0),
+          variante
+            ? `${productoPadre?.nombre || detalle.nombre || `Producto #${productoId}`} - ${obtenerNombreVariantePedido(variante)}`
+            : productoPadre?.nombre ||
+              detalle.nombre ||
+              `Producto #${productoId}`,
+        precio: Number(
+          detalle.precio ??
+          detalle.Precio ??
+          variante?.precio ??
+          productoPadre?.precio ??
+          0
+        ),
         cantidad: Number(detalle.cantidad ?? detalle.Cantidad ?? 1),
         imagen:
-          producto?.imagenes?.[0] ||
+          variante?.imagenes?.[0] ||
+          productoPadre?.imagenes?.[0] ||
           detalle.imagen ||
           detalle.imagen_url ||
           "",
+        variante,
       };
 
       acc[pedidoId] = [...(acc[pedidoId] || []), item];
       return acc;
     }, {});
 
+    const detallesPorPedidoFiltrados = Object.fromEntries(
+      Object.entries(detallesPorPedido).map(([pedidoId, items]) => {
+        const idsPadresConVariante = new Set(
+          items
+            .filter((item) => item.variante)
+            .map((item) => String(item.producto_id ?? item.id))
+        );
+
+        const itemsFiltrados = items.filter((item) => {
+          if (item.variante) return true;
+          return !idsPadresConVariante.has(String(item.producto_id ?? item.id));
+        });
+
+        return [pedidoId, itemsFiltrados];
+      })
+    );
+
     const pedidosAdaptados = pedidosData.map((pedido) =>
       adaptarPedido(
         pedido,
-        detallesPorPedido[pedido.id] || pedido.items || [],
+        detallesPorPedidoFiltrados[pedido.id] || pedido.items || [],
         Array.isArray(clientesCargados) && clientesCargados.length > 0
           ? clientesCargados
           : clientes
@@ -867,7 +926,7 @@ const cargarProductos = async () => {
 
       const detalles = carrito.map((item) => ({
         pedido_id: pedidoCreado.id,
-        producto_id: item.id,
+        producto_id: item.variante?.id ?? item.id,
         cantidad: item.cantidad || 1,
         precio: item.precio,
       }));
@@ -2030,7 +2089,7 @@ const datosCliente = {
       if (items.length > 0) {
         const detalles = items.map((item) => ({
           pedido_id: pedidoId,
-          producto_id: item.id,
+          producto_id: item.variante?.id ?? item.producto_id ?? item.id,
           cantidad: item.cantidad || 1,
           precio: item.precio,
         }));
@@ -2075,11 +2134,18 @@ const datosCliente = {
     }
   };
 
-  const agregarItemPedido = async (pedidoId, productoId, nombre, precio, cantidad) => {
+  const agregarItemPedido = async (pedidoId, productoId, nombre, precio, cantidad, itemMeta = {}) => {
     const pedido = pedidos.find((p) => p.id === pedidoId);
     if (!pedido) return false;
 
-    const nuevoItem = { id: productoId, nombre, precio, cantidad };
+    const nuevoItem = {
+      id: productoId,
+      producto_id: itemMeta.producto_id ?? productoId,
+      nombre,
+      precio,
+      cantidad,
+      variante: itemMeta.variante ?? null,
+    };
     const items = [...(pedido.items || []), nuevoItem];
     return await updatePedidoItems(pedidoId, items);
   };

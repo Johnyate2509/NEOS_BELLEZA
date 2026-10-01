@@ -348,12 +348,16 @@ export default function Pedidos() {
     const etiquetaVariante = variante ? obtenerNombreVariante(variante) : "";
     const nombre = etiquetaVariante ? `${producto.nombre} - ${etiquetaVariante}` : producto.nombre;
     const precio = Number(variante?.precio ?? producto.precio ?? 0);
-    const success = await agregarItemPedido(pedidoId, producto.id, nombre, precio, 1);
+    const itemId = variante?.id ?? producto.id;
+    const success = await agregarItemPedido(pedidoId, itemId, nombre, precio, 1, {
+      producto_id: producto.id,
+      variante,
+    });
     if (!success) return false;
 
     const nuevosItems = [
       ...(pedidoTemp.items || []),
-      { id: producto.id, nombre, precio, cantidad: 1 },
+      { id: itemId, producto_id: producto.id, nombre, precio, cantidad: 1, variante: variante || null },
     ];
     actualizarItemsLocal(nuevosItems);
     return true;
@@ -402,7 +406,7 @@ export default function Pedidos() {
   };
 
   const productosDisponibles = productos.filter(
-    (p) => !pedidoTemp.items?.some((item) => String(item.id) === String(p.id))
+    (p) => !pedidoTemp.items?.some((item) => String(item.producto_id ?? item.id) === String(p.id))
   );
   const productosFiltradosPedido = productosDisponibles.filter((producto) => {
     const busqueda = busquedaProductosPedido.trim().toLocaleLowerCase();
