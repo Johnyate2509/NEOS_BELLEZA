@@ -8,6 +8,7 @@ export default function MisPedidos() {
   const { user } = useAuth();
   const { clientes, pedidos } = useStore();
   const [misPedidos, setMisPedidos] = useState([]);
+  const [pedidoSeleccionado, setPedidoSeleccionado] = useState(null);
 
   // Obtener el cliente actual (el usuario logueado)
   const clienteActual = clientes.find((c) => c.usuario_id === user?.id || c.correo === user?.email);
@@ -72,6 +73,7 @@ export default function MisPedidos() {
                     <th>Valor</th>
                     <th>Estado</th>
                     <th>Repartidor</th>
+                    <th>Detalle</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -87,6 +89,15 @@ export default function MisPedidos() {
                       </td>
                       <td data-label="Repartidor">
                         {pedido.repartidor || "No asignado"}
+                      </td>
+                      <td data-label="Detalle">
+                        <button
+                          type="button"
+                          className="btn-ver-detalle-cliente"
+                          onClick={() => setPedidoSeleccionado(pedido)}
+                        >
+                          Ver detalle
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -109,6 +120,13 @@ export default function MisPedidos() {
                     <p><strong>Valor:</strong> ${pedido.total?.toLocaleString()}</p>
                     <p><strong>Repartidor:</strong> {pedido.repartidor || "No asignado"}</p>
                     <p><strong>Dirección:</strong> {pedido.direccion || "No especificada"}</p>
+                    <button
+                      type="button"
+                      className="btn-ver-detalle-cliente btn-ver-detalle-cliente--mobile"
+                      onClick={() => setPedidoSeleccionado(pedido)}
+                    >
+                      Ver detalle
+                    </button>
                   </div>
                 </div>
               ))}
@@ -116,6 +134,57 @@ export default function MisPedidos() {
           </>
         )}
       </div>
+
+      {pedidoSeleccionado && (
+        <div className="mis-pedidos-modal-overlay" onClick={() => setPedidoSeleccionado(null)}>
+          <div className="mis-pedidos-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="mis-pedidos-modal-header">
+              <h3>Pedido #{pedidoSeleccionado.id}</h3>
+              <button
+                type="button"
+                className="mis-pedidos-modal-close"
+                onClick={() => setPedidoSeleccionado(null)}
+                aria-label="Cerrar detalle del pedido"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="mis-pedidos-modal-body">
+              <div className="mis-pedidos-modal-grid">
+                <p><strong>Fecha:</strong> {pedidoSeleccionado.fecha || "No registrada"}</p>
+                <p><strong>Estado:</strong> <span className={`estado-badge estado-${getEstadoClase(pedidoSeleccionado.estado)}`}>{pedidoSeleccionado.estado}</span></p>
+                <p><strong>Dirección:</strong> {pedidoSeleccionado.direccion || "No especificada"}</p>
+                <p><strong>Repartidor:</strong> {pedidoSeleccionado.repartidor || "No asignado"}</p>
+              </div>
+
+              <div className="mis-pedidos-detalle-items">
+                <h4>Productos</h4>
+                {pedidoSeleccionado.items?.length ? (
+                  pedidoSeleccionado.items.map((item, index) => (
+                    <div key={`${pedidoSeleccionado.id}-${index}`} className="mis-pedidos-item">
+                      <div className="mis-pedidos-item-info">
+                        <span className="mis-pedidos-item-nombre">{item.nombre || `Producto ${index + 1}`}</span>
+                        <span className="mis-pedidos-item-meta">Cantidad: {item.cantidad ?? 1}</span>
+                      </div>
+                      <span className="mis-pedidos-item-precio">
+                        ${(Number(item.precio || 0) * Number(item.cantidad || 1)).toLocaleString()}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="mis-pedidos-sin-items">No hay productos registrados en este pedido.</p>
+                )}
+              </div>
+
+              <div className="mis-pedidos-total-row">
+                <strong>Total</strong>
+                <span>${Number(pedidoSeleccionado.total || 0).toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="transacciones-section">
         <h2>💳 Historial de Transacciones</h2>

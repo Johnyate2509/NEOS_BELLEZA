@@ -284,6 +284,145 @@
   }
 }
 
+.btn-ver-detalle-cliente {
+  border: none;
+  border-radius: 8px;
+  background: #111827;
+  color: #fff;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.btn-ver-detalle-cliente:hover {
+  background: #374151;
+}
+
+.btn-ver-detalle-cliente--mobile {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.mis-pedidos-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 1000;
+}
+
+.mis-pedidos-modal {
+  width: min(680px, 100%);
+  max-height: 85vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
+}
+
+.mis-pedidos-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.mis-pedidos-modal-header h3 {
+  margin: 0;
+  font-size: 20px;
+  color: #111827;
+}
+
+.mis-pedidos-modal-close {
+  border: none;
+  background: transparent;
+  font-size: 28px;
+  line-height: 1;
+  color: #4b5563;
+  cursor: pointer;
+}
+
+.mis-pedidos-modal-body {
+  padding: 20px;
+}
+
+.mis-pedidos-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 10px 18px;
+  margin-bottom: 20px;
+}
+
+.mis-pedidos-modal-grid p {
+  margin: 0;
+  color: #374151;
+  font-size: 14px;
+}
+
+.mis-pedidos-detalle-items {
+  border-top: 1px solid #e5e7eb;
+  padding-top: 18px;
+}
+
+.mis-pedidos-detalle-items h4 {
+  margin: 0 0 14px;
+  font-size: 18px;
+  color: #111827;
+}
+
+.mis-pedidos-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.mis-pedidos-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mis-pedidos-item-nombre {
+  font-weight: 600;
+  color: #111827;
+}
+
+.mis-pedidos-item-meta {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.mis-pedidos-item-precio {
+  font-weight: 600;
+  color: #111827;
+  white-space: nowrap;
+}
+
+.mis-pedidos-sin-items {
+  margin: 0;
+  color: #6b7280;
+}
+
+.mis-pedidos-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+  font-size: 16px;
+  color: #111827;
+}
+
 .transacciones-section {
   margin-top: 28px;
 }
