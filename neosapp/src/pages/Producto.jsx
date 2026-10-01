@@ -1701,7 +1701,7 @@ const obtenerProductosFiltrados = (categoria) => {
       for (const item of carrito) {
         const { error: errorDetalle } = await supabase.from("pedido_detalle").insert({
           pedido_id: pedido.id,
-          producto_id: item.variante?.id ?? item.id,
+          producto_id: item.producto_id ?? item.id,
           cantidad: item.cantidad,
           precio: item.precio,
         });

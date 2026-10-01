@@ -162,6 +162,34 @@ const adaptarProducto = (p) => {
     return "Variante";
   };
 
+  const obtenerPrimeraImagen = (...candidatos) => {
+    for (const valor of candidatos) {
+      if (!valor) continue;
+
+      if (Array.isArray(valor)) {
+        const primer = valor.find((item) => Boolean(item));
+        if (primer) return primer;
+        continue;
+      }
+
+      if (typeof valor === "string") {
+        if (valor.trim()) return valor;
+        continue;
+      }
+
+      if (typeof valor === "object") {
+        const imagenes = Array.isArray(valor.imagenes)
+          ? valor.imagenes
+          : [valor.imagen, valor.imagen_url, valor.image, valor.url, valor.src].filter(Boolean);
+
+        const primer = imagenes.find((item) => Boolean(item));
+        if (primer) return primer;
+      }
+    }
+
+    return "";
+  };
+
   const adaptarPedido = (p, items = [], clientesData = []) => {
     const clienteId =
       p.cliente_id ??
@@ -341,6 +369,30 @@ const cargarProductos = async () => {
     const variantesPorId = new Map(
       variantesData.map((variante) => [String(variante.id), variante])
     );
+    const idsVariantes = new Set(variantesData.map((variante) => String(variante.id)));
+
+    const filtrarItemsConVariantes = (items = []) => {
+      const idsPadresConVariante = new Set(
+        items
+          .filter((item) => {
+            const itemId = String(item?.id ?? item?.producto_id ?? "");
+            const itemVarianteId = String(item?.variante?.id ?? item?.varianteId ?? "");
+            const nombreItem = typeof item?.nombre === "string" ? item.nombre : "";
+            const pareceVariante = Boolean(item?.variante) || idsVariantes.has(itemId) || idsVariantes.has(itemVarianteId) || nombreItem.includes(" - ");
+            return pareceVariante;
+          })
+          .map((item) => String(item?.producto_id ?? item?.variante?.producto_id ?? item?.id ?? ""))
+          .filter(Boolean)
+      );
+
+      return items.filter((item) => {
+        if (item?.variante) return true;
+        const itemProductId = String(item?.producto_id ?? item?.id ?? "");
+        const nombreItem = typeof item?.nombre === "string" ? item.nombre : "";
+        if (nombreItem.includes(" - ")) return false;
+        return !idsPadresConVariante.has(itemProductId);
+      });
+    };
 
     const detallesPorPedido = detalleData.reduce((acc, detalle) => {
       const pedidoId =
@@ -351,7 +403,10 @@ const cargarProductos = async () => {
         detalle.productoId ??
         detalle.ProductoId;
 
-      const variante = variantesPorId.get(String(productoId)) || null;
+      const variantesDelProducto = variantesData.filter(
+        (variante) => String(variante.producto_id) === String(productoId)
+      );
+      const variante = variantesPorId.get(String(productoId)) || variantesDelProducto[0] || null;
       const productoPadre = variante
         ? (productosCargados.length > 0 ? productosCargados : productos).find(
             (prod) => String(prod.id) === String(variante.producto_id)
@@ -360,15 +415,15 @@ const cargarProductos = async () => {
             (prod) => String(prod.id) === String(productoId)
           );
 
+      const nombreBase = productoPadre?.nombre || `Producto #${productoId}`;
+      const nombreItem = variante
+        ? `${nombreBase} (${obtenerNombreVariantePedido(variante)})`
+        : nombreBase;
+
       const item = {
         id: productoId,
         producto_id: variante ? variante.producto_id : productoPadre?.id ?? productoId,
-        nombre:
-          variante
-            ? `${productoPadre?.nombre || detalle.nombre || `Producto #${productoId}`} - ${obtenerNombreVariantePedido(variante)}`
-            : productoPadre?.nombre ||
-              detalle.nombre ||
-              `Producto #${productoId}`,
+        nombre: nombreItem,
         precio: Number(
           detalle.precio ??
           detalle.Precio ??
@@ -377,12 +432,18 @@ const cargarProductos = async () => {
           0
         ),
         cantidad: Number(detalle.cantidad ?? detalle.Cantidad ?? 1),
-        imagen:
-          variante?.imagenes?.[0] ||
-          productoPadre?.imagenes?.[0] ||
-          detalle.imagen ||
-          detalle.imagen_url ||
-          "",
+        imagen: obtenerPrimeraImagen(
+          variante?.imagenes,
+          variante?.imagen,
+          variante?.imagen_url,
+          variante?.image,
+          productoPadre?.imagenes,
+          productoPadre?.imagen,
+          productoPadre?.imagen_url,
+          detalle.imagen,
+          detalle.imagen_url,
+          detalle.image
+        ),
         variante,
       };
 
@@ -391,26 +452,16 @@ const cargarProductos = async () => {
     }, {});
 
     const detallesPorPedidoFiltrados = Object.fromEntries(
-      Object.entries(detallesPorPedido).map(([pedidoId, items]) => {
-        const idsPadresConVariante = new Set(
-          items
-            .filter((item) => item.variante)
-            .map((item) => String(item.producto_id ?? item.id))
-        );
-
-        const itemsFiltrados = items.filter((item) => {
-          if (item.variante) return true;
-          return !idsPadresConVariante.has(String(item.producto_id ?? item.id));
-        });
-
-        return [pedidoId, itemsFiltrados];
-      })
+      Object.entries(detallesPorPedido).map(([pedidoId, items]) => [
+        pedidoId,
+        filtrarItemsConVariantes(items),
+      ])
     );
 
     const pedidosAdaptados = pedidosData.map((pedido) =>
       adaptarPedido(
         pedido,
-        detallesPorPedidoFiltrados[pedido.id] || pedido.items || [],
+        detallesPorPedidoFiltrados[pedido.id] || filtrarItemsConVariantes(pedido.items || []),
         Array.isArray(clientesCargados) && clientesCargados.length > 0
           ? clientesCargados
           : clientes
@@ -926,7 +977,7 @@ const cargarProductos = async () => {
 
       const detalles = carrito.map((item) => ({
         pedido_id: pedidoCreado.id,
-        producto_id: item.variante?.id ?? item.id,
+        producto_id: item.producto_id ?? item.id,
         cantidad: item.cantidad || 1,
         precio: item.precio,
       }));
@@ -2089,7 +2140,7 @@ const datosCliente = {
       if (items.length > 0) {
         const detalles = items.map((item) => ({
           pedido_id: pedidoId,
-          producto_id: item.variante?.id ?? item.producto_id ?? item.id,
+          producto_id: item.producto_id ?? item.id,
           cantidad: item.cantidad || 1,
           precio: item.precio,
         }));
