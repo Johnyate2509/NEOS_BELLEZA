@@ -352,12 +352,13 @@ export default function Pedidos() {
     const success = await agregarItemPedido(pedidoId, itemId, nombre, precio, 1, {
       producto_id: producto.id,
       variante,
+      tipo_catalogo: "General",
     });
     if (!success) return false;
 
     const nuevosItems = [
       ...(pedidoTemp.items || []),
-      { id: itemId, producto_id: producto.id, nombre, precio, cantidad: 1, variante: variante || null },
+      { id: itemId, producto_id: producto.id, nombre, precio, cantidad: 1, variante: variante || null, tipo_catalogo: "General" },
     ];
     actualizarItemsLocal(nuevosItems);
     return true;
@@ -740,6 +741,7 @@ export default function Pedidos() {
                         <div key={index} className="pedido-item-editable">
                           <div className="item-info">
                             <span className="item-nombre">{item.nombre}</span>
+                            <span className="item-precio-unitario">Catálogo: {item.tipo_catalogo || "General"}</span>
                             <span className="item-precio-unitario">${item.precio.toLocaleString()}</span>
                           </div>
                           <div className="item-controls">
@@ -823,6 +825,8 @@ export default function Pedidos() {
                           <div className="producto-detalle-texto">
                             <span className="producto-nombre">{item.nombre}</span>
                             <span className="producto-cantidad">x{item.cantidad}</span>
+                            <span className="producto-cantidad">Catálogo: {item.tipo_catalogo || "General"}</span>
+                            <span className="producto-cantidad">Precio unitario: ${Number(item.precio || 0).toLocaleString()}</span>
                           </div>
 
                           <span className="price">${(item.precio * item.cantidad).toLocaleString()}</span>

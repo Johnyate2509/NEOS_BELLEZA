@@ -1303,13 +1303,13 @@ export default function Producto() {
       return;
     }
 
-    const productoEnCarrito = carrito.find((p) => p.id === producto.id && !p.variante);
+    const productoEnCarrito = carrito.find((p) => p.id === producto.id && !p.variante && (p.tipo_catalogo || "General") === tipoCatalogo);
 
     if (productoEnCarrito) {
       if (controlaStock && productoEnCarrito.cantidad >= producto.stock) return;
       setCarrito(
         carrito.map((p) =>
-          p.id === producto.id && !p.variante
+          p.id === producto.id && !p.variante && (p.tipo_catalogo || "General") === tipoCatalogo
             ? { ...p, cantidad: p.cantidad + 1 }
             : p
         )
@@ -1317,7 +1317,7 @@ export default function Producto() {
       return;
     }
 
-    setCarrito([...carrito, { ...producto, precio: precioSeleccionado, cantidad: 1 }]);
+    setCarrito([...carrito, { ...producto, precio: precioSeleccionado, cantidad: 1, tipo_catalogo: tipoCatalogo }]);
   };
 
   const precioDisponibleEnCatalogo = (producto) => obtenerPrecioProducto(producto) != null;
@@ -1330,7 +1330,7 @@ export default function Producto() {
 
 
   const obtenerCarritoKey = (item) =>
-    item.variante?.id ? `${item.id}-${item.variante.id}` : `${item.id}-base`;
+    `${item.variante?.id ? `${item.id}-${item.variante.id}` : `${item.id}-base`}-${item.tipo_catalogo || "General"}`;
 
   const obtenerNombreCarrito = (item) => {
     if (!item.variante) return item.nombre;
@@ -1374,7 +1374,7 @@ export default function Producto() {
 
   const cambiarCantidadVariante = (variante, cambio) => {
     const cantidadEnCarrito = carrito.find(
-      (item) => item.id === productoDetalles.id && item.variante?.id === variante.id
+      (item) => item.id === productoDetalles.id && item.variante?.id === variante.id && (item.tipo_catalogo || "General") === tipoCatalogo
     )?.cantidad || 0;
     const stockDisponible = controlaStock
       ? Math.max(0, Number(variante.stock || 0) - cantidadEnCarrito)
@@ -1405,7 +1405,7 @@ export default function Producto() {
       if (precio == null || Number(precio) <= 0) return;
 
       const indiceExistente = carritoActualizado.findIndex(
-        (item) => item.id === productoDetalles.id && item.variante?.id === variante.id
+        (item) => item.id === productoDetalles.id && item.variante?.id === variante.id && (item.tipo_catalogo || "General") === tipoCatalogo
       );
       if (indiceExistente >= 0) {
         const cantidadFinal = carritoActualizado[indiceExistente].cantidad + cantidad;
@@ -1420,6 +1420,7 @@ export default function Producto() {
           precio: Number(precio),
           cantidad,
           variante,
+          tipo_catalogo: tipoCatalogo,
         });
       }
       unidadesAgregadas += cantidad;
@@ -1436,7 +1437,7 @@ export default function Producto() {
   };
 
   const renderControlCarrito = (producto) => {
-    const productoEnCarrito = carrito.find((item) => item.id === producto.id && !item.variante);
+    const productoEnCarrito = carrito.find((item) => item.id === producto.id && !item.variante && (item.tipo_catalogo || "General") === tipoCatalogo);
     const cantidad = productoEnCarrito?.cantidad || 0;
 
     if (!precioDisponibleEnCatalogo(producto)) {
@@ -2737,7 +2738,7 @@ const obtenerProductosFiltrados = (categoria) => {
                             return;
                           }
 
-                          const productoEnCarrito = carrito.find((p) => p.id === productoDetalles.id && !p.variante);
+                          const productoEnCarrito = carrito.find((p) => p.id === productoDetalles.id && !p.variante && (p.tipo_catalogo || "General") === tipoCatalogo);
                           if (productoEnCarrito) {
                             const nuevaCantidad = productoEnCarrito.cantidad + cantidadDetalles;
                             if (controlaStock && nuevaCantidad > productoDetalles.stock) {
@@ -2746,7 +2747,7 @@ const obtenerProductosFiltrados = (categoria) => {
                             }
                             setCarrito(
                               carrito.map((p) =>
-                                p.id === productoDetalles.id && !p.variante
+                                p.id === productoDetalles.id && !p.variante && (p.tipo_catalogo || "General") === tipoCatalogo
                                   ? { ...p, cantidad: nuevaCantidad }
                                   : p
                               )
@@ -2758,6 +2759,7 @@ const obtenerProductosFiltrados = (categoria) => {
                                 ...productoDetalles,
                                 precio: precioSeleccionado,
                                 cantidad: cantidadDetalles,
+                                tipo_catalogo: tipoCatalogo,
                               },
                             ]);
                           }
@@ -2793,7 +2795,7 @@ const obtenerProductosFiltrados = (categoria) => {
                 {variantesProducto.map((v) => {
                   const precioVar = tipoCatalogo === "Emprendedor" && v.precio_emprendedor != null ? v.precio_emprendedor : tipoCatalogo === "Mayorista" && v.precio_mayorista != null ? v.precio_mayorista : v.precio != null ? v.precio : obtenerPrecioProducto(productoDetalles);
                   const cantidadSeleccionada = cantidadesVariantesSeleccionadas[v.id] || 0;
-                  const cantidadEnCarrito = carrito.find((item) => item.id === productoDetalles.id && item.variante?.id === v.id)?.cantidad || 0;
+                  const cantidadEnCarrito = carrito.find((item) => item.id === productoDetalles.id && item.variante?.id === v.id && (item.tipo_catalogo || "General") === tipoCatalogo)?.cantidad || 0;
                   const stockDisponible = controlaStock
                     ? Math.max(0, Number(v.stock || 0) - cantidadEnCarrito)
                     : Infinity;

@@ -434,7 +434,7 @@ export default function VendedorDashboard() {
                         <ul>
                           {pedido.items.map((item, idx) => (
                             <li key={idx}>
-                              {item.nombre} x{item.cantidad} - ${(item.precio * item.cantidad).toLocaleString()}
+                              {item.nombre} · Catálogo: {item.tipo_catalogo || "General"} · ${Number(item.precio || 0).toLocaleString()} c/u · Total: ${(item.precio * item.cantidad).toLocaleString()}
                             </li>
                           ))}
                         </ul>

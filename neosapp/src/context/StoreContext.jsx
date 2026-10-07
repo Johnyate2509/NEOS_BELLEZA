@@ -439,18 +439,18 @@ const cargarProductos = async () => {
       const nombreItem = variante
         ? `${nombreBase} (${obtenerNombreVariantePedido(variante)})`
         : nombreBase;
+      const precioGuardado = Number(detalle.precio ?? detalle.Precio ?? variante?.precio ?? productoPadre?.precio ?? 0);
+      const tipoCatalogo = detalle.tipo_catalogo || detalle.catalogo || [
+        ["General", variante?.precio ?? productoPadre?.precio],
+        ["Emprendedor", variante?.precio_emprendedor ?? productoPadre?.precio_emprendedor],
+        ["Mayorista", variante?.precio_mayorista ?? productoPadre?.precio_mayorista],
+      ].find(([, precio]) => precio != null && Number(precio) === precioGuardado)?.[0] || "General";
 
       const item = {
         id: variante?.id ?? productoId,
         producto_id: variante ? variante.producto_id : productoPadre?.id ?? productoId,
         nombre: nombreItem,
-        precio: Number(
-          detalle.precio ??
-          detalle.Precio ??
-          variante?.precio ??
-          productoPadre?.precio ??
-          0
-        ),
+        precio: precioGuardado,
         cantidad: Number(detalle.cantidad ?? detalle.Cantidad ?? 1),
         imagen: obtenerPrimeraImagen(
           variante?.imagenes,
@@ -465,6 +465,7 @@ const cargarProductos = async () => {
           detalle.image
         ),
         variante,
+        tipo_catalogo: tipoCatalogo,
       };
 
       acc[pedidoId] = [...(acc[pedidoId] || []), item];
@@ -998,7 +999,8 @@ const cargarProductos = async () => {
       const detalles = carrito.map((item) => ({
         pedido_id: pedidoCreado.id,
         producto_id: item.producto_id ?? item.id,
-          variante_id: item.variante?.id ?? item.variante_id ?? null,
+        variante_id: item.variante?.id ?? item.variante_id ?? null,
+        tipo_catalogo: item.tipo_catalogo || "General",
         cantidad: item.cantidad || 1,
         precio: item.precio,
       }));
@@ -2163,6 +2165,7 @@ const datosCliente = {
           pedido_id: pedidoId,
           producto_id: item.producto_id ?? item.id,
           variante_id: item.variante?.id ?? item.variante_id ?? null,
+          tipo_catalogo: item.tipo_catalogo || "General",
           cantidad: item.cantidad || 1,
           precio: item.precio,
         }));
@@ -2218,6 +2221,7 @@ const datosCliente = {
       precio,
       cantidad,
       variante: itemMeta.variante ?? null,
+      tipo_catalogo: itemMeta.tipo_catalogo || "General",
     };
     const items = [...(pedido.items || []), nuevoItem];
     return await updatePedidoItems(pedidoId, items);
