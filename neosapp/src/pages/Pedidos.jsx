@@ -43,6 +43,9 @@ const obtenerPrecioCatalogo = (producto, variante, catalogo) => {
 const obtenerClavePrealistamiento = (item, index) =>
   `${item.producto_id ?? item.id}:${item.variante?.id ?? item.variante_id ?? "base"}:${index}`;
 
+const pedidoEstaConfirmado = (pedido) =>
+  pedido?.estado === "Confirmado" || pedido?.pre_alistamiento?.confirmado === true;
+
 const obtenerResumenPrealistamiento = (pedido) => {
   const cantidades = pedido.pre_alistamiento?.cantidades || {};
   const total = (pedido.items || []).reduce((suma, item) => suma + Number(item.cantidad || 0), 0);
@@ -83,6 +86,9 @@ export default function Pedidos() {
   const [searchTerm, setSearchTerm] = useState("");
   const [modalPedido, setModalPedido] = useState(null);
   const [pedidoPrealistar, setPedidoPrealistar] = useState(null);
+  const [pedidoAnularConfirmacion, setPedidoAnularConfirmacion] = useState(null);
+  const [guardandoAnulacionConfirmacion, setGuardandoAnulacionConfirmacion] = useState(false);
+  const [errorAnulacionConfirmacion, setErrorAnulacionConfirmacion] = useState("");
   const [cantidadesPrealistadas, setCantidadesPrealistadas] = useState({});
   const [sliderPrealistamiento, setSliderPrealistamiento] = useState(0);
   const [mostrarAdvertenciaPrealistamiento, setMostrarAdvertenciaPrealistamiento] = useState(false);
@@ -358,6 +364,7 @@ export default function Pedidos() {
   };
 
   const abrirEdicion = (pedido) => {
+    if (pedidoEstaConfirmado(pedido)) return;
     const catalogos = new Set((pedido.items || []).map((item) => item.tipo_catalogo || "General"));
     setPedidoExpandido(pedido.id);
     setPedidoTemp({ ...pedido, tipo_catalogo: catalogos.size <= 1 ? [...catalogos][0] || "General" : "" });
@@ -377,6 +384,11 @@ export default function Pedidos() {
     setErrorPrealistamiento("");
   };
 
+  const abrirAnulacionConfirmacion = (pedido) => {
+    setPedidoAnularConfirmacion(pedido);
+    setErrorAnulacionConfirmacion("");
+  };
+
   const cerrarPrealistamiento = () => {
     if (guardandoPrealistamiento) return;
     setPedidoPrealistar(null);
@@ -385,13 +397,13 @@ export default function Pedidos() {
     setErrorPrealistamiento("");
   };
 
-  const guardarPrealistamiento = async (pedidoId, datos) => {
+  const guardarPrealistamiento = async (pedidoId, datos, estado = null) => {
     guardadosPendientesPrealistamiento.current += 1;
     setGuardandoPrealistamiento(true);
     setErrorPrealistamiento("");
     const guardado = colaGuardadoPrealistamiento.current
       .catch(() => false)
-      .then(() => actualizarPrealistamientoPedido(pedidoId, datos));
+      .then(() => actualizarPrealistamientoPedido(pedidoId, datos, estado));
     colaGuardadoPrealistamiento.current = guardado;
     try {
       const correcto = await guardado;
@@ -436,13 +448,39 @@ export default function Pedidos() {
       cantidades: cantidadesPrealistadas,
       confirmado: true,
       confirmado_en: new Date().toISOString(),
+      estado_anterior: pedidoPrealistar.estado !== "Confirmado"
+        ? pedidoPrealistar.estado || "Pendiente"
+        : pedidoPrealistar.pre_alistamiento?.estado_anterior || "Pendiente",
     };
-    const correcto = await guardarPrealistamiento(pedidoPrealistar.id, datosConfirmados);
+    const correcto = await guardarPrealistamiento(pedidoPrealistar.id, datosConfirmados, "Confirmado");
     if (correcto) {
-      setPedidoPrealistar((actual) => actual ? { ...actual, pre_alistamiento: datosConfirmados } : actual);
+      setPedidoPrealistar((actual) => actual ? { ...actual, estado: "Confirmado", pre_alistamiento: datosConfirmados } : actual);
       setMostrarAdvertenciaPrealistamiento(false);
       setSliderPrealistamiento(0);
     }
+  };
+
+  const confirmarAnulacionConfirmacion = async () => {
+    if (!pedidoAnularConfirmacion || guardandoAnulacionConfirmacion) return;
+    setGuardandoAnulacionConfirmacion(true);
+    setErrorAnulacionConfirmacion("");
+    const preAlistamiento = {
+      ...(pedidoAnularConfirmacion.pre_alistamiento || {}),
+      confirmado: false,
+      confirmado_en: null,
+    };
+    const estadoAnterior = preAlistamiento.estado_anterior || "Pendiente";
+    const correcto = await actualizarPrealistamientoPedido(
+      pedidoAnularConfirmacion.id,
+      preAlistamiento,
+      estadoAnterior
+    );
+    if (correcto) {
+      setPedidoAnularConfirmacion(null);
+    } else {
+      setErrorAnulacionConfirmacion("No se pudo anular la confirmación. Inténtalo de nuevo.");
+    }
+    setGuardandoAnulacionConfirmacion(false);
   };
 
   const solicitarConfirmacionPrealistamiento = async () => {
@@ -745,16 +783,7 @@ export default function Pedidos() {
                   </div>
                 </td>
                 <td data-label="Fecha">{p.fecha}</td>
-                <td data-label="Valor">
-                  <div className="pedido-valor-prealistamiento">
-                    <span>${p.total.toLocaleString()}</span>
-                    {esAdmin() && (
-                      <button type="button" className="btn-detalle btn-pre-alistar" onClick={() => abrirPrealistamiento(p)}>
-                        Pre-alistar
-                      </button>
-                    )}
-                  </div>
-                </td>
+                <td data-label="Valor">${p.total.toLocaleString()}</td>
                 <td data-label="Estado">
                   <span className={`estado-badge estado-${(p.estado ?? "").toLowerCase().replace(' ', '-')}`}>
                     {p.estado}
@@ -812,6 +841,22 @@ export default function Pedidos() {
           )}
         </tbody>
       </table>
+
+      {pedidoAnularConfirmacion && (
+        <div className="anular-confirmacion-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget && !guardandoAnulacionConfirmacion) setPedidoAnularConfirmacion(null); }}>
+          <section className="prealistamiento-confirmacion" role="alertdialog" aria-modal="true" aria-labelledby="anular-confirmacion-titulo">
+            <h3 id="anular-confirmacion-titulo">¿Anular la confirmación del pedido #{pedidoAnularConfirmacion.id}?</h3>
+            <p>El pedido volverá a su estado anterior y se habilitará su edición. Las cantidades pre-alistadas se conservarán.</p>
+            {errorAnulacionConfirmacion && <p className="prealistamiento-error" role="alert">{errorAnulacionConfirmacion}</p>}
+            <div>
+              <button type="button" onClick={() => setPedidoAnularConfirmacion(null)} disabled={guardandoAnulacionConfirmacion}>Cancelar</button>
+              <button type="button" onClick={confirmarAnulacionConfirmacion} disabled={guardandoAnulacionConfirmacion}>
+                {guardandoAnulacionConfirmacion ? "Anulando..." : "Anular confirmación"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
 
       {pedidoPrealistar && (
         <div
@@ -1002,7 +1047,8 @@ export default function Pedidos() {
                   <button
                     className="btn-editar admin-action-control"
                     onClick={() => abrirEdicion(modalPedido)}
-                    title="Editar items"
+                    disabled={pedidoEstaConfirmado(modalPedido)}
+                    title={pedidoEstaConfirmado(modalPedido) ? "Anula la confirmación antes de editar" : "Editar items"}
                   >
                     ✎ Editar
                   </button>
@@ -1189,7 +1235,21 @@ export default function Pedidos() {
                   </div>
                 )}
 
-                <p className="pedido-total"><strong>Total:</strong> ${((pedidoExpandido === modalPedido.id ? pedidoTemp.total : modalPedido.total) || 0).toLocaleString()}</p>
+                <div className="pedido-total-acciones">
+                  {esAdmin() && (
+                    <button
+                      type="button"
+                      className={`btn-detalle btn-pre-alistar ${pedidoEstaConfirmado(modalPedido) ? "btn-anular-confirmacion" : ""}`}
+                      onClick={() => pedidoEstaConfirmado(modalPedido)
+                        ? abrirAnulacionConfirmacion(modalPedido)
+                        : abrirPrealistamiento(modalPedido)}
+                      aria-label={`${pedidoEstaConfirmado(modalPedido) ? "Anular confirmación" : "Pre-alistar"} del pedido ${modalPedido.id}`}
+                    >
+                      {pedidoEstaConfirmado(modalPedido) ? "Anular confirmación" : "Pre-alistar"}
+                    </button>
+                  )}
+                  <p className="pedido-total"><strong>Total:</strong> ${((pedidoExpandido === modalPedido.id ? pedidoTemp.total : modalPedido.total) || 0).toLocaleString()}</p>
+                </div>
 
                 {pedidoExpandido === modalPedido.id && (
                   <div className="pedido-acciones">
@@ -1216,6 +1276,7 @@ export default function Pedidos() {
                       >
                         <option value="Pendiente">Pendiente</option>
                         <option value="En camino">En camino</option>
+                        {modalPedido.estado === "Confirmado" && <option value="Confirmado" disabled>Confirmado</option>}
                         <option value="Entregado">Entregado</option>
                         <option value="Cancelado">Cancelado</option>
                       </select>

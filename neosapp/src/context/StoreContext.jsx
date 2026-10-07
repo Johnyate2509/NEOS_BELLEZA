@@ -1953,6 +1953,8 @@ const datosCliente = {
       console.warn("Estado no permitido:", estado);
       return false;
     }
+    const pedidoActual = pedidos.find((pedido) => pedido.id === pedidoId);
+    if (pedidoActual?.estado === "Confirmado" || pedidoActual?.pre_alistamiento?.confirmado) return false;
 
     try {
       const { error } = await supabase
@@ -1980,6 +1982,8 @@ const datosCliente = {
   const actualizarFormaPagoPedido = async (pedidoId, formaPago) => {
     const formasPagoPermitidas = ["Efectivo", "Crédito", "Abono"];
     if (!formasPagoPermitidas.includes(formaPago)) return false;
+    const pedidoActual = pedidos.find((pedido) => pedido.id === pedidoId);
+    if (pedidoActual?.estado === "Confirmado" || pedidoActual?.pre_alistamiento?.confirmado) return false;
 
     try {
       const { error } = await supabase
@@ -2005,6 +2009,8 @@ const datosCliente = {
   };
 
   const actualizarFechaPedido = async (pedidoId, fecha) => {
+    const pedidoActual = pedidos.find((pedido) => pedido.id === pedidoId);
+    if (pedidoActual?.estado === "Confirmado" || pedidoActual?.pre_alistamiento?.confirmado) return false;
     const formatearFechaLocal = (fechaIso) => {
       if (!fechaIso) return "";
       const fechaObj = new Date(fechaIso);
@@ -2149,6 +2155,7 @@ const datosCliente = {
   const updatePedidoItems = async (pedidoId, items) => {
     const pedido = pedidos.find((p) => p.id === pedidoId);
     if (!pedido) return false;
+    if (pedido.estado === "Confirmado" || pedido.pre_alistamiento?.confirmado) return false;
 
     try {
       const { error: errorEliminar } = await supabase
@@ -2211,11 +2218,13 @@ const datosCliente = {
     }
   };
 
-  const actualizarPrealistamientoPedido = async (pedidoId, preAlistamiento) => {
+  const actualizarPrealistamientoPedido = async (pedidoId, preAlistamiento, estado = null) => {
     try {
+      const cambios = { pre_alistamiento: preAlistamiento };
+      if (estado) cambios.estado = estado;
       const { error } = await supabase
         .from("pedidos")
-        .update({ pre_alistamiento: preAlistamiento })
+        .update(cambios)
         .eq("id", pedidoId);
 
       if (error) {
@@ -2224,7 +2233,9 @@ const datosCliente = {
       }
 
       setPedidos((prev) => prev.map((pedido) =>
-        pedido.id === pedidoId ? { ...pedido, pre_alistamiento: preAlistamiento } : pedido
+        pedido.id === pedidoId
+          ? { ...pedido, pre_alistamiento: preAlistamiento, ...(estado ? { estado } : {}) }
+          : pedido
       ));
       return true;
     } catch (error) {

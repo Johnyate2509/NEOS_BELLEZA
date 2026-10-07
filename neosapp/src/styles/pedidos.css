@@ -1162,6 +1162,11 @@
   background: #0056b3;
 }
 
+.estado-confirmado {
+  color: #17633a;
+  background: #e4f5ea;
+}
+
 /* MODAL */
 .modal-overlay {
   position: fixed;
@@ -1411,11 +1416,16 @@
   background: #e4f5ea;
 }
 
-.pedido-valor-prealistamiento {
+.pedido-total-acciones {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  justify-content: space-between;
   gap: 8px;
+}
+
+.pedido-total-acciones .pedido-total {
+  flex: 1;
+  margin: 0;
 }
 
 .btn-detalle.btn-pre-alistar {
@@ -1424,6 +1434,22 @@
   margin: 0;
   padding: 7px 10px;
   white-space: nowrap;
+}
+
+.btn-detalle.btn-pre-alistar:not(.btn-anular-confirmacion) {
+  background: #218246;
+}
+
+.btn-detalle.btn-pre-alistar:not(.btn-anular-confirmacion):hover {
+  background: #176b38;
+}
+
+.btn-detalle.btn-pre-alistar.btn-anular-confirmacion {
+  background: #c9362b;
+}
+
+.btn-detalle.btn-pre-alistar.btn-anular-confirmacion:hover {
+  background: #a92820;
 }
 
 .prealistamiento-overlay {
@@ -1632,6 +1658,16 @@
 .prealistamiento-confirmacion-overlay {
   position: absolute;
   z-index: 1;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(0, 0, 0, .56);
+}
+
+.anular-confirmacion-overlay {
+  position: fixed;
+  z-index: 1700;
   inset: 0;
   display: grid;
   place-items: center;
