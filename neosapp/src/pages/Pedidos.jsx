@@ -96,6 +96,8 @@ export default function Pedidos() {
   const [errorPrealistamiento, setErrorPrealistamiento] = useState("");
   const colaGuardadoPrealistamiento = useRef(Promise.resolve());
   const guardadosPendientesPrealistamiento = useRef(0);
+  const temporizadorGuardadoPrealistamiento = useRef(null);
+  const cantidadesPrealistadasRef = useRef({});
   const [pedidoAsignarRepartidor, setPedidoAsignarRepartidor] = useState(null);
   const [repartidorSeleccionado, setRepartidorSeleccionado] = useState("");
   const [guardandoAsignacionRepartidor, setGuardandoAsignacionRepartidor] = useState(false);
@@ -378,7 +380,9 @@ export default function Pedidos() {
 
   const abrirPrealistamiento = (pedido) => {
     setPedidoPrealistar(pedido);
-    setCantidadesPrealistadas({ ...(pedido.pre_alistamiento?.cantidades || {}) });
+    const cantidadesGuardadas = { ...(pedido.pre_alistamiento?.cantidades || {}) };
+    cantidadesPrealistadasRef.current = cantidadesGuardadas;
+    setCantidadesPrealistadas(cantidadesGuardadas);
     setSliderPrealistamiento(0);
     setMostrarAdvertenciaPrealistamiento(false);
     setErrorPrealistamiento("");
@@ -406,37 +410,47 @@ export default function Pedidos() {
       .then(() => actualizarPrealistamientoPedido(pedidoId, datos, estado));
     colaGuardadoPrealistamiento.current = guardado;
     try {
-      const correcto = await guardado;
-      if (!correcto) {
-        setErrorPrealistamiento("No se pudo guardar el avance. Revisa la conexión e inténtalo de nuevo.");
+      const resultado = await guardado;
+      if (!resultado?.success) {
+        setErrorPrealistamiento(`No se pudo guardar el avance${resultado?.message ? `: ${resultado.message}` : ". Revisa la conexión e inténtalo de nuevo."}`);
       }
-      return correcto;
+      return Boolean(resultado?.success);
     } finally {
       guardadosPendientesPrealistamiento.current -= 1;
-      if (guardadosPendientesPrealistamiento.current === 0) setGuardandoPrealistamiento(false);
+      if (guardadosPendientesPrealistamiento.current === 0 && !temporizadorGuardadoPrealistamiento.current) {
+        setGuardandoPrealistamiento(false);
+      }
     }
   };
 
   const cambiarCantidadPrealistada = (item, index, valor) => {
     const clave = obtenerClavePrealistamiento(item, index);
     const cantidad = Math.min(Number(item.cantidad || 0), Math.max(0, Math.floor(Number(valor) || 0)));
-    const nuevasCantidades = { ...cantidadesPrealistadas, [clave]: cantidad };
+    const nuevasCantidades = { ...cantidadesPrealistadasRef.current, [clave]: cantidad };
+    cantidadesPrealistadasRef.current = nuevasCantidades;
     setCantidadesPrealistadas(nuevasCantidades);
     setPedidoPrealistar((actual) => actual ? {
       ...actual,
       pre_alistamiento: { ...(actual.pre_alistamiento || {}), cantidades: nuevasCantidades, confirmado: false },
     } : actual);
-    guardarPrealistamiento(pedidoPrealistar.id, {
-      cantidades: nuevasCantidades,
-      confirmado: false,
-    });
+    if (temporizadorGuardadoPrealistamiento.current) {
+      clearTimeout(temporizadorGuardadoPrealistamiento.current);
+    }
+    setGuardandoPrealistamiento(true);
+    temporizadorGuardadoPrealistamiento.current = setTimeout(() => {
+      temporizadorGuardadoPrealistamiento.current = null;
+      guardarPrealistamiento(pedidoPrealistar.id, {
+        cantidades: cantidadesPrealistadasRef.current,
+        confirmado: false,
+      });
+    }, 350);
   };
 
   const confirmarPrealistamiento = async () => {
     if (!pedidoPrealistar || guardandoPrealistamiento) return;
     try {
       const ultimoGuardado = await colaGuardadoPrealistamiento.current;
-      if (ultimoGuardado === false) {
+      if (ultimoGuardado?.success === false || ultimoGuardado === false) {
         setErrorPrealistamiento("Espera a que se guarden las cantidades antes de confirmar.");
         return;
       }
@@ -445,7 +459,7 @@ export default function Pedidos() {
       return;
     }
     const datosConfirmados = {
-      cantidades: cantidadesPrealistadas,
+      cantidades: cantidadesPrealistadasRef.current,
       confirmado: true,
       confirmado_en: new Date().toISOString(),
       estado_anterior: pedidoPrealistar.estado !== "Confirmado"
@@ -476,12 +490,12 @@ export default function Pedidos() {
       confirmado_en: null,
     };
     const estadoAnterior = preAlistamiento.estado_anterior || "Pendiente";
-    const correcto = await actualizarPrealistamientoPedido(
+    const resultado = await actualizarPrealistamientoPedido(
       pedidoAnularConfirmacion.id,
       preAlistamiento,
       estadoAnterior
     );
-    if (correcto) {
+    if (resultado?.success) {
       setModalPedido((actual) => actual?.id === pedidoAnularConfirmacion.id
         ? { ...actual, estado: estadoAnterior, pre_alistamiento: preAlistamiento }
         : actual);
@@ -490,7 +504,7 @@ export default function Pedidos() {
         : actual);
       setPedidoAnularConfirmacion(null);
     } else {
-      setErrorAnulacionConfirmacion("No se pudo anular la confirmación. Inténtalo de nuevo.");
+      setErrorAnulacionConfirmacion(`No se pudo anular la confirmación${resultado?.message ? `: ${resultado.message}` : ". Inténtalo de nuevo."}`);
     }
     setGuardandoAnulacionConfirmacion(false);
   };
@@ -499,7 +513,7 @@ export default function Pedidos() {
     if (!pedidoPrealistar || guardandoPrealistamiento) return;
     const resumen = obtenerResumenPrealistamiento({
       ...pedidoPrealistar,
-      pre_alistamiento: { cantidades: cantidadesPrealistadas, confirmado: false },
+      pre_alistamiento: { cantidades: cantidadesPrealistadasRef.current, confirmado: false },
     });
     setSliderPrealistamiento(0);
     if (resumen.faltantes > 0) {

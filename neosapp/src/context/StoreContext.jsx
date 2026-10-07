@@ -2229,7 +2229,7 @@ const datosCliente = {
 
       if (error) {
         console.error("Error guardando pre-alistamiento del pedido:", error);
-        return false;
+        return { success: false, message: error.message };
       }
 
       setPedidos((prev) => prev.map((pedido) =>
@@ -2237,10 +2237,10 @@ const datosCliente = {
           ? { ...pedido, pre_alistamiento: preAlistamiento, ...(estado ? { estado } : {}) }
           : pedido
       ));
-      return true;
+      return { success: true };
     } catch (error) {
       console.error("Excepción guardando pre-alistamiento del pedido:", error);
-      return false;
+      return { success: false, message: error.message || "Error inesperado" };
     }
   };
 
