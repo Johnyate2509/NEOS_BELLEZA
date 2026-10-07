@@ -70,6 +70,17 @@ cp .env.example .env.local
 npm run dev
 ```
 
+## Seguridad de variables
+
+`.env.local` y las variantes `.env.*` se excluyen de Git. Las variables
+`VITE_*` se incluyen en el bundle del navegador: úsalas sólo para configuración
+pública, como la URL y la clave publishable/anon de Supabase. Nunca pongas una
+clave `service_role`, Resend u otro secreto en una variable `VITE_*`; configura
+los secretos de servidor en una función/backend.
+
+En Vercel, configura `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` en
+Project Settings → Environment Variables.
+
 ## 📝 Configuración de Email
 
 El envío de emails está deshabilitado desde el navegador. Para reactivarlo,
