@@ -3,6 +3,7 @@ import { useStore } from "../context/StoreContext";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../context/supabaseClient";
 import { validarDatosPedido, validarCarrito } from "../utils/validaciones";
+import { asegurarPerfilCliente } from "../utils/asegurarPerfilCliente";
 import "./producto.css";
 import brebImage from "../components/img/breb.jpg";
 import editarIcon from "../components/img/editar.png";
@@ -53,7 +54,7 @@ const EVENTO_COMPRA_COMPLETADA = "neosapp:compra-completada";
 let finalizarPedidoEnCurso = false;
 
 export default function Producto() {
-  const { productos, categorias, setProductos, setCategorias, crearProducto, actualizarProducto, eliminarProducto, clientes, bannerUrl, subirBanner } = useStore();
+  const { productos, categorias, setProductos, setCategorias, crearProducto, actualizarProducto, eliminarProducto, crearPedidoSeguro, clientes, bannerUrl, subirBanner } = useStore();
   const { esAdmin, esVendedor, obtenerDatosUsuario, user, getUserRole } = useAuth();
   const vendedorData = obtenerDatosUsuario();
 
@@ -1041,7 +1042,9 @@ export default function Producto() {
         stock: variante.stock ? Number(variante.stock) : 0,
         imagenes: variante.imagenes || null,
       };
-      const { data, error } = await supabase.from("producto_variantes").insert([payload]).select().single();
+      const { data, error } = await supabase.from("producto_variantes").insert([payload])
+        .select("id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,created_at,updated_at")
+        .single();
       if (error) throw error;
       return { success: true, variante: data };
     } catch (err) {
@@ -1069,7 +1072,9 @@ export default function Producto() {
         stock: variante.stock ? Number(variante.stock) : 0,
         imagenes: variante.imagenes || null,
       };
-      const { data, error } = await supabase.from("producto_variantes").update(payload).eq("id", varianteId).select().single();
+      const { data, error } = await supabase.from("producto_variantes").update(payload).eq("id", varianteId)
+        .select("id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,created_at,updated_at")
+        .single();
       if (error) throw error;
       return { success: true, variante: data };
     } catch (err) {
@@ -1089,7 +1094,9 @@ export default function Producto() {
     setCargandoVariantesProducto(true);
     setErrorVariantesProducto("");
     try {
-      const { data, error } = await supabase.from("producto_variantes").select("*").eq("producto_id", Number(productoId));
+      const { data, error } = await supabase.from("producto_variantes")
+        .select("id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,created_at,updated_at")
+        .eq("producto_id", Number(productoId));
       if (error) throw error;
       const cargadas = data || [];
       setVariantesProducto(cargadas);
@@ -1594,7 +1601,6 @@ const obtenerProductosFiltrados = (categoria) => {
     const nombre = datosCliente.nombre.trim();
     const direccion = datosCliente.direccion.trim();
     const telefono = datosCliente.numeroCelular.trim();
-    const total = calcularTotal();
 
     const datosPedido = {
       cedula: datosCliente.cedula,
@@ -1623,95 +1629,76 @@ const obtenerProductosFiltrados = (categoria) => {
     setProcesandoPedido(true);
 
     try {
-      let { data: clienteExistente, error: errorClienteExistente } = await supabase
-        .from("clientes")
-        .select("*")
-        .eq("correo", correo)
-        .maybeSingle();
+      let { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      let session = sessionData.session;
 
-      if (errorClienteExistente) {
-        throw errorClienteExistente;
+      if (!session) {
+        if (!datosCliente.password || datosCliente.password.length < 6) {
+          throw new Error("Inicia sesión o define una contraseña de al menos 6 caracteres para crear tu cuenta y pedido.");
+        }
+        const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+          email: correo,
+          password: datosCliente.password,
+        });
+        if (!loginError) {
+          session = loginData.session;
+        } else {
+          const { data: registroData, error: registroError } = await supabase.auth.signUp({
+            email: correo,
+            password: datosCliente.password,
+            options: { data: { nombre, cedula: datosCliente.cedula, direccion, telefono, role: "cliente" } },
+          });
+          if (registroError) {
+            throw new Error(`No se pudo iniciar sesión o crear la cuenta: ${registroError.message}`);
+          }
+          session = registroData.session;
+          if (!session) {
+            throw new Error("Confirma tu correo y luego inicia sesión para completar el pedido.");
+          }
+        }
       }
 
-      let clienteId;
+      const userId = session.user.id;
+      const { data: perfil, error: perfilError } = await supabase
+        .from("usuarios")
+        .select("id,nombre,cedula,rol,email")
+        .eq("id", userId)
+        .maybeSingle();
+      if (perfilError) throw perfilError;
 
-      if (!clienteExistente) {
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: correo,
-          password: datosCliente.password || "Temporal123!",
-        });
-
-        if (authError) {
-          throw authError;
-        }
-
-        const userId = authData?.user?.id;
-        if (!userId) {
-          throw new Error("No se pudo obtener el ID del usuario creado en Auth");
-        }
-
-        const { error: errorUsuario } = await supabase.from("usuarios").insert({
-          id: userId,
+      let clientePedido = null;
+      let perfilUsuario = perfil;
+      if (!perfilUsuario || perfilUsuario.rol === "cliente") {
+        const resultadoPerfil = await asegurarPerfilCliente(supabase, session.user, {
           nombre,
           cedula: datosCliente.cedula,
-          email: correo,
-          rol: "cliente",
+          direccion,
+          telefono,
+          correo,
         });
-
-        if (errorUsuario) {
-          throw errorUsuario;
-        }
-
-        const { data: clienteNuevo, error: errorCrearCliente } = await supabase
-          .from("clientes")
-          .insert({
-            usuario_id: userId,
-            nombre,
-            cedula: datosCliente.cedula,
-            direccion,
-            telefono,
-            correo,
-          })
-          .select()
-          .single();
-
-        if (errorCrearCliente) {
-          throw errorCrearCliente;
-        }
-
-        clienteId = clienteNuevo.id;
-      } else {
-        clienteId = clienteExistente.id;
+        if (resultadoPerfil.error) throw new Error(resultadoPerfil.error);
+        perfilUsuario = resultadoPerfil.perfil;
+        clientePedido = resultadoPerfil.cliente;
+      } else if (perfilUsuario.rol === "admin" || perfilUsuario.rol === "vendedor") {
+        clientePedido = clienteSeleccionado || clientes.find((cliente) => cliente.correo === correo);
       }
 
-      const { data: pedido, error: pedidoError } = await supabase
-        .from("pedidos")
-        .insert({
-          cliente_id: clienteId,
-          forma_pago: datosCliente.formaPago,
-          estado: "Pendiente",
-          total,
-        })
-        .select()
-        .single();
-
-      if (pedidoError) {
-        throw pedidoError;
+      if (!clientePedido?.id) {
+        throw new Error("No se encontró un cliente permitido para este usuario. Selecciona un cliente asignado o revisa el perfil de la cuenta.");
       }
 
-      for (const item of carrito) {
-        const { error: errorDetalle } = await supabase.from("pedido_detalle").insert({
-          pedido_id: pedido.id,
-          producto_id: item.producto_id ?? item.id,
-          variante_id: item.variante?.id ?? item.variante_id ?? null,
-          cantidad: item.cantidad,
-          precio: item.precio,
-        });
-
-        if (errorDetalle) {
-          throw errorDetalle;
-        }
-      }
+      const resultadoPedido = await crearPedidoSeguro({
+        clienteId: clientePedido.id,
+        cedula: clientePedido.cedula || datosCliente.cedula,
+        nombre: clientePedido.nombre || nombre,
+        direccion: clientePedido.direccion || direccion,
+        correo,
+        telefono,
+        formaPago: datosCliente.formaPago,
+        carrito,
+      });
+      if (!resultadoPedido.success) throw new Error(resultadoPedido.error || "No se pudo crear el pedido.");
 
       setCarrito([]);
       setDatosCliente({

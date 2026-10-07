@@ -3,11 +3,12 @@ import { useAuth } from "../context/AuthContext";
 import { useStore } from "../context/StoreContext";
 import { validarDatosPedido, validarCarrito } from "../utils/validaciones";
 import PedidoObservacion from "../components/PedidoObservacion";
+import { pedidoEstaConfirmado } from "../utils/pedidos";
 import "../styles/vendedor-dashboard.css";
 
 export default function VendedorDashboard() {
   const { user, obtenerDatosUsuario } = useAuth();
-  const { clientes, pedidos, productos, crearPedido, actualizarObservacionPedido } = useStore();
+  const { clientes, pedidos, productos, crearPedido, actualizarObservacionVendedor } = useStore();
   const vendedorData = obtenerDatosUsuario();
   const vendedorId = vendedorData?.id ?? vendedorData?.usuario_id ?? user?.id ?? null;
 
@@ -393,7 +394,6 @@ export default function VendedorDashboard() {
                         <option value="Efectivo">Efectivo</option>
                         <option value="Crédito">Crédito</option>
                         <option value="Abono">Abono</option>
-                        <option value="Tarjeta">Tarjeta</option>
                       </select>
                     </div>
 
@@ -440,7 +440,11 @@ export default function VendedorDashboard() {
                           ))}
                         </ul>
                       </div>
-                      <PedidoObservacion pedido={pedido} editable onGuardar={actualizarObservacionPedido} />
+                      <PedidoObservacion
+                        pedido={pedido}
+                        editable={!pedidoEstaConfirmado(pedido)}
+                        onGuardar={actualizarObservacionVendedor}
+                      />
                     </div>
                   ))}
                 </div>

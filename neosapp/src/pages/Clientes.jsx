@@ -58,14 +58,18 @@ export default function Clientes() {
     setDireccionTemporal(clienteSeleccionado.direccion || "");
   }, [clienteSeleccionado]);
 
-  const handleRegistrarPago = () => {
+  const handleRegistrarPago = async () => {
     if (!clienteSeleccionado || !montoPago || parseFloat(montoPago) <= 0) {
       alert("Por favor completa los datos");
       return;
     }
 
     const descripcion = descripcionPago.trim() || "Pago/Abono";
-    registrarPago(clienteSeleccionado.id, parseFloat(montoPago), metodoPago, descripcion);
+    const registrado = await registrarPago(clienteSeleccionado.id, parseFloat(montoPago), metodoPago, descripcion);
+    if (!registrado) {
+      alert("No se pudo registrar el pago. Verifica la conexión y los permisos.");
+      return;
+    }
     
     setMontoPago("");
     setDescripcionPago("");

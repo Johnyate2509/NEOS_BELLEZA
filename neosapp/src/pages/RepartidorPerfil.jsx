@@ -18,7 +18,7 @@ export default function RepartidorPerfil() {
 
   // Cambiar estado del pedido
   const handleCambiarEstado = async (id, nuevoEstado) => {
-    await cambiarEstadoPedido(id, nuevoEstado);
+    await cambiarEstadoPedido(id, nuevoEstado, true);
   };
 
   const pedidosFiltrados =
@@ -160,8 +160,10 @@ export default function RepartidorPerfil() {
                     className="estado-select"
                     value={pedido.estado}
                     onChange={(e) => handleCambiarEstado(pedido.id, e.target.value)}
+                    disabled={pedido.estado === "Confirmado"}
+                    title={pedido.estado === "Confirmado" ? "El pedido confirmado no se puede actualizar" : "Cambiar estado del pedido"}
                   >
-                    <option value="Pendiente">Pendiente</option>
+                    <option value="Pendiente" disabled>Pendiente</option>
                     <option value="En camino">En camino</option>
                     <option value="Entregado">Entregado</option>
                     <option value="Cancelado">Cancelado</option>

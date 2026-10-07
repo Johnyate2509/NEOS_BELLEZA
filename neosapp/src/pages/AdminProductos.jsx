@@ -92,7 +92,8 @@ const obtenerNombreCategoria = (producto, categorias) =>
 
 export default function AdminProductos() {
   const { esAdmin } = useAuth();
-  const { productos, categorias, crearProducto, actualizarProducto, eliminarProducto } = useStore();
+  const { productos, setProductos, categorias, crearProducto, actualizarProducto, eliminarProducto } = useStore();
+  const esAdministrador = esAdmin();
   const [borradorInicial] = useState(leerBorrador);
   const [busqueda, setBusqueda] = useState(leerBusquedaGuardada);
   const [filtroVisibilidad, setFiltroVisibilidad] = useState("todos");
@@ -112,6 +113,30 @@ export default function AdminProductos() {
   const [formularioVariante, setFormularioVariante] = useState(VARIANTE_VACIA);
   const [guardandoVariante, setGuardandoVariante] = useState(false);
   const [errorVariante, setErrorVariante] = useState("");
+
+  useEffect(() => {
+    if (!esAdministrador) return undefined;
+    let activo = true;
+    const cargarCostos = async () => {
+      const { data, error: errorCostos } = await supabase.rpc("admin_list_product_costs");
+      if (errorCostos) {
+        console.warn("No se pudieron cargar los costos protegidos:", errorCostos.message);
+        return;
+      }
+      if (!activo) return;
+      const costosPorId = new Map(
+        (data || [])
+          .filter((fila) => fila.table_name === "productos")
+          .map((fila) => [String(fila.row_id), fila.precio_costo])
+      );
+      setProductos((actuales) => actuales.map((producto) => ({
+        ...producto,
+        precio_costo: costosPorId.get(String(producto.id)) ?? producto.precio_costo ?? null,
+      })));
+    };
+    cargarCostos();
+    return () => { activo = false; };
+  }, [esAdministrador, setProductos]);
 
   useEffect(() => {
     if (!formularioAbierto) {
@@ -151,7 +176,7 @@ export default function AdminProductos() {
       .sort((a, b) => (a.nombre || "").localeCompare(b.nombre || "", "es", { sensitivity: "base" }));
   }, [productos, categorias, busqueda, filtroVisibilidad]);
 
-  if (!esAdmin()) return <Navigate to="/" replace />;
+  if (!esAdministrador) return <Navigate to="/" replace />;
 
   const cerrarFormulario = () => {
     borrarBorrador();
@@ -166,11 +191,21 @@ export default function AdminProductos() {
     try {
       const { data, error: errorConsulta } = await supabase
         .from("producto_variantes")
-        .select("*")
+        .select("id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,created_at,updated_at")
         .eq("producto_id", Number(productoId));
       if (errorConsulta) throw errorConsulta;
-      setVariantesPorProducto((actuales) => ({ ...actuales, [productoId]: data || [] }));
-      return data || [];
+      const { data: costos } = await supabase.rpc("admin_list_product_costs");
+      const costosPorVariante = new Map(
+        (costos || [])
+          .filter((costo) => costo.table_name === "producto_variantes")
+          .map((costo) => [String(costo.row_id), costo.precio_costo])
+      );
+      const variantes = (data || []).map((variante) => ({
+        ...variante,
+        precio_costo: costosPorVariante.get(String(variante.id)) ?? null,
+      }));
+      setVariantesPorProducto((actuales) => ({ ...actuales, [productoId]: variantes }));
+      return variantes;
     } catch (errorConsulta) {
       setErroresVariantes((actuales) => ({
         ...actuales,
@@ -283,7 +318,9 @@ export default function AdminProductos() {
       const consulta = varianteActiva
         ? supabase.from("producto_variantes").update(payload).eq("id", varianteActiva.id).eq("producto_id", Number(productoVarianteActivo.id))
         : supabase.from("producto_variantes").insert([{ ...payload, producto_id: Number(productoVarianteActivo.id) }]);
-      const { data, error: errorGuardado } = await consulta.select().single();
+      const { data, error: errorGuardado } = await consulta
+        .select("id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,created_at,updated_at")
+        .single();
       if (errorGuardado) throw errorGuardado;
       setVariantesPorProducto((actuales) => {
         const variantes = actuales[productoVarianteActivo.id] || [];

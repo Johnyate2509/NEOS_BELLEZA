@@ -5,10 +5,7 @@ import "../styles/profile-modal.css";
 export default function ProfileModal({ clienteId, onClose }) {
   const {
     clientes,
-    actualizarClienteNombre,
-    actualizarClienteTelefono,
-    actualizarClienteDireccion,
-    actualizarClienteCedula,
+    actualizarPerfilPropioCliente,
   } = useStore();
 
   const cliente = clientes.find((c) => c.id === clienteId);
@@ -58,27 +55,14 @@ export default function ProfileModal({ clienteId, onClose }) {
     setCargando(true);
 
     try {
-      const actualizaciones = [];
+      const actualizado = await actualizarPerfilPropioCliente({
+        nombre,
+        cedula,
+        telefono: celular,
+        direccion,
+      });
 
-      if (nombre !== cliente.nombre) {
-        actualizaciones.push(actualizarClienteNombre(clienteId, nombre));
-      }
-
-      if (cedula !== cliente.cedula) {
-        actualizaciones.push(actualizarClienteCedula(clienteId, cedula));
-      }
-
-      if (celular !== cliente.telefono) {
-        actualizaciones.push(actualizarClienteTelefono(clienteId, celular));
-      }
-
-      if (direccion !== cliente.direccion) {
-        actualizaciones.push(actualizarClienteDireccion(clienteId, direccion));
-      }
-
-      const resultados = await Promise.all(actualizaciones);
-
-      if (resultados.every((r) => r)) {
+      if (actualizado) {
         setMensajeExito("Perfil actualizado correctamente");
         setEditando(false);
         setTimeout(() => {

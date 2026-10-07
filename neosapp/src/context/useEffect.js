@@ -1,7 +1,7 @@
 const cargarProductos = async () => {
   const { data, error } = await supabase
     .from("productos")
-    .select("*");
+    .select("id,nombre,precio,stock,descripcion,categoria_id,imagen_url,precio_mayorista,precio_emprendedor,imagen_url2,imagen_url3,oculto_catalogo,catalogos_ocultos");
 
   if (error) {
     console.error(error);

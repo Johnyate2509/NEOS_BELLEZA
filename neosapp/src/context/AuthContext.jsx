@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { supabase } from "./supabaseClient";
+import { asegurarPerfilCliente } from "../utils/asegurarPerfilCliente";
 
 const AuthContext = createContext();
 
@@ -8,7 +9,8 @@ export function AuthProvider({ children }) {
   const [perfil, setPerfil] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const cargarPerfilUsuario = async (userId) => {
+  const cargarPerfilUsuario = async (authUser) => {
+    const userId = typeof authUser === "string" ? authUser : authUser?.id;
     if (!userId) {
       setPerfil(null);
       return;
@@ -27,7 +29,22 @@ export function AuthProvider({ children }) {
         return;
       }
 
-      setPerfil(data || null);
+      const metadata = typeof authUser === "object" ? authUser.user_metadata || {} : {};
+      let perfilUsuario = data;
+      if (metadata.role === "cliente" && metadata.perfil_creado_por_admin !== true) {
+        const resultadoPerfil = await asegurarPerfilCliente(supabase, authUser, metadata);
+        if (resultadoPerfil.error) {
+          console.error("No se pudo completar el perfil de cliente:", resultadoPerfil.error);
+          if (!perfilUsuario) {
+            setPerfil(null);
+            return;
+          }
+        } else {
+          perfilUsuario = resultadoPerfil.perfil || perfilUsuario;
+        }
+      }
+
+      setPerfil(perfilUsuario || null);
     } catch (err) {
       console.error("Excepción cargando perfil de usuario:", err);
       setPerfil(null);
@@ -41,7 +58,7 @@ export function AuthProvider({ children }) {
         const currentUser = session?.user ?? null;
         setUser(currentUser);
         if (currentUser) {
-          await cargarPerfilUsuario(currentUser.id);
+          await cargarPerfilUsuario(currentUser);
         } else {
           setPerfil(null);
         }
@@ -58,7 +75,7 @@ export function AuthProvider({ children }) {
         const currentUser = sessionResponse?.data?.session?.user ?? null;
         setUser(currentUser);
         if (currentUser) {
-          await cargarPerfilUsuario(currentUser.id);
+          await cargarPerfilUsuario(currentUser);
         }
       } catch (err) {
         console.error("Error obteniendo sesión inicial:", err);
@@ -118,26 +135,9 @@ export function AuthProvider({ children }) {
       return { success: false, error: error.message };
     }
 
-    // Insertar en la tabla correspondiente según el rol
-    if (data.user) {
-      const clienteData = {
-        usuario_id: data.user.id,
-        nombre: metadata.nombre || '',
-        cedula: metadata.cedula || '',
-        direccion: metadata.direccion || '',
-        telefono: metadata.telefono || '',
-        correo: email,
-      };
-      const { error: insertError } = await supabase
-        .from('clientes')
-        .insert([clienteData]);
-      if (insertError) {
-        console.error('Error insertando cliente:', insertError);
-        return { success: false, error: 'Error al crear el perfil de cliente: ' + insertError.message };
-      }
-    }
-    // Para otros roles, agregar lógica similar si es necesario
-
+    if (!data.session) return { success: true, user: data.user, confirmationRequired: true };
+    const resultadoPerfil = await asegurarPerfilCliente(supabase, data.user, metadata);
+    if (resultadoPerfil.error) return { success: false, error: resultadoPerfil.error };
     return { success: true, user: data.user };
   };
 

@@ -1,9 +1,12 @@
 import { createContext, useContext, useState, useEffect, useMemo } from "react";
 import { supabase } from "./supabaseClient";
-import { validarDatosPedido, validarCarrito, calcularTotal } from "../utils/validaciones";
+import { validarDatosPedido, validarCarrito } from "../utils/validaciones";
 import { enviarConfirmacionPedido, enviarNotificacionVendedor } from "../services/emailService";
+import { asegurarPerfilCliente } from "../utils/asegurarPerfilCliente";
 
 const StoreContext = createContext(null);
+const PRODUCT_COLUMNS = "id,nombre,precio,stock,descripcion,categoria_id,imagen_url,precio_mayorista,precio_emprendedor,imagen_url2,imagen_url3,oculto_catalogo,catalogos_ocultos";
+const VARIANT_COLUMNS = "id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,created_at,updated_at";
 
 export function StoreProvider({ children }) {
   const [productos, setProductos] = useState([]);
@@ -239,7 +242,7 @@ const adaptarProducto = (p) => {
   };
 
 const cargarProductos = async () => {
-  const { data, error } = await supabase.from("productos").select("*");
+  const { data, error } = await supabase.from("productos").select(PRODUCT_COLUMNS);
 
   if (error) {
     console.error("Error cargando productos:", error);
@@ -352,7 +355,7 @@ const cargarProductos = async () => {
           .from("pedido_detalle")
           .select("*")
           .in("pedido_id", pedidoIds),
-        supabase.from("producto_variantes").select("*")
+        supabase.from("producto_variantes").select(VARIANT_COLUMNS)
       ]);
 
       if (detallesResponse.error) {
@@ -664,25 +667,39 @@ const cargarProductos = async () => {
       setClientes(clientesActualizados);
     };
 
-    const cargarDatos = async () => {
+    const cargarDatos = async (autenticado) => {
       const productosCargados = await cargarProductos();
+      await cargarCategorias();
+      if (!autenticado) {
+        setClientes([]);
+        setPedidos([]);
+        setRepartidores([]);
+        setVendedores([]);
+        setUsuariosVendedores([]);
+        return;
+      }
+
       const clientesCargados = await cargarClientes();
       const pedidosCargados = await cargarPedidos(productosCargados, clientesCargados);
       await Promise.all([
         cargarRepartidores(),
         cargarVendedores(),
         cargarUsuariosVendedores(),
-        cargarCategorias(),
       ]);
       reconciliarSaldosIniciales(clientesCargados, pedidosCargados || []);
     };
 
     const init = async () => {
-      await supabase.auth.getSession();
-      await cargarDatos();
+      const { data, error } = await supabase.auth.getSession();
+      if (error) console.error("No se pudo recuperar la sesión:", error);
+      await cargarDatos(Boolean(data?.session));
     };
 
     init();
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      setTimeout(() => cargarDatos(Boolean(session)), 0);
+    });
+    return () => data?.subscription?.unsubscribe();
   }, []);
 
   const crearProducto = async (
@@ -750,7 +767,7 @@ const cargarProductos = async () => {
     const { data, error } = await supabase
       .from("productos")
       .insert([productoInsert])
-      .select("*")
+      .select(PRODUCT_COLUMNS)
       .single();
 
     if (error) {
@@ -758,7 +775,7 @@ const cargarProductos = async () => {
       return { error: error.message };
     }
 
-    let nuevoProducto = adaptarProducto(data);
+    let nuevoProducto = adaptarProducto({ ...data, precio_costo: productoInsert.precio_costo });
     if (imagenes.length > 0) {
       nuevoProducto = { ...nuevoProducto, imagenes };
     }
@@ -855,7 +872,7 @@ const cargarProductos = async () => {
       .from("productos")
       .update(datosActualizacion)
       .eq("id", productoId)
-      .select()
+      .select(PRODUCT_COLUMNS)
       .single();
 
     if (error) {
@@ -863,7 +880,10 @@ const cargarProductos = async () => {
       return { error: error.message };
     }
 
-    let productoActualizado = adaptarProducto(data);
+    let productoActualizado = adaptarProducto({
+      ...data,
+      precio_costo: datosActualizacion.precio_costo ?? producto.precio_costo ?? null,
+    });
     if (datos.categoria_id != null) {
       productoActualizado = {
         ...productoActualizado,
@@ -942,6 +962,113 @@ const cargarProductos = async () => {
     return true;
   };
 
+  const crearPedidoSeguro = async ({ clienteId, cedula, nombre, direccion, correo = "", telefono = "", carrito, formaPago }) => {
+    if (!clienteId || !Array.isArray(carrito) || carrito.length === 0) {
+      return { error: "Selecciona un cliente y agrega productos para crear el pedido." };
+    }
+
+    try {
+      const lineas = carrito.map((item) => ({
+        producto_id: item.producto_id ?? item.variante?.producto_id ?? item.id,
+        variante_id: item.variante?.id ?? item.variante_id ?? null,
+        cantidad: Number(item.cantidad || 1),
+        tipo_catalogo: item.tipo_catalogo || "General",
+      }));
+      const { data, error } = await supabase.rpc("crear_pedido_seguro", {
+        p_cliente_id: Number(clienteId),
+        p_forma_pago: formaPago,
+        p_lineas: lineas,
+      });
+
+      if (error) {
+        console.error("Error creando pedido seguro:", error);
+        return { error: error.message };
+      }
+
+      const resultado = typeof data === "string" ? JSON.parse(data) : data;
+      const total = Number(resultado.total || 0);
+      const clienteActual = clientes.find((cliente) => String(cliente.id) === String(clienteId));
+      const clienteParaPedido = clienteActual || {
+        id: clienteId,
+        cliente_id: clienteId,
+        cedula,
+        nombre,
+        direccion,
+        correo,
+        telefono,
+        saldo: 0,
+        transacciones: [],
+      };
+      const clientesParaPedido = clienteActual ? clientes : [...clientes, clienteParaPedido];
+      const pedidoFallback = adaptarPedido({
+        id: resultado.id,
+        cliente_id: resultado.cliente_id ?? clienteId,
+        cedula,
+        nombre,
+        direccion,
+        forma_pago: formaPago,
+        total,
+        estado: "Pendiente",
+        created_at: new Date().toISOString(),
+      }, carrito, clientesParaPedido);
+
+      const cantidadesBase = new Map();
+      carrito.forEach((item) => {
+        if (item.variante || item.variante_id) return;
+        const productoId = item.producto_id ?? item.id;
+        cantidadesBase.set(
+          String(productoId),
+          (cantidadesBase.get(String(productoId)) || 0) + Number(item.cantidad || 1)
+        );
+      });
+      setProductos((prev) => prev.map((producto) => {
+        const cantidad = cantidadesBase.get(String(producto.id));
+        return cantidad == null ? producto : { ...producto, stock: Math.max(0, Number(producto.stock || 0) - cantidad) };
+      }));
+
+      const transaccion = {
+        id: `pedido-${resultado.id}`,
+        tipo: "pedido",
+        monto: total,
+        descripcion: `Pedido ${resultado.id}`,
+        metodoPago: formaPago,
+        fecha: new Date().toISOString().slice(0, 10),
+      };
+      setClientes((prev) => prev.some((actual) => String(actual.id) === String(clienteId))
+        ? prev.map((actual) => String(actual.id) === String(clienteId)
+          ? {
+              ...actual,
+              saldo: Number(actual.saldo || 0) + total,
+              transacciones: [...(actual.transacciones || []), transaccion],
+            }
+          : actual)
+        : [...prev, {
+            ...clienteParaPedido,
+            saldo: total,
+            transacciones: [...(clienteParaPedido.transacciones || []), transaccion],
+          }]);
+
+      let pedido = pedidoFallback;
+      try {
+        const pedidosActualizados = await cargarPedidos(productos, clientesParaPedido);
+        const pedidoActualizado = pedidosActualizados?.find((actual) => String(actual.id) === String(resultado.id));
+        if (pedidoActualizado) {
+          pedido = pedidoActualizado;
+        } else {
+          setPedidos((prev) => [...prev.filter((actual) => String(actual.id) !== String(pedidoFallback.id)), pedidoFallback]);
+        }
+      } catch (errorCarga) {
+        console.warn("Pedido creado; no se pudo refrescar el detalle local:", errorCarga);
+        setPedidos((prev) => [...prev.filter((actual) => String(actual.id) !== String(pedidoFallback.id)), pedidoFallback]);
+      }
+
+      return { success: true, pedido, total };
+    } catch (error) {
+      console.error("Excepción creando pedido seguro:", error);
+      return { error: error.message || "Error al crear el pedido" };
+    }
+  };
+
   const crearPedido = async (cedula, nombre, direccion, carrito, formaPago, emailCliente = "", telefonoCliente = "", clienteIdManual = null) => {
     // Validar datos básicos
     if (!cedula || !nombre || !direccion || !carrito?.length) {
@@ -974,125 +1101,29 @@ const cargarProductos = async () => {
     const clienteEncontrado = clientes.find((c) => c.cedula === cedula);
     const emailDestino = emailCliente || clienteEncontrado?.correo;
 
-    const total = calcularTotal(carrito);
-
-    const pedidoData = {
+    const clienteId = clienteIdManual || clienteEncontrado?.id;
+    const resultadoPedido = await crearPedidoSeguro({
+      clienteId,
       cedula,
       nombre,
       direccion,
-      forma_pago: formaPago,
-      estado: "Pendiente",
-      total,
-      cliente_id: clienteIdManual || clienteEncontrado?.id || null,
-    };
-
-    try {
-      const { data: pedidoCreado, error: errorPedido } = await supabase
-        .from("pedidos")
-        .insert([pedidoData])
-        .select()
-        .single();
-
-      if (errorPedido) {
-        console.error("Error creando pedido:", errorPedido);
-        return { error: errorPedido.message };
-      }
-
-      const detalles = carrito.map((item) => ({
-        pedido_id: pedidoCreado.id,
-        producto_id: item.producto_id ?? item.id,
-        variante_id: item.variante?.id ?? item.variante_id ?? null,
-        tipo_catalogo: item.tipo_catalogo || "General",
-        cantidad: item.cantidad || 1,
-        precio: item.precio,
-      }));
-
-      const { error: errorDetalle } = await supabase
-        .from("pedido_detalle")
-        .insert(detalles);
-
-      if (errorDetalle) {
-        console.error("Error creando detalle de pedido:", errorDetalle);
-        return { error: errorDetalle.message };
-      }
-
-      // Actualizar stock
-      for (const item of carrito) {
-        const nuevoStock = Number(item.stock ?? 0) - Number(item.cantidad || 1);
-        const { error: errorStock } = await supabase
-          .from("productos")
-          .update({ stock: nuevoStock })
-          .eq("id", item.id);
-
-        if (errorStock) {
-          console.error("Error actualizando stock de producto:", errorStock);
-          return { error: errorStock.message };
-        }
-      }
-
-      setProductos((prev) =>
-        prev.map((producto) => {
-          const item = carrito.find((i) => i.id === producto.id);
-          if (!item) return producto;
-          return { ...producto, stock: Number(producto.stock || 0) - Number(item.cantidad || 1) };
-        })
-      );
-
-      const nuevoPedido = adaptarPedido({
-        ...pedidoCreado,
-        items: carrito,
-      });
-
-      setPedidos((prev) => [...prev, nuevoPedido]);
-
-      const clienteIdParaSaldo = clienteEncontrado?.id || clienteIdManual || pedidoCreado.cliente_id;
-      const clienteParaSaldo = clienteEncontrado || clientes.find((c) => String(c.id) === String(clienteIdParaSaldo));
-
-      if (clienteParaSaldo) {
-        const saldoActual = Number(clienteParaSaldo.saldo ?? 0);
-        const nuevoSaldoCliente = saldoActual + Number(total || 0);
-        const transaccionPedido = {
-          id: `pedido-${pedidoCreado.id}-${Date.now()}`,
-          tipo: "pedido",
-          monto: Number(total || 0),
-          descripcion: `Pedido ${pedidoCreado.id}`,
-          metodoPago: formaPago,
-          fecha: new Date().toLocaleDateString("es-CO"),
-        };
-
-        const nuevasTransacciones = [
-          ...(clienteParaSaldo.transacciones ?? []),
-          transaccionPedido,
-        ];
-
-        const { error: errorSaldo } = await supabase
-          .from("clientes")
-          .update({ saldo: nuevoSaldoCliente, transacciones: nuevasTransacciones })
-          .eq("id", clienteParaSaldo.id);
-
-        if (errorSaldo) {
-          console.error("Error actualizando saldo del cliente al crear pedido:", errorSaldo);
-        } else {
-          setClientes((prev) =>
-            prev.map((c) =>
-              String(c.id) === String(clienteParaSaldo.id)
-                ? { ...c, saldo: nuevoSaldoCliente, transacciones: nuevasTransacciones }
-                : c
-            )
-          );
-        }
-      }
+      carrito,
+      formaPago,
+      correo: emailCliente,
+      telefono: telefonoCliente,
+    });
+    if (!resultadoPedido.success) return { error: resultadoPedido.error };
 
       // Enviar correo de confirmación al cliente
       if (emailDestino) {
         try {
           await enviarConfirmacionPedido({
-            pedidoId: pedidoCreado.id,
+            pedidoId: resultadoPedido.pedido.id,
             cliente: nombre,
             email: emailDestino,
             telefono: telefonoCliente || clienteEncontrado?.telefono,
             items: carrito,
-            total,
+            total: resultadoPedido.total,
             formaPago,
             direccion,
           });
@@ -1102,11 +1133,7 @@ const cargarProductos = async () => {
         }
       }
 
-      return { success: true, pedido: nuevoPedido };
-    } catch (error) {
-      console.error("Error en crearPedido:", error);
-      return { error: error.message || "Error al crear el pedido" };
-    }
+    return { success: true, pedido: resultadoPedido.pedido };
   };
 
 const crearVendedor = async (nombre, zona, email, password) => {
@@ -1115,6 +1142,14 @@ const crearVendedor = async (nombre, zona, email, password) => {
   }
 
   const { data: { session: previousSession } } = await supabase.auth.getSession();
+  if (!previousSession) return { error: "Se requiere una sesión administrativa para crear vendedores." };
+  const { data: perfilCreador, error: errorPerfilCreador } = await supabase
+    .from("usuarios")
+    .select("rol")
+    .eq("id", previousSession.user.id)
+    .maybeSingle();
+  if (errorPerfilCreador) return { error: errorPerfilCreador.message };
+  if (perfilCreador?.rol !== "admin") return { error: "Solo un administrador puede crear vendedores." };
 
   try {
     // 1. Verificar si ya existe usuario con ese email
@@ -1152,6 +1187,12 @@ const crearVendedor = async (nombre, zona, email, password) => {
 
     const userId = authData.user.id;
 
+    const { error: restoreAfterSignupError } = await supabase.auth.setSession({
+      access_token: previousSession.access_token,
+      refresh_token: previousSession.refresh_token,
+    });
+    if (restoreAfterSignupError) return { error: restoreAfterSignupError.message };
+
     // 3. Insertar en tabla usuarios con rol "vendedor"
     const { data: usuarioData, error: errorUsuario } =
       await supabase
@@ -1165,7 +1206,7 @@ const crearVendedor = async (nombre, zona, email, password) => {
             zona,
           },
         ])
-        .select()
+        .select("id,nombre,cedula,rol,zona,email,created_at")
         .single();
 
     if (errorUsuario) {
@@ -1260,29 +1301,40 @@ const crearCliente = async (
     // 1) crear usuario en Auth, 2) insertar en table `usuarios`, 3) insertar en `clientes`.
     if (correo && correo.trim() !== "") {
       const { data: { session: previousSession } } = await supabase.auth.getSession();
+      if (previousSession) {
+        const { data: perfilActual, error: errorPerfilActual } = await supabase
+          .from("usuarios")
+          .select("rol")
+          .eq("id", previousSession.user.id)
+          .maybeSingle();
+        if (errorPerfilActual) return { error: errorPerfilActual.message };
+        if (perfilActual?.rol !== "admin") return { error: "Solo un administrador puede crear clientes para otras cuentas." };
+      }
 
       try {
-        // Verificar si ya existe usuario por email o cédula
-        const { data: usuarioExistenteEmail } = await supabase
-          .from("usuarios")
-          .select("id")
-          .eq("email", correo)
-          .maybeSingle();
-
-        const { data: usuarioExistenteCedula } = await supabase
-          .from("usuarios")
-          .select("id")
-          .eq("cedula", cedula)
-          .maybeSingle();
-
-        if (usuarioExistenteEmail || usuarioExistenteCedula) {
-          return { error: "Ya existe un usuario con ese email o cédula" };
+        if (previousSession) {
+          const { data: usuarioExistenteEmail, error: errorUsuarioEmail } = await supabase
+            .from("usuarios")
+            .select("id")
+            .eq("email", correo)
+            .maybeSingle();
+          if (errorUsuarioEmail) return { error: errorUsuarioEmail.message };
+          const { data: usuarioExistenteCedula, error: errorUsuarioCedula } = await supabase
+            .from("usuarios")
+            .select("id")
+            .eq("cedula", cedula)
+            .maybeSingle();
+          if (errorUsuarioCedula) return { error: errorUsuarioCedula.message };
+          if (usuarioExistenteEmail || usuarioExistenteCedula) {
+            return { error: "Ya existe un usuario con ese email o cédula" };
+          }
         }
 
         // Crear usuario en Supabase Auth
         const { data: authData, error: authError } = await supabase.auth.signUp({
           email: correo,
           password,
+          options: { data: { nombre, cedula, direccion, telefono, role: "cliente", perfil_creado_por_admin: Boolean(previousSession) } },
         });
 
         if (authError) {
@@ -1294,7 +1346,28 @@ const crearCliente = async (
           return { error: "No se pudo obtener el ID del usuario creado" };
         }
 
+        if (!previousSession) {
+          if (!authData.session) {
+            return { success: true, pendienteConfirmacion: true, userId: authData.user.id };
+          }
+          const resultadoPerfil = await asegurarPerfilCliente(supabase, authData.user, {
+            nombre, cedula, direccion, telefono, correo,
+          });
+          if (resultadoPerfil.error) return { error: resultadoPerfil.error };
+          const clientePropio = resultadoPerfil.cliente;
+          if (clientePropio) setClientes((prev) => [...prev, clientePropio]);
+          return { success: true, cliente: clientePropio };
+        }
+
         const userId = authData.user.id;
+
+        if (previousSession) {
+          const { error: restoreAfterSignupError } = await supabase.auth.setSession({
+            access_token: previousSession.access_token,
+            refresh_token: previousSession.refresh_token,
+          });
+          if (restoreAfterSignupError) return { error: restoreAfterSignupError.message };
+        }
 
         // Insertar en tabla usuarios
         const { data: usuarioData, error: errorUsuario } = await supabase
@@ -1308,7 +1381,7 @@ const crearCliente = async (
               rol: "cliente",
             },
           ])
-          .select()
+          .select("id,nombre,cedula,rol,zona,email,created_at")
           .single();
 
         if (errorUsuario) {
@@ -1387,36 +1460,20 @@ const crearCliente = async (
       }
     }
 
-    // Si no hay correo, conservar flujo previo (crear sin Auth)
+    // Cliente sin cuenta de acceso: guardar sólo su ficha, nunca una contraseña local.
     try {
-      const { data: usuarioExistente, error: usuarioError } = await supabase
-        .from("usuarios")
+      const { data: clienteExistente, error: clienteExistenteError } = await supabase
+        .from("clientes")
         .select("id")
         .eq("cedula", cedula)
         .maybeSingle();
 
-      if (usuarioError) {
-        console.error("Error verificando usuario existente:", usuarioError);
-        return { error: usuarioError.message };
+      if (clienteExistenteError) {
+        console.error("Error verificando cliente existente:", clienteExistenteError);
+        return { error: clienteExistenteError.message };
       }
-
-      if (!usuarioExistente) {
-        const { error: errorUsuario } = await supabase
-          .from("usuarios")
-          .insert([
-            {
-              nombre,
-              cedula,
-              email: correo || null,
-              rol: "cliente",
-              password_hash: password,
-            },
-          ]);
-
-        if (errorUsuario) {
-          console.error("Error creando usuario:", errorUsuario);
-          return { error: errorUsuario.message };
-        }
+      if (clienteExistente) {
+        return { error: "Ya existe un cliente con esta cédula." };
       }
 
 const datosCliente = {
@@ -1478,6 +1535,14 @@ const datosCliente = {
     }
 
     const { data: { session: previousSession } } = await supabase.auth.getSession();
+    if (!previousSession) return { error: "Se requiere una sesión administrativa para crear repartidores." };
+    const { data: perfilCreador, error: errorPerfilCreador } = await supabase
+      .from("usuarios")
+      .select("rol")
+      .eq("id", previousSession.user.id)
+      .maybeSingle();
+    if (errorPerfilCreador) return { error: errorPerfilCreador.message };
+    if (perfilCreador?.rol !== "admin") return { error: "Solo un administrador puede crear repartidores." };
 
     try {
       // 1. Verificar si ya existe usuario con ese email
@@ -1515,6 +1580,12 @@ const datosCliente = {
 
       const userId = authData.user.id;
 
+      const { error: restoreAfterSignupError } = await supabase.auth.setSession({
+        access_token: previousSession.access_token,
+        refresh_token: previousSession.refresh_token,
+      });
+      if (restoreAfterSignupError) return { error: restoreAfterSignupError.message };
+
       // 3. Insertar en tabla usuarios con rol "repartidor"
       const { data: usuarioData, error: errorUsuario } =
         await supabase
@@ -1528,7 +1599,7 @@ const datosCliente = {
               zona,
             },
           ])
-          .select()
+          .select("id,nombre,cedula,rol,zona,email,created_at")
           .single();
 
       if (errorUsuario) {
@@ -1686,10 +1757,12 @@ const datosCliente = {
       },
     ];
 
-    const { error } = await supabase
-      .from("clientes")
-      .update({ saldo: nuevoSaldo, transacciones: nuevaTransacciones })
-      .eq("id", clienteId);
+    const { error } = await supabase.rpc("registrar_pago", {
+      p_cliente_id: Number(clienteId),
+      p_monto: Number(monto),
+      p_metodo: metodoPago,
+      p_descripcion: descripcion,
+    });
 
     if (error) {
       console.error("Error registrando pago:", error);
@@ -1707,6 +1780,30 @@ const datosCliente = {
           : c
       )
     );
+    return true;
+  };
+
+  const actualizarPerfilPropioCliente = async (cambios) => {
+    const { data, error } = await supabase.rpc("actualizar_perfil_cliente", {
+      p_cambios: {
+        nombre: String(cambios.nombre || "").trim(),
+        cedula: String(cambios.cedula || "").trim(),
+        telefono: String(cambios.telefono || "").trim(),
+        direccion: String(cambios.direccion || "").trim(),
+      },
+    });
+    if (error) {
+      console.error("Error actualizando perfil propio:", error);
+      return false;
+    }
+
+    const clienteActualizado = data?.cliente;
+    if (!clienteActualizado) return false;
+    setClientes((prev) => prev.map((cliente) =>
+      String(cliente.id) === String(clienteActualizado.id)
+        ? { ...cliente, ...clienteActualizado }
+        : cliente
+    ));
     return true;
   };
 
@@ -1948,20 +2045,27 @@ const datosCliente = {
     }
   };
 
-  const cambiarEstadoPedido = async (pedidoId, estado) => {
+  const cambiarEstadoPedido = async (pedidoId, estado, desdeRepartidor = false) => {
     const estadosPermitidos = ["Pendiente", "En camino", "Cancelado", "Entregado"];
     if (!estadosPermitidos.includes(estado)) {
       console.warn("Estado no permitido:", estado);
       return false;
     }
+    if (desdeRepartidor && !["En camino", "Entregado", "Cancelado"].includes(estado)) return false;
     const pedidoActual = pedidos.find((pedido) => pedido.id === pedidoId);
     if (pedidoActual?.estado === "Confirmado" || pedidoActual?.pre_alistamiento?.confirmado) return false;
 
     try {
-      const { error } = await supabase
-        .from("pedidos")
-        .update({ estado })
-        .eq("id", pedidoId);
+      const respuesta = desdeRepartidor
+        ? await supabase.rpc("actualizar_estado_repartidor", {
+            p_pedido_id: Number(pedidoId),
+            p_estado: estado,
+          })
+        : await supabase
+            .from("pedidos")
+            .update({ estado })
+            .eq("id", pedidoId);
+      const { error } = respuesta;
 
       if (error) {
         console.error("Error cambiando estado de pedido:", error);
@@ -2270,6 +2374,24 @@ const datosCliente = {
     }
   };
 
+  const actualizarObservacionVendedor = async (pedidoId, observacion) => {
+    const observacionGuardada = String(observacion ?? "").trim();
+    const { error } = await supabase.rpc("actualizar_pedido_vendedor", {
+      p_pedido_id: Number(pedidoId),
+      p_cambios: { observacion: observacionGuardada || null },
+    });
+    if (error) {
+      console.error("Error guardando observación del vendedor:", error);
+      return false;
+    }
+    setPedidos((prev) => prev.map((pedido) =>
+      String(pedido.id) === String(pedidoId)
+        ? { ...pedido, observacion: observacionGuardada }
+        : pedido
+    ));
+    return true;
+  };
+
   const agregarItemPedido = async (pedidoId, productoId, nombre, precio, cantidad, itemMeta = {}) => {
     const pedido = pedidos.find((p) => p.id === pedidoId);
     if (!pedido) return false;
@@ -2322,6 +2444,7 @@ return (
       actualizarStock,
       agotarProducto,
       crearPedido,
+      crearPedidoSeguro,
       crearCliente,
       actualizarClienteCompleto,
       eliminarCliente,
@@ -2332,6 +2455,7 @@ return (
       crearRepartidor,
       eliminarRepartidor,
       registrarPago,
+      actualizarPerfilPropioCliente,
       actualizarClienteTelefono,
       actualizarClienteDireccion,
       obtenerClienteActual,
@@ -2346,6 +2470,7 @@ return (
       actualizarItemsPedido: updatePedidoItems,
       actualizarPrealistamientoPedido,
       actualizarObservacionPedido,
+      actualizarObservacionVendedor,
       eliminarItemPedido,
       actualizarCantidadItemPedido,
       actualizarProducto,
