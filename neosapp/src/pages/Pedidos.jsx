@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useStore } from "../context/StoreContext";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../context/supabaseClient";
@@ -40,6 +40,25 @@ const obtenerPrecioCatalogo = (producto, variante, catalogo) => {
   return Number.isFinite(precio) && precio >= 0 ? precio : null;
 };
 
+const obtenerClavePrealistamiento = (item, index) =>
+  `${item.producto_id ?? item.id}:${item.variante?.id ?? item.variante_id ?? "base"}:${index}`;
+
+const obtenerResumenPrealistamiento = (pedido) => {
+  const cantidades = pedido.pre_alistamiento?.cantidades || {};
+  const total = (pedido.items || []).reduce((suma, item) => suma + Number(item.cantidad || 0), 0);
+  const empacadas = (pedido.items || []).reduce((suma, item, index) => {
+    const solicitadas = Number(item.cantidad || 0);
+    const registradas = Number(cantidades[obtenerClavePrealistamiento(item, index)] || 0);
+    return suma + Math.min(solicitadas, Math.max(0, registradas));
+  }, 0);
+  return {
+    total,
+    empacadas,
+    faltantes: Math.max(0, total - empacadas),
+    confirmado: pedido.pre_alistamiento?.confirmado === true,
+  };
+};
+
 export default function Pedidos() {
   const { 
     pedidos, 
@@ -51,6 +70,7 @@ export default function Pedidos() {
     asignarRepartidor,
     agregarItemPedido,
     actualizarItemsPedido,
+    actualizarPrealistamientoPedido,
     eliminarItemPedido,
     actualizarCantidadItemPedido,
     actualizarFechaPedido,
@@ -62,6 +82,14 @@ export default function Pedidos() {
   const [pedidoTemp, setPedidoTemp] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
   const [modalPedido, setModalPedido] = useState(null);
+  const [pedidoPrealistar, setPedidoPrealistar] = useState(null);
+  const [cantidadesPrealistadas, setCantidadesPrealistadas] = useState({});
+  const [sliderPrealistamiento, setSliderPrealistamiento] = useState(0);
+  const [mostrarAdvertenciaPrealistamiento, setMostrarAdvertenciaPrealistamiento] = useState(false);
+  const [guardandoPrealistamiento, setGuardandoPrealistamiento] = useState(false);
+  const [errorPrealistamiento, setErrorPrealistamiento] = useState("");
+  const colaGuardadoPrealistamiento = useRef(Promise.resolve());
+  const guardadosPendientesPrealistamiento = useRef(0);
   const [pedidoAsignarRepartidor, setPedidoAsignarRepartidor] = useState(null);
   const [repartidorSeleccionado, setRepartidorSeleccionado] = useState("");
   const [guardandoAsignacionRepartidor, setGuardandoAsignacionRepartidor] = useState(false);
@@ -341,6 +369,96 @@ export default function Pedidos() {
     setPedidoTemp({});
   };
 
+  const abrirPrealistamiento = (pedido) => {
+    setPedidoPrealistar(pedido);
+    setCantidadesPrealistadas({ ...(pedido.pre_alistamiento?.cantidades || {}) });
+    setSliderPrealistamiento(0);
+    setMostrarAdvertenciaPrealistamiento(false);
+    setErrorPrealistamiento("");
+  };
+
+  const cerrarPrealistamiento = () => {
+    if (guardandoPrealistamiento) return;
+    setPedidoPrealistar(null);
+    setMostrarAdvertenciaPrealistamiento(false);
+    setSliderPrealistamiento(0);
+    setErrorPrealistamiento("");
+  };
+
+  const guardarPrealistamiento = async (pedidoId, datos) => {
+    guardadosPendientesPrealistamiento.current += 1;
+    setGuardandoPrealistamiento(true);
+    setErrorPrealistamiento("");
+    const guardado = colaGuardadoPrealistamiento.current
+      .catch(() => false)
+      .then(() => actualizarPrealistamientoPedido(pedidoId, datos));
+    colaGuardadoPrealistamiento.current = guardado;
+    try {
+      const correcto = await guardado;
+      if (!correcto) {
+        setErrorPrealistamiento("No se pudo guardar el avance. Revisa la conexión e inténtalo de nuevo.");
+      }
+      return correcto;
+    } finally {
+      guardadosPendientesPrealistamiento.current -= 1;
+      if (guardadosPendientesPrealistamiento.current === 0) setGuardandoPrealistamiento(false);
+    }
+  };
+
+  const cambiarCantidadPrealistada = (item, index, valor) => {
+    const clave = obtenerClavePrealistamiento(item, index);
+    const cantidad = Math.min(Number(item.cantidad || 0), Math.max(0, Math.floor(Number(valor) || 0)));
+    const nuevasCantidades = { ...cantidadesPrealistadas, [clave]: cantidad };
+    setCantidadesPrealistadas(nuevasCantidades);
+    setPedidoPrealistar((actual) => actual ? {
+      ...actual,
+      pre_alistamiento: { ...(actual.pre_alistamiento || {}), cantidades: nuevasCantidades, confirmado: false },
+    } : actual);
+    guardarPrealistamiento(pedidoPrealistar.id, {
+      cantidades: nuevasCantidades,
+      confirmado: false,
+    });
+  };
+
+  const confirmarPrealistamiento = async () => {
+    if (!pedidoPrealistar || guardandoPrealistamiento) return;
+    try {
+      const ultimoGuardado = await colaGuardadoPrealistamiento.current;
+      if (ultimoGuardado === false) {
+        setErrorPrealistamiento("Espera a que se guarden las cantidades antes de confirmar.");
+        return;
+      }
+    } catch {
+      setErrorPrealistamiento("No se pudo guardar el avance. Inténtalo de nuevo antes de confirmar.");
+      return;
+    }
+    const datosConfirmados = {
+      cantidades: cantidadesPrealistadas,
+      confirmado: true,
+      confirmado_en: new Date().toISOString(),
+    };
+    const correcto = await guardarPrealistamiento(pedidoPrealistar.id, datosConfirmados);
+    if (correcto) {
+      setPedidoPrealistar((actual) => actual ? { ...actual, pre_alistamiento: datosConfirmados } : actual);
+      setMostrarAdvertenciaPrealistamiento(false);
+      setSliderPrealistamiento(0);
+    }
+  };
+
+  const solicitarConfirmacionPrealistamiento = async () => {
+    if (!pedidoPrealistar || guardandoPrealistamiento) return;
+    const resumen = obtenerResumenPrealistamiento({
+      ...pedidoPrealistar,
+      pre_alistamiento: { cantidades: cantidadesPrealistadas, confirmado: false },
+    });
+    setSliderPrealistamiento(0);
+    if (resumen.faltantes > 0) {
+      setMostrarAdvertenciaPrealistamiento(true);
+      return;
+    }
+    await confirmarPrealistamiento();
+  };
+
   const actualizarItemsLocal = (items) => {
     const nuevoTotal = items.reduce(
       (sum, item) => sum + Number(item.precio) * Number(item.cantidad || 1),
@@ -499,6 +617,12 @@ export default function Pedidos() {
       );
     })
     .sort((a, b) => Number(b.id) - Number(a.id));
+  const resumenPrealistamientoActivo = pedidoPrealistar
+    ? obtenerResumenPrealistamiento({
+        ...pedidoPrealistar,
+        pre_alistamiento: { cantidades: cantidadesPrealistadas, confirmado: pedidoPrealistar.pre_alistamiento?.confirmado },
+      })
+    : null;
 
   return (
     <div className="pedidos-page">
@@ -601,12 +725,36 @@ export default function Pedidos() {
               <td colSpan="7" className="sin-pedidos">No hay pedidos que coincidan con la búsqueda.</td>
             </tr>
           ) : (
-            pedidosFiltrados.map((p) => (
+            pedidosFiltrados.map((p) => {
+              const resumenPrealistamiento = obtenerResumenPrealistamiento(p);
+              return (
               <tr key={p.id}>
                 <td data-label="ID">{p.id}</td>
-                <td data-label="Nombre">{p.cliente}</td>
+                <td data-label="Nombre">
+                  <div className="pedido-cliente-resumen">
+                    <span>{p.cliente}</span>
+                    {resumenPrealistamiento.total > 0 && (
+                      <small className={`pedido-prealistamiento-aviso ${resumenPrealistamiento.confirmado ? (resumenPrealistamiento.faltantes > 0 ? "confirmado-con-faltantes" : "confirmado") : "pendiente"}`}>
+                        {resumenPrealistamiento.confirmado
+                          ? resumenPrealistamiento.faltantes > 0
+                            ? "Pre-alistamiento confirmado con unidades faltantes"
+                            : "Pre-alistamiento confirmado"
+                          : "Hay unidades pendientes por alistar"}
+                      </small>
+                    )}
+                  </div>
+                </td>
                 <td data-label="Fecha">{p.fecha}</td>
-                <td data-label="Valor">${p.total.toLocaleString()}</td>
+                <td data-label="Valor">
+                  <div className="pedido-valor-prealistamiento">
+                    <span>${p.total.toLocaleString()}</span>
+                    {esAdmin() && (
+                      <button type="button" className="btn-detalle btn-pre-alistar" onClick={() => abrirPrealistamiento(p)}>
+                        Pre-alistar
+                      </button>
+                    )}
+                  </div>
+                </td>
                 <td data-label="Estado">
                   <span className={`estado-badge estado-${(p.estado ?? "").toLowerCase().replace(' ', '-')}`}>
                     {p.estado}
@@ -659,10 +807,113 @@ export default function Pedidos() {
                   </div>
                 </td>
               </tr>
-            ))
+              );
+            })
           )}
         </tbody>
       </table>
+
+      {pedidoPrealistar && (
+        <div
+          className="prealistamiento-overlay"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) cerrarPrealistamiento();
+          }}
+        >
+          <section className="prealistamiento-modal" role="dialog" aria-modal="true" aria-labelledby="prealistamiento-titulo">
+            <header className="prealistamiento-header">
+              <div>
+                <span>PREPARACIÓN DE PEDIDO #{pedidoPrealistar.id}</span>
+                <h2 id="prealistamiento-titulo">Pre-alistar pedido</h2>
+                <p>{pedidoPrealistar.cliente || "Cliente sin nombre"}</p>
+              </div>
+              <button type="button" aria-label="Cerrar pre-alistamiento" onClick={cerrarPrealistamiento} disabled={guardandoPrealistamiento}>×</button>
+            </header>
+
+            <div className="prealistamiento-resumen">
+              <div><span>Unidades del pedido</span><strong>{resumenPrealistamientoActivo.total}</strong></div>
+              <div><span>Unidades empacadas</span><strong>{resumenPrealistamientoActivo.empacadas}</strong></div>
+              <div><span>Pendientes</span><strong>{resumenPrealistamientoActivo.faltantes}</strong></div>
+              <small role="status">{guardandoPrealistamiento ? "Guardando avance..." : "El avance se guarda automáticamente."}</small>
+            </div>
+
+            <div className="prealistamiento-lista">
+              {(pedidoPrealistar.items || []).map((item, index) => {
+                const clave = obtenerClavePrealistamiento(item, index);
+                const solicitadas = Number(item.cantidad || 0);
+                const empacadas = Math.min(solicitadas, Number(cantidadesPrealistadas[clave] || 0));
+                return (
+                  <article className="prealistamiento-item" key={clave}>
+                    {item.imagen ? (
+                      <img className="prealistamiento-imagen" src={item.imagen} alt={item.nombre} />
+                    ) : (
+                      <div className="prealistamiento-imagen prealistamiento-imagen-vacia">?</div>
+                    )}
+                    <div className="prealistamiento-producto">
+                      <strong>{item.nombre}</strong>
+                      <span>Solicitadas por el sistema: {solicitadas}</span>
+                      <small>Pendientes por empacar: {Math.max(0, solicitadas - empacadas)}</small>
+                    </div>
+                    <label className="prealistamiento-cantidad">
+                      Empacadas
+                      <input
+                        type="number"
+                        min="0"
+                        max={solicitadas}
+                        step="1"
+                        value={cantidadesPrealistadas[clave] ?? 0}
+                        onChange={(event) => cambiarCantidadPrealistada(item, index, event.target.value)}
+                        aria-label={`Unidades empacadas de ${item.nombre}`}
+                      />
+                    </label>
+                  </article>
+                );
+              })}
+              {(pedidoPrealistar.items || []).length === 0 && (
+                <p className="prealistamiento-vacio">Este pedido no tiene productos para alistar.</p>
+              )}
+            </div>
+
+            {errorPrealistamiento && <p className="prealistamiento-error" role="alert">{errorPrealistamiento}</p>}
+
+            <footer className="prealistamiento-footer">
+              <span>Desliza a la derecha para confirmar las unidades</span>
+              <input
+                className="prealistamiento-slider"
+                type="range"
+                min="0"
+                max="100"
+                value={sliderPrealistamiento}
+                onChange={(event) => {
+                  const valor = Number(event.target.value);
+                  setSliderPrealistamiento(valor);
+                  if (valor === 100) solicitarConfirmacionPrealistamiento();
+                }}
+                disabled={guardandoPrealistamiento || resumenPrealistamientoActivo.total === 0}
+                aria-label="Deslizar para confirmar el pre-alistamiento"
+              />
+              <button type="button" className="prealistamiento-cerrar" onClick={cerrarPrealistamiento} disabled={guardandoPrealistamiento}>
+                Cerrar
+              </button>
+            </footer>
+          </section>
+
+          {mostrarAdvertenciaPrealistamiento && (
+            <div className="prealistamiento-confirmacion-overlay" role="presentation">
+              <section className="prealistamiento-confirmacion" role="alertdialog" aria-modal="true" aria-labelledby="prealistamiento-confirmacion-titulo">
+                <h3 id="prealistamiento-confirmacion-titulo">Hay unidades pendientes por confirmar en este pedido</h3>
+                <p>¿Desea continuar y confirmar el pre-alistamiento con unidades faltantes?</p>
+                <div>
+                  <button type="button" onClick={() => setMostrarAdvertenciaPrealistamiento(false)} disabled={guardandoPrealistamiento}>Volver a revisar</button>
+                  <button type="button" onClick={confirmarPrealistamiento} disabled={guardandoPrealistamiento}>
+                    {guardandoPrealistamiento ? "Guardando..." : "Sí, continuar"}
+                  </button>
+                </div>
+              </section>
+            </div>
+          )}
+        </div>
+      )}
 
       {pedidoAsignarRepartidor && (
         <div

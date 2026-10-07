@@ -233,6 +233,7 @@ const adaptarProducto = (p) => {
       estado: p.estado ?? "Pendiente",
       repartidor_id: p.repartidor_id ?? null,
       repartidor: p.repartidor ?? "",
+      pre_alistamiento: p.pre_alistamiento ?? { cantidades: {}, confirmado: false },
     };
   };
 
@@ -2210,6 +2211,28 @@ const datosCliente = {
     }
   };
 
+  const actualizarPrealistamientoPedido = async (pedidoId, preAlistamiento) => {
+    try {
+      const { error } = await supabase
+        .from("pedidos")
+        .update({ pre_alistamiento: preAlistamiento })
+        .eq("id", pedidoId);
+
+      if (error) {
+        console.error("Error guardando pre-alistamiento del pedido:", error);
+        return false;
+      }
+
+      setPedidos((prev) => prev.map((pedido) =>
+        pedido.id === pedidoId ? { ...pedido, pre_alistamiento: preAlistamiento } : pedido
+      ));
+      return true;
+    } catch (error) {
+      console.error("Excepción guardando pre-alistamiento del pedido:", error);
+      return false;
+    }
+  };
+
   const agregarItemPedido = async (pedidoId, productoId, nombre, precio, cantidad, itemMeta = {}) => {
     const pedido = pedidos.find((p) => p.id === pedidoId);
     if (!pedido) return false;
@@ -2284,6 +2307,7 @@ return (
       asignarRepartidor,
       agregarItemPedido,
       actualizarItemsPedido: updatePedidoItems,
+      actualizarPrealistamientoPedido,
       eliminarItemPedido,
       actualizarCantidadItemPedido,
       actualizarProducto,
