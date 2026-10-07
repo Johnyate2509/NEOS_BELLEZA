@@ -2233,7 +2233,7 @@ const datosCliente = {
       }
 
       setPedidos((prev) => prev.map((pedido) =>
-        pedido.id === pedidoId
+        String(pedido.id) === String(pedidoId)
           ? { ...pedido, pre_alistamiento: preAlistamiento, ...(estado ? { estado } : {}) }
           : pedido
       ));

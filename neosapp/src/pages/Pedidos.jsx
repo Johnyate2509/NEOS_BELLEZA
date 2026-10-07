@@ -455,6 +455,12 @@ export default function Pedidos() {
     const correcto = await guardarPrealistamiento(pedidoPrealistar.id, datosConfirmados, "Confirmado");
     if (correcto) {
       setPedidoPrealistar((actual) => actual ? { ...actual, estado: "Confirmado", pre_alistamiento: datosConfirmados } : actual);
+      setModalPedido((actual) => actual?.id === pedidoPrealistar.id
+        ? { ...actual, estado: "Confirmado", pre_alistamiento: datosConfirmados }
+        : actual);
+      setPedidoTemp((actual) => actual?.id === pedidoPrealistar.id
+        ? { ...actual, estado: "Confirmado", pre_alistamiento: datosConfirmados }
+        : actual);
       setMostrarAdvertenciaPrealistamiento(false);
       setSliderPrealistamiento(0);
     }
@@ -476,6 +482,12 @@ export default function Pedidos() {
       estadoAnterior
     );
     if (correcto) {
+      setModalPedido((actual) => actual?.id === pedidoAnularConfirmacion.id
+        ? { ...actual, estado: estadoAnterior, pre_alistamiento: preAlistamiento }
+        : actual);
+      setPedidoTemp((actual) => actual?.id === pedidoAnularConfirmacion.id
+        ? { ...actual, estado: estadoAnterior, pre_alistamiento: preAlistamiento }
+        : actual);
       setPedidoAnularConfirmacion(null);
     } else {
       setErrorAnulacionConfirmacion("No se pudo anular la confirmación. Inténtalo de nuevo.");
