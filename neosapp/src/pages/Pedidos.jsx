@@ -971,16 +971,9 @@ export default function Pedidos() {
                     </div>
 
                     <div className="control">
-                      <label>Repartidor:</label>
+                      <label>Asignación de repartidor:</label>
                       <div className="pedido-repartidor-actual">
                         <span>{obtenerNombreRepartidor(modalPedido.repartidor_id)}</span>
-                        <button
-                          type="button"
-                          className="admin-action-control"
-                          onClick={() => abrirAsignacionRepartidor(modalPedido)}
-                        >
-                          {modalPedido.repartidor_id ? "Cambiar" : "Asignar"}
-                        </button>
                       </div>
                     </div>
                   </div>
