@@ -948,21 +948,38 @@ export default function Pedidos() {
             {errorPrealistamiento && <p className="prealistamiento-error" role="alert">{errorPrealistamiento}</p>}
 
             <footer className="prealistamiento-footer">
-              <span>Desliza a la derecha para confirmar las unidades</span>
-              <input
-                className="prealistamiento-slider"
-                type="range"
-                min="0"
-                max="100"
-                value={sliderPrealistamiento}
-                onChange={(event) => {
-                  const valor = Number(event.target.value);
-                  setSliderPrealistamiento(valor);
-                  if (valor === 100) solicitarConfirmacionPrealistamiento();
-                }}
-                disabled={guardandoPrealistamiento || resumenPrealistamientoActivo.total === 0}
-                aria-label="Deslizar para confirmar el pre-alistamiento"
-              />
+              {pedidoEstaConfirmado(pedidoPrealistar) ? (
+                <div className="prealistamiento-confirmado" role="status">
+                  <strong>Confirmado</strong>
+                  {resumenPrealistamientoActivo.faltantes > 0 && (
+                    <small>{resumenPrealistamientoActivo.faltantes} unidades faltantes aceptadas</small>
+                  )}
+                </div>
+              ) : (
+                <div className="prealistamiento-slider-area">
+                  <div className="prealistamiento-slider-instruccion" id="prealistamiento-slider-instruccion">
+                    <span>Desliza a la derecha para confirmar</span>
+                    <span className="prealistamiento-slider-flecha" aria-hidden="true">→</span>
+                  </div>
+                  <input
+                    className="prealistamiento-slider"
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={sliderPrealistamiento}
+                    style={{ "--slider-progreso": `${sliderPrealistamiento}%` }}
+                    onChange={(event) => {
+                      const valor = Number(event.target.value);
+                      setSliderPrealistamiento(valor);
+                      if (valor === 100) solicitarConfirmacionPrealistamiento();
+                    }}
+                    disabled={guardandoPrealistamiento || resumenPrealistamientoActivo.total === 0}
+                    aria-label="Desliza a la derecha para confirmar"
+                    aria-describedby="prealistamiento-slider-instruccion"
+                    aria-valuetext={`${sliderPrealistamiento}% deslizado`}
+                  />
+                </div>
+              )}
               <button type="button" className="prealistamiento-cerrar" onClick={cerrarPrealistamiento} disabled={guardandoPrealistamiento}>
                 Cerrar
               </button>
