@@ -108,16 +108,16 @@ export default function App() {
         <div className="content">
           <Routes>
             <Route path="/" element={<Dashboard/>} />
-            <Route path="/pedidos" element={<Pedidos />} />
+            <Route path="/pedidos" element={esAdmin() ? <Pedidos /> : <Navigate to="/mis-pedidos" replace />} />
             <Route path="/historial-pedidos" element={esAdmin() ? <Pedidos vista="historico" /> : <Navigate to="/" replace />} />
             <Route path="/mis-pedidos" element={<MisPedidos />} />
-            <Route path="/repartidores" element={<Repartidores />} />
-            <Route path="/vendedores" element={<Vendedores />} />
-            <Route path="/mapa" element={<Mapa />} />
+            <Route path="/repartidores" element={esAdmin() ? <Repartidores /> : <Navigate to="/" replace />} />
+            <Route path="/vendedores" element={esAdmin() ? <Vendedores /> : <Navigate to="/" replace />} />
+            <Route path="/mapa" element={esAdmin() ? <Mapa /> : <Navigate to="/" replace />} />
             <Route path="/productos" element={<Productos />} />
             <Route path="/admin-productos" element={<AdminProductos />} />
-            <Route path="/clientes" element={<Clientes />} />
-            <Route path="/admin-clientes" element={<AdminClientes />} />
+            <Route path="/clientes" element={esAdmin() ? <Clientes /> : <Navigate to="/" replace />} />
+            <Route path="/admin-clientes" element={esAdmin() ? <AdminClientes /> : <Navigate to="/" replace />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </div>

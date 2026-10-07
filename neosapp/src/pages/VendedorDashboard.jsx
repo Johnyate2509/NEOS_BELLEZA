@@ -8,7 +8,15 @@ import "../styles/vendedor-dashboard.css";
 
 export default function VendedorDashboard() {
   const { user, obtenerDatosUsuario } = useAuth();
-  const { clientes, pedidos, productos, crearPedido, actualizarObservacionVendedor } = useStore();
+  const {
+    clientes,
+    pedidos,
+    productos,
+    crearPedido,
+    registrarPago,
+    actualizarFormaPagoVendedor,
+    actualizarObservacionVendedor,
+  } = useStore();
   const vendedorData = obtenerDatosUsuario();
   const vendedorId = vendedorData?.id ?? vendedorData?.usuario_id ?? user?.id ?? null;
 
@@ -23,6 +31,7 @@ export default function VendedorDashboard() {
   const [emailCliente, setEmailCliente] = useState("");
   const [telefonoCliente, setTelefonoCliente] = useState("");
   const [cargandoPedido, setCargandoPedido] = useState(false);
+  const [cargandoPago, setCargandoPago] = useState(false);
 
   // Obtener clientes del vendedor
   const clientesVendedor = clientes.filter((cliente) => {
@@ -174,6 +183,41 @@ export default function VendedorDashboard() {
     }
   };
 
+  const handleRegistrarPago = async () => {
+    const monto = Number(montoPago);
+    if (!clienteSeleccionado || !Number.isFinite(monto) || monto <= 0) {
+      setErroresValidacion(["Ingresa un monto válido para registrar el pago."]);
+      return;
+    }
+    setErroresValidacion([]);
+    setCargandoPago(true);
+    let registrado = false;
+    try {
+      registrado = await registrarPago(
+        clienteSeleccionado.id,
+        monto,
+        metodoPago,
+        descripcionPago.trim() || "Pago/Abono"
+      );
+    } catch (error) {
+      console.error("Error registrando el pago:", error);
+    } finally {
+      setCargandoPago(false);
+    }
+    if (!registrado) {
+      setErroresValidacion(["No se pudo registrar el pago."]);
+      return;
+    }
+    setMontoPago("");
+    setDescripcionPago("");
+    setErroresValidacion([]);
+  };
+
+  const handleCambiarFormaPago = async (pedidoId, formaPago) => {
+    const actualizada = await actualizarFormaPagoVendedor(pedidoId, formaPago);
+    if (!actualizada) setErroresValidacion(["No se pudo actualizar la forma de pago."]);
+  };
+
   const totalPedido = itemsPedido.reduce(
     (acc, item) => acc + item.precio * item.cantidad,
     0
@@ -267,22 +311,51 @@ export default function VendedorDashboard() {
               </div>
             </div>
 
+    {erroresValidacion.length > 0 && (
+      <div className="errores-validacion" role="alert">
+        <ul>{erroresValidacion.map((error, index) => <li key={index}>{error}</li>)}</ul>
+      </div>
+    )}
+
+    <section className="vendedor-pago" aria-label="Registrar pago del cliente">
+              <h4>Registrar pago o abono</h4>
+              <div className="vendedor-pago-campos">
+                <input
+                  type="number"
+                  min="0.01"
+                  step="any"
+                  value={montoPago}
+                  onChange={(event) => setMontoPago(event.target.value)}
+                  placeholder="Monto"
+                  aria-label="Monto del pago"
+                />
+                <select
+                  value={metodoPago}
+                  onChange={(event) => setMetodoPago(event.target.value)}
+                  aria-label="Método de pago"
+                >
+                  <option value="efectivo">Efectivo</option>
+                  <option value="consignacion">Consignación</option>
+                  <option value="credito">Crédito</option>
+                </select>
+                <input
+                  type="text"
+                  value={descripcionPago}
+                  onChange={(event) => setDescripcionPago(event.target.value)}
+                  placeholder="Descripción (opcional)"
+                  aria-label="Descripción del pago"
+                  maxLength={180}
+                />
+                <button type="button" onClick={handleRegistrarPago} disabled={cargandoPago}>
+                  {cargandoPago ? "Guardando…" : "Registrar pago"}
+                </button>
+              </div>
+            </section>
+
             {/* Crear Pedido */}
             {mostrarCrearPedido && (
               <div className="crear-pedido-section">
                 <h4>Crear Nuevo Pedido</h4>
-
-                {/* Mostrar errores de validación */}
-                {erroresValidacion.length > 0 && (
-                  <div className="errores-validacion">
-                    <h5>⚠️ Errores de Validación:</h5>
-                    <ul>
-                      {erroresValidacion.map((error, index) => (
-                        <li key={index}>{error}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
 
                 {/* Datos de contacto del cliente */}
                 <div className="datos-contacto">
@@ -427,7 +500,18 @@ export default function VendedorDashboard() {
                       <div className="pedido-info">
                         <p><strong>Fecha:</strong> {pedido.fecha}</p>
                         <p><strong>Total:</strong> ${pedido.total.toLocaleString()}</p>
-                        <p><strong>Forma de Pago:</strong> {pedido.formaPago}</p>
+                        <label className="vendedor-forma-pago">
+                          <strong>Forma de Pago:</strong>
+                          <select
+                            value={pedido.formaPago || "Efectivo"}
+                            disabled={pedidoEstaConfirmado(pedido)}
+                            onChange={(event) => handleCambiarFormaPago(pedido.id, event.target.value)}
+                          >
+                            <option value="Efectivo">Efectivo</option>
+                            <option value="Crédito">Crédito</option>
+                            <option value="Abono">Abono</option>
+                          </select>
+                        </label>
                         <p><strong>Repartidor:</strong> {pedido.repartidor || "No asignado"}</p>
                       </div>
                       <div className="pedido-items">

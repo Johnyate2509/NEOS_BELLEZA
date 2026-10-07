@@ -51,9 +51,6 @@ export async function asegurarPerfilCliente(supabase, authUser, datos = {}) {
       direccion: datos.direccion || metadata.direccion || "",
       telefono: datos.telefono || metadata.telefono || "",
       correo: email,
-      vendedor_usuario_id: null,
-      saldo: 0,
-      transacciones: [],
     };
     const resultado = await supabase.from("clientes").insert(clienteNuevo);
     if (resultado.error && resultado.error.code !== "23505") {

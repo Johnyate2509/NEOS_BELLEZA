@@ -882,7 +882,9 @@ const cargarProductos = async () => {
 
     let productoActualizado = adaptarProducto({
       ...data,
-      precio_costo: datosActualizacion.precio_costo ?? producto.precio_costo ?? null,
+      precio_costo: Object.hasOwn(datosActualizacion, "precio_costo")
+        ? datosActualizacion.precio_costo
+        : producto.precio_costo ?? null,
     });
     if (datos.categoria_id != null) {
       productoActualizado = {
@@ -2392,6 +2394,25 @@ const datosCliente = {
     return true;
   };
 
+  const actualizarFormaPagoVendedor = async (pedidoId, formaPago) => {
+    const formasPermitidas = ["Efectivo", "Crédito", "Abono"];
+    if (!formasPermitidas.includes(formaPago)) return false;
+    const { error } = await supabase.rpc("actualizar_pedido_vendedor", {
+      p_pedido_id: Number(pedidoId),
+      p_cambios: { forma_pago: formaPago },
+    });
+    if (error) {
+      console.error("Error actualizando forma de pago del vendedor:", error);
+      return false;
+    }
+    setPedidos((prev) => prev.map((pedido) =>
+      String(pedido.id) === String(pedidoId)
+        ? { ...pedido, formaPago }
+        : pedido
+    ));
+    return true;
+  };
+
   const agregarItemPedido = async (pedidoId, productoId, nombre, precio, cantidad, itemMeta = {}) => {
     const pedido = pedidos.find((p) => p.id === pedidoId);
     if (!pedido) return false;
@@ -2471,6 +2492,7 @@ return (
       actualizarPrealistamientoPedido,
       actualizarObservacionPedido,
       actualizarObservacionVendedor,
+      actualizarFormaPagoVendedor,
       eliminarItemPedido,
       actualizarCantidadItemPedido,
       actualizarProducto,
