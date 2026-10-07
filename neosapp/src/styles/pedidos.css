@@ -1197,6 +1197,42 @@
   box-shadow: 0 10px 30px rgba(0,0,0,0.3);
 }
 
+@media (min-width: 769px) {
+  .pedido-detalle-modal-content {
+    width: min(1280px, calc(100vw - 64px));
+    max-width: 1280px;
+    max-height: 90vh;
+  }
+
+  .pedido-detalle-modal-content .pedido-info-cliente p,
+  .pedido-detalle-modal-content .pedido-info-cliente strong {
+    font-size: 16px;
+  }
+
+  .pedido-detalle-modal-content .pedido-items h5 {
+    font-size: 15px;
+  }
+
+  .pedido-detalle-modal-content .producto-nombre,
+  .pedido-detalle-modal-content .item-nombre {
+    font-size: 15px;
+  }
+
+  .pedido-detalle-modal-content .producto-cantidad,
+  .pedido-detalle-modal-content .item-precio-unitario {
+    font-size: 13px;
+  }
+
+  .pedido-detalle-modal-content .pedido-item .price,
+  .pedido-detalle-modal-content .item-subtotal {
+    font-size: 14px;
+  }
+
+  .pedido-detalle-modal-content .pedido-total {
+    font-size: 18px;
+  }
+}
+
 .btn-cerrar {
   background: #dc3545;
   color: white;

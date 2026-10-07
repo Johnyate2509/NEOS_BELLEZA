@@ -1082,7 +1082,7 @@ export default function Pedidos() {
       {/* Modal de detalle */}
       {modalPedido && (
         <div className="modal-overlay" onClick={() => setModalPedido(null)}>
-          <div className="modal-content" translate="no" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content pedido-detalle-modal-content" translate="no" onClick={(e) => e.stopPropagation()}>
             <div className="pedido-card">
               <div className="pedido-header">
                 <strong>Pedido #{modalPedido.id}</strong>
