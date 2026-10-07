@@ -72,15 +72,9 @@ npm run dev
 
 ## 📝 Configuración de Email
 
-Para habilitar confirmación de pedidos por email:
-
-1. Crear cuenta en https://resend.com
-2. Obtener API Key
-3. Agregar a `.env.local`:
-```env
-VITE_RESEND_API_KEY=re_tu_api_key_aqui
-VITE_EMAIL_FROM=noreply@neosbelleza.com
-```
+El envío de emails está deshabilitado desde el navegador. Para reactivarlo,
+impleméntalo en una función de servidor y guarda allí la clave de Resend como
+secreto; nunca uses `VITE_RESEND_API_KEY`.
 
 Ver [CONFIGURACION_EMAILS.md](./CONFIGURACION_EMAILS.md) para más detalles.
 

@@ -102,14 +102,14 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const register = async (email, password, role = 'cliente', metadata = {}) => {
+  const register = async (email, password, _role = 'cliente', metadata = {}) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
-          role,
-          ...metadata
+          ...metadata,
+          role: 'cliente'
         }
       }
     });
@@ -119,7 +119,7 @@ export function AuthProvider({ children }) {
     }
 
     // Insertar en la tabla correspondiente según el rol
-    if (role === 'cliente' && data.user) {
+    if (data.user) {
       const clienteData = {
         usuario_id: data.user.id,
         nombre: metadata.nombre || '',
@@ -142,7 +142,9 @@ export function AuthProvider({ children }) {
   };
 
   const getUserRole = () => {
-    return perfil?.rol || user?.user_metadata?.role || 'cliente';
+    // user_metadata es modificable por el propio usuario en Supabase Auth.
+    // Los permisos solo se derivan del perfil controlado por el servidor.
+    return perfil?.rol || 'cliente';
   };
 
   const getUserMetadata = () => {

@@ -4,7 +4,9 @@
  * o usar un backend externo
  */
 
-const RESEND_API_KEY = import.meta.env.VITE_RESEND_API_KEY;
+// Las claves VITE_* se publican en el bundle del navegador. El envío con
+// Resend debe trasladarse a una función de servidor antes de habilitarlo.
+const RESEND_API_KEY = "";
 const EMAIL_FROM = import.meta.env.VITE_EMAIL_FROM || "noreply@neosbelleza.com";
 
 /**

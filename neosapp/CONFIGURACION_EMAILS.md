@@ -128,21 +128,11 @@ validarDatosPedido(datoPedido)
 
 ## 🚀 Configuración Requerida
 
-### Paso 1: Obtener API Key de Resend
-
-1. Ir a https://resend.com
-2. Registrarse o iniciar sesión
-3. Ir a Settings → API Keys
-4. Copiar la API Key
-
-### Paso 2: Configurar Variables de Entorno
-
-Crear archivo `.env.local` en la raíz del proyecto:
-
-```env
-VITE_RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxx
-VITE_EMAIL_FROM=noreply@neosbelleza.com
-```
+El envío desde el cliente está deshabilitado por seguridad: las variables
+`VITE_*` quedan visibles para cualquier visitante. Para habilitarlo, mueve la
+llamada a Resend a una Edge Function o backend y almacena la clave como secreto
+del servidor. Si una clave real se configuró previamente como `VITE_RESEND_API_KEY`,
+revócala y crea una nueva antes de usarla en el backend.
 
 ### Paso 3: Verificar Email en Supabase
 
@@ -225,7 +215,7 @@ Asegurarse de que el campo `correo` en la tabla `clientes` está siendo guardado
 ## 📞 Soporte
 
 Para problemas con:
-- **Email no enviado**: Verificar VITE_RESEND_API_KEY
+- **Email no enviado**: el envío desde el navegador está deshabilitado; requiere un backend seguro.
 - **Email en BD no guardado**: Verificar que cliente.correo se guarda
 - **Validaciones no funcionan**: Importar desde src/utils/validaciones.js
 
