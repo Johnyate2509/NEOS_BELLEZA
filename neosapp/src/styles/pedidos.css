@@ -1006,6 +1006,12 @@
   min-width: 0;
 }
 
+.pedidos-table td[data-label="ID"] {
+  white-space: nowrap;
+  word-wrap: normal;
+  overflow-wrap: normal;
+}
+
 .pedidos-table th {
   background: #f8f9fa;
   font-weight: 600;
