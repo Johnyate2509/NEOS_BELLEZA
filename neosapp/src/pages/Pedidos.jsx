@@ -376,17 +376,20 @@ export default function Pedidos() {
       setErrorCatalogoPedido(`El producto no tiene precio disponible en el catálogo ${tipoCatalogo}.`);
       return false;
     }
+    const imagen = variante?.imagenes?.[0] || variante?.imagen || variante?.imagen_url || variante?.image
+      || producto.imagenes?.[0] || producto.imagen || producto.imagen_url || producto.image || "";
     const itemId = variante?.id ?? producto.id;
     const success = await agregarItemPedido(pedidoId, itemId, nombre, precio, 1, {
       producto_id: producto.id,
       variante,
       tipo_catalogo: tipoCatalogo,
+      imagen,
     });
     if (!success) return false;
 
     const nuevosItems = [
       ...(pedidoTemp.items || []),
-      { id: itemId, producto_id: producto.id, nombre, precio, cantidad: 1, variante: variante || null, tipo_catalogo: tipoCatalogo },
+      { id: itemId, producto_id: producto.id, nombre, precio, cantidad: 1, variante: variante || null, tipo_catalogo: tipoCatalogo, imagen },
     ];
     actualizarItemsLocal(nuevosItems);
     setErrorCatalogoPedido("");
@@ -817,6 +820,25 @@ export default function Pedidos() {
                     <div className="items-container">
                       {pedidoTemp.items?.map((item, index) => (
                         <div key={index} className="pedido-item-editable">
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            className="producto-miniatura"
+                            onClick={() => item.imagen && setImagenModal(item.imagen)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                item.imagen && setImagenModal(item.imagen);
+                              }
+                            }}
+                            title={item.imagen ? "Ver imagen ampliada" : "Sin imagen disponible"}
+                          >
+                            {item.imagen ? (
+                              <img src={item.imagen} alt={item.nombre} />
+                            ) : (
+                              <div className="imagen-placeholder">?</div>
+                            )}
+                          </div>
                           <div className="item-info">
                             <span className="item-nombre">{item.nombre}</span>
                             <span className="item-precio-unitario">Catálogo: {item.tipo_catalogo || "General"}</span>

@@ -2220,6 +2220,7 @@ const datosCliente = {
       nombre,
       precio,
       cantidad,
+      imagen: itemMeta.imagen ?? "",
       variante: itemMeta.variante ?? null,
       tipo_catalogo: itemMeta.tipo_catalogo || "General",
     };
