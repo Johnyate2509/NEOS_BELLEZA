@@ -25,6 +25,21 @@ const obtenerNombreVariante = (variante) => {
   return "Variante";
 };
 
+const obtenerPrecioCatalogo = (producto, variante, catalogo) => {
+  const campoPrecio = catalogo === "Emprendedor"
+    ? "precio_emprendedor"
+    : catalogo === "Mayorista"
+      ? "precio_mayorista"
+      : catalogo === "General"
+        ? "precio"
+        : null;
+  if (!campoPrecio) return null;
+  const valor = variante?.[campoPrecio] ?? producto?.[campoPrecio];
+  if (valor == null || valor === "") return null;
+  const precio = Number(valor);
+  return Number.isFinite(precio) && precio >= 0 ? precio : null;
+};
+
 export default function Pedidos() {
   const { 
     pedidos, 
@@ -35,6 +50,7 @@ export default function Pedidos() {
     eliminarPedido,
     asignarRepartidor,
     agregarItemPedido,
+    actualizarItemsPedido,
     eliminarItemPedido,
     actualizarCantidadItemPedido,
     actualizarFechaPedido,
@@ -56,6 +72,7 @@ export default function Pedidos() {
   const [variantesProductosPedido, setVariantesProductosPedido] = useState([]);
   const [cargandoVariantesPedido, setCargandoVariantesPedido] = useState(false);
   const [errorVariantesPedido, setErrorVariantesPedido] = useState("");
+  const [errorCatalogoPedido, setErrorCatalogoPedido] = useState("");
   const [imagenModal, setImagenModal] = useState(null);
   const [mostrarMenuRemision, setMostrarMenuRemision] = useState(false);
   const [mostrarEditorRemision, setMostrarEditorRemision] = useState(false);
@@ -313,8 +330,10 @@ export default function Pedidos() {
   };
 
   const abrirEdicion = (pedido) => {
+    const catalogos = new Set((pedido.items || []).map((item) => item.tipo_catalogo || "General"));
     setPedidoExpandido(pedido.id);
-    setPedidoTemp({ ...pedido });
+    setPedidoTemp({ ...pedido, tipo_catalogo: catalogos.size <= 1 ? [...catalogos][0] || "General" : "" });
+    setErrorCatalogoPedido("");
   };
 
   const cerrarEdicion = () => {
@@ -344,24 +363,61 @@ export default function Pedidos() {
   const handleAgregarItem = async (pedidoId, productoId, variante = null) => {
     const producto = productos.find((p) => String(p.id) === String(productoId));
     if (!producto) return false;
+    const tipoCatalogo = pedidoTemp.tipo_catalogo;
+    if (!tipoCatalogo) {
+      setErrorCatalogoPedido("Selecciona un catálogo para unificar los productos del pedido.");
+      return false;
+    }
 
     const etiquetaVariante = variante ? obtenerNombreVariante(variante) : "";
     const nombre = etiquetaVariante ? `${producto.nombre} - ${etiquetaVariante}` : producto.nombre;
-    const precio = Number(variante?.precio ?? producto.precio ?? 0);
+    const precio = obtenerPrecioCatalogo(producto, variante, tipoCatalogo);
+    if (precio == null) {
+      setErrorCatalogoPedido(`El producto no tiene precio disponible en el catálogo ${tipoCatalogo}.`);
+      return false;
+    }
     const itemId = variante?.id ?? producto.id;
     const success = await agregarItemPedido(pedidoId, itemId, nombre, precio, 1, {
       producto_id: producto.id,
       variante,
-      tipo_catalogo: "General",
+      tipo_catalogo: tipoCatalogo,
     });
     if (!success) return false;
 
     const nuevosItems = [
       ...(pedidoTemp.items || []),
-      { id: itemId, producto_id: producto.id, nombre, precio, cantidad: 1, variante: variante || null, tipo_catalogo: "General" },
+      { id: itemId, producto_id: producto.id, nombre, precio, cantidad: 1, variante: variante || null, tipo_catalogo: tipoCatalogo },
     ];
     actualizarItemsLocal(nuevosItems);
+    setErrorCatalogoPedido("");
     return true;
+  };
+
+  const handleCambiarCatalogoPedido = async (tipoCatalogo) => {
+    const items = pedidoTemp.items || [];
+    const itemsRepreciados = items.map((item) => {
+      const productoId = item.producto_id ?? item.variante?.producto_id ?? item.id;
+      const producto = productos.find((actual) => String(actual.id) === String(productoId));
+      const precio = obtenerPrecioCatalogo(producto, item.variante, tipoCatalogo);
+      return precio == null ? null : { ...item, precio, tipo_catalogo: tipoCatalogo };
+    });
+    const indiceSinPrecio = itemsRepreciados.findIndex((item) => item === null);
+    if (indiceSinPrecio >= 0) {
+      setErrorCatalogoPedido(`No se puede cambiar a ${tipoCatalogo}: "${items[indiceSinPrecio].nombre}" no tiene precio en ese catálogo.`);
+      return;
+    }
+
+    setErrorCatalogoPedido("");
+    const success = await actualizarItemsPedido(pedidoTemp.id, itemsRepreciados);
+    if (!success) {
+      setErrorCatalogoPedido("No se pudo guardar el catálogo y sus precios. Inténtalo de nuevo.");
+      return;
+    }
+    actualizarItemsLocal(itemsRepreciados);
+    setPedidoTemp((actual) => ({ ...actual, tipo_catalogo: tipoCatalogo }));
+    setModalPedido((actual) => actual?.id === pedidoTemp.id
+      ? { ...actual, tipo_catalogo: tipoCatalogo }
+      : actual);
   };
 
   const abrirSelectorProductos = async () => {
@@ -419,6 +475,9 @@ export default function Pedidos() {
     return (!categoriaProductosPedido || String(producto.categoria_id) === categoriaProductosPedido || categoria === categoriaProductosPedido)
       && (!busqueda || `${producto.nombre} ${categoria} ${textoVariantes}`.toLocaleLowerCase().includes(busqueda));
   });
+  const pedidoEdicionUnificado = Boolean(pedidoTemp.tipo_catalogo) && (pedidoTemp.items || []).every(
+    (item) => (item.tipo_catalogo || "General") === pedidoTemp.tipo_catalogo
+  );
 
   const normalizedSearchTerm = searchTerm.trim().toLowerCase();
 
@@ -735,6 +794,25 @@ export default function Pedidos() {
                 {/* Items con controles de edición si está expandido */}
                 {pedidoExpandido === modalPedido.id ? (
                   <div className="pedido-items-editable">
+                    <div className="control pedido-catalogo-control">
+                      <label htmlFor={`catalogo-pedido-${modalPedido.id}`}>Catálogo del pedido:</label>
+                      <select
+                        id={`catalogo-pedido-${modalPedido.id}`}
+                        value={pedidoTemp.tipo_catalogo || ""}
+                        onChange={(event) => handleCambiarCatalogoPedido(event.target.value)}
+                      >
+                        <option value="" disabled>Selecciona un catálogo para unificar</option>
+                        <option value="General">General</option>
+                        <option value="Emprendedor">Emprendedor</option>
+                        <option value="Mayorista">Mayorista</option>
+                      </select>
+                    </div>
+                    {!pedidoTemp.tipo_catalogo && (
+                      <p className="selector-productos-error" role="status">
+                        Este pedido tiene catálogos distintos. Selecciona uno para aplicar una tarifa uniforme.
+                      </p>
+                    )}
+                    {errorCatalogoPedido && <p className="selector-productos-error" role="alert">{errorCatalogoPedido}</p>}
                     <h5>Productos:</h5>
                     <div className="items-container">
                       {pedidoTemp.items?.map((item, index) => (
@@ -784,14 +862,14 @@ export default function Pedidos() {
                     {productosDisponibles.length > 0 && (
                       <div className="agregar-item-container">
                         <label>Agregar producto:</label>
-                        <button type="button" className="select-agregar" onClick={abrirSelectorProductos}>
+                        <button type="button" className="select-agregar" onClick={abrirSelectorProductos} disabled={!pedidoTemp.tipo_catalogo}>
                           + Seleccionar producto
                         </button>
                       </div>
                     )}
 
                     <div className="edicion-botones">
-                      <button className="btn-guardar" onClick={cerrarEdicion}>
+                      <button className="btn-guardar" onClick={cerrarEdicion} disabled={!pedidoEdicionUnificado}>
                         Guardar
                       </button>
                     </div>
@@ -915,6 +993,7 @@ export default function Pedidos() {
             <div className="selector-productos-lista">
               {productosFiltradosPedido.length ? productosFiltradosPedido.map((producto) => {
                 const variantes = variantesProductosPedido.filter((variante) => String(variante.producto_id) === String(producto.id));
+                const precioProducto = obtenerPrecioCatalogo(producto, null, pedidoTemp.tipo_catalogo);
                 return (
                   <article className="selector-producto" key={producto.id}>
                     <div className="selector-producto-base">
@@ -922,18 +1001,19 @@ export default function Pedidos() {
                         <strong>{producto.nombre}</strong>
                         <span>{producto.categoria || producto.categorias?.nombre || "Sin categoría"} · Stock: {producto.stock}</span>
                       </div>
-                      <button type="button" onClick={() => agregarProductoSeleccionado(producto)}>
-                        Agregar · ${Number(producto.precio || 0).toLocaleString()}
+                      <button type="button" disabled={precioProducto == null} onClick={() => agregarProductoSeleccionado(producto)}>
+                        {precioProducto == null ? "Sin precio en este catálogo" : `Agregar · $${precioProducto.toLocaleString()}`}
                       </button>
                     </div>
                     {variantes.length > 0 && (
                       <div className="selector-producto-variantes">
                         {variantes.map((variante) => {
                           const detalle = obtenerNombreVariante(variante);
+                          const precioVariante = obtenerPrecioCatalogo(producto, variante, pedidoTemp.tipo_catalogo);
                           return (
-                            <button type="button" key={variante.id} onClick={() => agregarProductoSeleccionado(producto, variante)}>
+                            <button type="button" key={variante.id} disabled={precioVariante == null} onClick={() => agregarProductoSeleccionado(producto, variante)}>
                               <span>{detalle}</span>
-                              <strong>${Number(variante.precio ?? producto.precio ?? 0).toLocaleString()}</strong>
+                              <strong>{precioVariante == null ? "Sin precio" : `$${precioVariante.toLocaleString()}`}</strong>
                             </button>
                           );
                         })}

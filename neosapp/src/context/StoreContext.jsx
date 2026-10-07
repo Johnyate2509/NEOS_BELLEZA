@@ -2282,6 +2282,7 @@ return (
       eliminarPedido,
       asignarRepartidor,
       agregarItemPedido,
+      actualizarItemsPedido: updatePedidoItems,
       eliminarItemPedido,
       actualizarCantidadItemPedido,
       actualizarProducto,
