@@ -982,6 +982,25 @@
   box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.1);
 }
 
+.pedidos-historico-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.pedidos-historico-header h3 {
+  margin: 0;
+  color: #292929;
+  font-size: 20px;
+}
+
+.pedidos-historico-header .buscador-container {
+  width: min(380px, 100%);
+  margin: 0;
+}
+
 /* TABLA PEDIDOS */
 .pedidos-table {
   width: 100%;
@@ -1298,6 +1317,15 @@
 
 /* RESPONSIVE */
 @media (max-width: 768px) {
+  .pedidos-historico-header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .pedidos-historico-header h3 { font-size: 18px; }
+  .pedidos-historico-header .buscador-container { width: 100%; }
+
   .pedidos-page-heading { align-items: center; }
   .pedidos-page-heading h2 { text-align: left; }
   .remision-config-overlay { align-items: flex-end; padding: 0; }

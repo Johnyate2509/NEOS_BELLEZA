@@ -3,7 +3,9 @@ import { useStore } from "../context/StoreContext";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../context/supabaseClient";
 import { descargarRemisionPedido } from "../utils/remisionPdf";
-import expedienteIcon from "../components/img/expediente.png";
+import { obtenerClavePrealistamiento, obtenerResumenPrealistamiento, pedidoEstaConfirmado } from "../utils/pedidos";
+import HistorialPedidos from "./HistorialPedidos";
+import PedidosTabla from "./PedidosTabla";
 import "../styles/pedidos.css";
 
 const REMISION_CONFIG_KEY = "remision_config";
@@ -40,29 +42,7 @@ const obtenerPrecioCatalogo = (producto, variante, catalogo) => {
   return Number.isFinite(precio) && precio >= 0 ? precio : null;
 };
 
-const obtenerClavePrealistamiento = (item, index) =>
-  `${item.producto_id ?? item.id}:${item.variante?.id ?? item.variante_id ?? "base"}:${index}`;
-
-const pedidoEstaConfirmado = (pedido) =>
-  pedido?.estado === "Confirmado" || pedido?.pre_alistamiento?.confirmado === true;
-
-const obtenerResumenPrealistamiento = (pedido) => {
-  const cantidades = pedido.pre_alistamiento?.cantidades || {};
-  const total = (pedido.items || []).reduce((suma, item) => suma + Number(item.cantidad || 0), 0);
-  const empacadas = (pedido.items || []).reduce((suma, item, index) => {
-    const solicitadas = Number(item.cantidad || 0);
-    const registradas = Number(cantidades[obtenerClavePrealistamiento(item, index)] || 0);
-    return suma + Math.min(solicitadas, Math.max(0, registradas));
-  }, 0);
-  return {
-    total,
-    empacadas,
-    faltantes: Math.max(0, total - empacadas),
-    confirmado: pedido.pre_alistamiento?.confirmado === true,
-  };
-};
-
-export default function Pedidos() {
+export default function Pedidos({ vista = "pedidos" }) {
   const { 
     pedidos, 
     repartidores, 
@@ -80,6 +60,7 @@ export default function Pedidos() {
     actualizarFormaPagoPedido,
   } = useStore();
   const { esAdmin } = useAuth();
+  const esVistaHistorico = vista === "historico";
 
   const [pedidoExpandido, setPedidoExpandido] = useState(null);
   const [pedidoTemp, setPedidoTemp] = useState({});
@@ -665,8 +646,8 @@ export default function Pedidos() {
   );
 
   const normalizedSearchTerm = searchTerm.trim().toLowerCase();
-
-  const pedidosFiltrados = pedidos
+  const pedidosActivos = pedidos.filter((pedido) => !pedidoEstaConfirmado(pedido));
+  const pedidosFiltrados = pedidosActivos
     .filter((p) => {
       const cliente = (p?.cliente ?? "").toLowerCase();
       const id = p?.id != null ? p.id.toString() : "";
@@ -681,6 +662,7 @@ export default function Pedidos() {
       );
     })
     .sort((a, b) => Number(b.id) - Number(a.id));
+
   const resumenPrealistamientoActivo = pedidoPrealistar
     ? obtenerResumenPrealistamiento({
         ...pedidoPrealistar,
@@ -690,32 +672,34 @@ export default function Pedidos() {
 
   return (
     <div className="pedidos-page">
-      <div className="pedidos-page-heading">
-        <div>
-          <h2>Pedidos</h2>
-          <p>Gestión de pedidos creados desde la tienda</p>
-        </div>
-        {esAdmin() && (
-          <div className="remision-settings-menu">
-            <button
-              type="button"
-              className="remision-settings-trigger"
-              aria-label="Configuración de remisión"
-              aria-expanded={mostrarMenuRemision}
-              onClick={() => setMostrarMenuRemision((mostrar) => !mostrar)}
-            >
-              ⚙
-            </button>
-            {mostrarMenuRemision && (
-              <div className="remision-settings-dropdown" role="menu">
-                <button type="button" role="menuitem" className="admin-action-control" onClick={abrirEditorRemision}>Editar Remisión</button>
-              </div>
-            )}
+      {!esVistaHistorico && (
+        <div className="pedidos-page-heading">
+          <div>
+            <h2>Pedidos</h2>
+            <p>Gestión de pedidos creados desde la tienda</p>
           </div>
-        )}
-      </div>
+          {esAdmin() && (
+            <div className="remision-settings-menu">
+              <button
+                type="button"
+                className="remision-settings-trigger"
+                aria-label="Configuración de remisión"
+                aria-expanded={mostrarMenuRemision}
+                onClick={() => setMostrarMenuRemision((mostrar) => !mostrar)}
+              >
+                ⚙
+              </button>
+              {mostrarMenuRemision && (
+                <div className="remision-settings-dropdown" role="menu">
+                  <button type="button" role="menuitem" className="admin-action-control" onClick={abrirEditorRemision}>Editar Remisión</button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
-      {esAdmin() && mostrarEditorRemision && (
+      {!esVistaHistorico && esAdmin() && mostrarEditorRemision && (
         <div className="remision-config-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget && !guardandoConfigRemision) setMostrarEditorRemision(false); }}>
           <section className="remision-config-modal" role="dialog" aria-modal="true" aria-labelledby="remision-config-title">
             <header className="remision-config-header">
@@ -759,114 +743,37 @@ export default function Pedidos() {
         </div>
       )}
 
-      {/* Buscador */}
-      <div className="buscador-container">
-        <input
-          type="text"
-          placeholder="Buscar por cliente o ID..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="buscador-input"
+      {esVistaHistorico ? (
+        <HistorialPedidos
+          pedidos={pedidos}
+          obtenerNombreRepartidor={obtenerNombreRepartidor}
+          onAsignarRepartidor={abrirAsignacionRepartidor}
+          onVerDetalle={setModalPedido}
+          onDescargarRemision={handleDescargarRemision}
+          onEliminarPedido={confirmarEliminarPedido}
         />
-      </div>
-
-      {/* Tabla pedidos */}
-      <table className="pedidos-table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Nombre</th>
-            <th>Fecha de entrega</th>
-            <th>Valor</th>
-            <th>Estado</th>
-            <th>Asignación de repartidor</th>
-            <th>Acción</th>
-          </tr>
-        </thead>
-        <tbody>
-          {pedidosFiltrados.length === 0 ? (
-            <tr>
-              <td colSpan="7" className="sin-pedidos">No hay pedidos que coincidan con la búsqueda.</td>
-            </tr>
-          ) : (
-            pedidosFiltrados.map((p) => {
-              const resumenPrealistamiento = obtenerResumenPrealistamiento(p);
-              return (
-              <tr key={p.id}>
-                <td data-label="ID">{p.id}</td>
-                <td data-label="Nombre">
-                  <div className="pedido-cliente-resumen">
-                    <span>{p.cliente}</span>
-                    {resumenPrealistamiento.total > 0 && (
-                      <small className={`pedido-prealistamiento-aviso ${resumenPrealistamiento.confirmado ? (resumenPrealistamiento.faltantes > 0 ? "confirmado-con-faltantes" : "confirmado") : "pendiente"}`}>
-                        {resumenPrealistamiento.confirmado
-                          ? resumenPrealistamiento.faltantes > 0
-                            ? "Pre-alistamiento confirmado con unidades faltantes"
-                            : "Pre-alistamiento confirmado"
-                          : "Hay unidades pendientes por alistar"}
-                      </small>
-                    )}
-                  </div>
-                </td>
-                <td data-label="Fecha">{p.fecha}</td>
-                <td data-label="Valor">${p.total.toLocaleString()}</td>
-                <td data-label="Estado">
-                  <span className={`estado-badge estado-${(p.estado ?? "").toLowerCase().replace(' ', '-')}`}>
-                    {p.estado}
-                  </span>
-                </td>
-                <td data-label="Asignación de repartidor">
-                  <div className="repartidor-asignacion">
-                    {p.repartidor_id ? (
-                      <span className="repartidor-nombre">{obtenerNombreRepartidor(p.repartidor_id)}</span>
-                    ) : (
-                      <span className="sin-repartidor">No asignado</span>
-                    )}
-                    <button
-                      type="button"
-                      className="admin-action-control"
-                      onClick={() => abrirAsignacionRepartidor(p)}
-                      aria-label={`${p.repartidor_id ? "Cambiar" : "Asignar"} repartidor del pedido ${p.id}`}
-                    >
-                      {p.repartidor_id ? "Cambiar" : "Asignar"}
-                    </button>
-                  </div>
-                </td>
-                <td data-label="Acción">
-                  <div className="acciones-pedido">
-                    <button
-                      className="btn-detalle"
-                      onClick={() => setModalPedido(p)}
-                      title="Ver detalle"
-                    >
-                      Ver Detalle
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-pdf"
-                      onClick={() => handleDescargarRemision(p)}
-                      title="Descargar remisión PDF"
-                      aria-label={`Descargar remisión del pedido ${p.id}`}
-                    >
-                      <img src={expedienteIcon} alt="" />
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-delete admin-action-control admin-action-control--danger"
-                      onClick={() => confirmarEliminarPedido(p)}
-                      title={`Eliminar pedido ${p.id}`}
-                      aria-label={`Eliminar pedido ${p.id}`}
-                    >
-                       Eliminar
-                    </button>
-                  </div>
-                </td>
-              </tr>
-              );
-            })
-          )}
-        </tbody>
-      </table>
+      ) : (
+        <>
+          <div className="buscador-container">
+            <input
+              type="text"
+              placeholder="Buscar por cliente o ID..."
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              className="buscador-input"
+            />
+          </div>
+          <PedidosTabla
+            pedidos={pedidosFiltrados}
+            mensajeVacio="No hay pedidos que coincidan con la búsqueda."
+            obtenerNombreRepartidor={obtenerNombreRepartidor}
+            onAsignarRepartidor={abrirAsignacionRepartidor}
+            onVerDetalle={setModalPedido}
+            onDescargarRemision={handleDescargarRemision}
+            onEliminarPedido={confirmarEliminarPedido}
+          />
+        </>
+      )}
 
       {pedidoAnularConfirmacion && (
         <div className="anular-confirmacion-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget && !guardandoAnulacionConfirmacion) setPedidoAnularConfirmacion(null); }}>

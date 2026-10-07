@@ -24,7 +24,7 @@ import Productos from "./pages/Producto";
 
 
 export default function App() {
-  const { usuarioAutenticado, esRepartidor, esVendedor, loading } = useAuth();
+  const { usuarioAutenticado, esAdmin, esRepartidor, esVendedor, loading } = useAuth();
   const [sidebarAbierto, setSidebarAbierto] = useState(true);
   const toggleSidebar = () => setSidebarAbierto((prev) => !prev);
 
@@ -109,6 +109,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Dashboard/>} />
             <Route path="/pedidos" element={<Pedidos />} />
+            <Route path="/historial-pedidos" element={esAdmin() ? <Pedidos vista="historico" /> : <Navigate to="/" replace />} />
             <Route path="/mis-pedidos" element={<MisPedidos />} />
             <Route path="/repartidores" element={<Repartidores />} />
             <Route path="/vendedores" element={<Vendedores />} />

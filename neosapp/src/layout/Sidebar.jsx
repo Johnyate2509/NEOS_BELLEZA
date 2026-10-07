@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useStore } from "../context/StoreContext";
+import { pedidoEstaConfirmado } from "../utils/pedidos";
 
 export default function Sidebar() {
   const { esAdmin, esVendedor, esRepartidor } = useAuth();
@@ -9,6 +10,7 @@ export default function Sidebar() {
   const esVend = esVendedor();
   const esRepar = esRepartidor();
   const esCliente = !esAdministrador && !esVend && !esRepar;
+  const pedidosActivos = pedidos.filter((pedido) => !pedidoEstaConfirmado(pedido));
 
   return (
     <aside className="sidebar">
@@ -62,9 +64,13 @@ export default function Sidebar() {
 
             <NavLink to="/pedidos" className="sidebar-link-with-badge">
               <span>Pedidos</span>
-              <span className="sidebar-count-badge" aria-label={`${pedidos.length} pedidos actuales`} title={`${pedidos.length} pedidos actuales`}>
-                {pedidos.length}
+              <span className="sidebar-count-badge" aria-label={`${pedidosActivos.length} pedidos activos`} title={`${pedidosActivos.length} pedidos activos`}>
+                {pedidosActivos.length}
               </span>
+            </NavLink>
+
+            <NavLink to="/historial-pedidos">
+              Histórico de pedidos
             </NavLink>
 
             <NavLink to="/repartidores">
