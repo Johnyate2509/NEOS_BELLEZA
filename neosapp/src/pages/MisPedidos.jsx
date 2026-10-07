@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useStore } from "../context/StoreContext";
+import PedidoObservacion from "../components/PedidoObservacion";
 import HorizontalScroll from "../components/HorizontalScroll";
 import "../styles/mis-pedidos.css";
 
@@ -181,6 +182,7 @@ export default function MisPedidos() {
                 <strong>Total</strong>
                 <span>${Number(pedidoSeleccionado.total || 0).toLocaleString()}</span>
               </div>
+              <PedidoObservacion pedido={pedidoSeleccionado} />
             </div>
           </div>
         </div>

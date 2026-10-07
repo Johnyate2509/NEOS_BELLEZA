@@ -233,6 +233,7 @@ const adaptarProducto = (p) => {
       estado: p.estado ?? "Pendiente",
       repartidor_id: p.repartidor_id ?? null,
       repartidor: p.repartidor ?? "",
+      observacion: p.observacion ?? "",
       pre_alistamiento: p.pre_alistamiento ?? { cantidades: {}, confirmado: false },
     };
   };
@@ -2244,6 +2245,31 @@ const datosCliente = {
     }
   };
 
+  const actualizarObservacionPedido = async (pedidoId, observacion) => {
+    const observacionGuardada = String(observacion ?? "").trim();
+    try {
+      const { error } = await supabase
+        .from("pedidos")
+        .update({ observacion: observacionGuardada || null })
+        .eq("id", pedidoId);
+
+      if (error) {
+        console.error("Error guardando observación del pedido:", error);
+        return false;
+      }
+
+      setPedidos((prev) => prev.map((pedido) =>
+        String(pedido.id) === String(pedidoId)
+          ? { ...pedido, observacion: observacionGuardada }
+          : pedido
+      ));
+      return true;
+    } catch (error) {
+      console.error("Excepción guardando observación del pedido:", error);
+      return false;
+    }
+  };
+
   const agregarItemPedido = async (pedidoId, productoId, nombre, precio, cantidad, itemMeta = {}) => {
     const pedido = pedidos.find((p) => p.id === pedidoId);
     if (!pedido) return false;
@@ -2319,6 +2345,7 @@ return (
       agregarItemPedido,
       actualizarItemsPedido: updatePedidoItems,
       actualizarPrealistamientoPedido,
+      actualizarObservacionPedido,
       eliminarItemPedido,
       actualizarCantidadItemPedido,
       actualizarProducto,

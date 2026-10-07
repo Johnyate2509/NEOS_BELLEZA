@@ -3,6 +3,7 @@ import { useStore } from "../context/StoreContext";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../context/supabaseClient";
 import { descargarRemisionPedido } from "../utils/remisionPdf";
+import PedidoObservacion from "../components/PedidoObservacion";
 import { obtenerClavePrealistamiento, obtenerResumenPrealistamiento, pedidoEstaConfirmado } from "../utils/pedidos";
 import HistorialPedidos from "./HistorialPedidos";
 import PedidosTabla from "./PedidosTabla";
@@ -54,12 +55,13 @@ export default function Pedidos({ vista = "pedidos" }) {
     agregarItemPedido,
     actualizarItemsPedido,
     actualizarPrealistamientoPedido,
+    actualizarObservacionPedido,
     eliminarItemPedido,
     actualizarCantidadItemPedido,
     actualizarFechaPedido,
     actualizarFormaPagoPedido,
   } = useStore();
-  const { esAdmin } = useAuth();
+  const { esAdmin, esVendedor } = useAuth();
   const esVistaHistorico = vista === "historico";
 
   const [pedidoExpandido, setPedidoExpandido] = useState(null);
@@ -1200,6 +1202,12 @@ export default function Pedidos({ vista = "pedidos" }) {
                   )}
                   <p className="pedido-total"><strong>Total:</strong> ${((pedidoExpandido === modalPedido.id ? pedidoTemp.total : modalPedido.total) || 0).toLocaleString()}</p>
                 </div>
+
+                <PedidoObservacion
+                  pedido={modalPedido}
+                  editable={esAdmin() || esVendedor()}
+                  onGuardar={actualizarObservacionPedido}
+                />
 
                 {pedidoExpandido === modalPedido.id && (
                   <div className="pedido-acciones">

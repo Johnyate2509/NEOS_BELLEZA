@@ -2,11 +2,12 @@ import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useStore } from "../context/StoreContext";
 import { validarDatosPedido, validarCarrito } from "../utils/validaciones";
+import PedidoObservacion from "../components/PedidoObservacion";
 import "../styles/vendedor-dashboard.css";
 
 export default function VendedorDashboard() {
   const { user, obtenerDatosUsuario } = useAuth();
-  const { clientes, pedidos, productos, crearPedido } = useStore();
+  const { clientes, pedidos, productos, crearPedido, actualizarObservacionPedido } = useStore();
   const vendedorData = obtenerDatosUsuario();
   const vendedorId = vendedorData?.id ?? vendedorData?.usuario_id ?? user?.id ?? null;
 
@@ -439,6 +440,7 @@ export default function VendedorDashboard() {
                           ))}
                         </ul>
                       </div>
+                      <PedidoObservacion pedido={pedido} editable onGuardar={actualizarObservacionPedido} />
                     </div>
                   ))}
                 </div>
