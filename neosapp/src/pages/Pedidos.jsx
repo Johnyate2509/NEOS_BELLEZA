@@ -79,7 +79,6 @@ export default function Pedidos({ vista = "pedidos" }) {
   const [errorPrealistamiento, setErrorPrealistamiento] = useState("");
   const colaGuardadoPrealistamiento = useRef(Promise.resolve());
   const guardadosPendientesPrealistamiento = useRef(0);
-  const temporizadorGuardadoPrealistamiento = useRef(null);
   const cantidadesPrealistadasRef = useRef({});
   const [pedidoAsignarRepartidor, setPedidoAsignarRepartidor] = useState(null);
   const [repartidorSeleccionado, setRepartidorSeleccionado] = useState("");
@@ -400,7 +399,7 @@ export default function Pedidos({ vista = "pedidos" }) {
       return Boolean(resultado?.success);
     } finally {
       guardadosPendientesPrealistamiento.current -= 1;
-      if (guardadosPendientesPrealistamiento.current === 0 && !temporizadorGuardadoPrealistamiento.current) {
+      if (guardadosPendientesPrealistamiento.current === 0) {
         setGuardandoPrealistamiento(false);
       }
     }
@@ -416,17 +415,12 @@ export default function Pedidos({ vista = "pedidos" }) {
       ...actual,
       pre_alistamiento: { ...(actual.pre_alistamiento || {}), cantidades: nuevasCantidades, confirmado: false },
     } : actual);
-    if (temporizadorGuardadoPrealistamiento.current) {
-      clearTimeout(temporizadorGuardadoPrealistamiento.current);
-    }
-    setGuardandoPrealistamiento(true);
-    temporizadorGuardadoPrealistamiento.current = setTimeout(() => {
-      temporizadorGuardadoPrealistamiento.current = null;
-      guardarPrealistamiento(pedidoPrealistar.id, {
-        cantidades: cantidadesPrealistadasRef.current,
-        confirmado: false,
-      });
-    }, 350);
+    // Persist each change immediately. The save queue serializes rapid edits so
+    // the last quantity entered is always the final value written to Supabase.
+    void guardarPrealistamiento(pedidoPrealistar.id, {
+      cantidades: nuevasCantidades,
+      confirmado: false,
+    });
   };
 
   const confirmarPrealistamiento = async () => {
