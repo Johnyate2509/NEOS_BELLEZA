@@ -863,8 +863,11 @@ export default function Pedidos({ vista = "pedidos" }) {
               ) : (
                 <div className="prealistamiento-slider-area">
                   <div className="prealistamiento-slider-instruccion" id="prealistamiento-slider-instruccion">
-                    <span>Desliza a la derecha para confirmar</span>
-                    <span className="prealistamiento-slider-flecha" aria-hidden="true">→</span>
+                    <span>Desliza para confirmar el pedido</span>
+                    <span className="prealistamiento-slider-ayuda" aria-hidden="true">
+                      <span>ARRASTRA</span>
+                      <span className="prealistamiento-slider-flecha">→</span>
+                    </span>
                   </div>
                   <input
                     className="prealistamiento-slider"
