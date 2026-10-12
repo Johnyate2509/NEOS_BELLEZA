@@ -55,7 +55,7 @@ const EVENTO_COMPRA_COMPLETADA = "neosapp:compra-completada";
 let finalizarPedidoEnCurso = false;
 
 export default function Producto() {
-  const { productos, categorias, setProductos, setCategorias, crearProducto, actualizarProducto, eliminarProducto, crearPedidoSeguro, clientes, bannerUrl, subirBanner } = useStore();
+  const { productos, categorias, setProductos, setCategorias, crearProducto, actualizarProducto, eliminarProducto, crearPedidoSeguro, clientes, bannerUrl, bannerImages, bannerVisible, guardarBannerVisible, guardarImagenesBanner, subirBanner } = useStore();
   const { esAdmin, esVendedor, obtenerDatosUsuario, user, getUserRole } = useAuth();
   const vendedorData = obtenerDatosUsuario();
 
@@ -340,17 +340,11 @@ export default function Producto() {
     variantesTemp: [],
   });
   const [imagenesVista, setImagenesVista] = useState([]);
-  const [bannerZoom, setBannerZoom] = useState(100);
-  const [bannerPosicionX, setBannerPosicionX] = useState(50);
-  const [bannerPosicionY, setBannerPosicionY] = useState(50);
   const [bannerEditorAbierto, setBannerEditorAbierto] = useState(false);
-  const [bannerPreviewUrl, setBannerPreviewUrl] = useState("");
-  const [bannerArchivoTemporal, setBannerArchivoTemporal] = useState(null);
-  const [bannerBackgroundMode, setBannerBackgroundMode] = useState("transparent");
-  const [bannerBackgroundColor, setBannerBackgroundColor] = useState("#ffffff");
-  const [bannerHandleDrag, setBannerHandleDrag] = useState(null);
   const [bannerAmpliadoMovil, setBannerAmpliadoMovil] = useState(false);
-  const bannerPreviewRef = useRef(null);
+  const [bannerImagenesBorrador, setBannerImagenesBorrador] = useState([]);
+  const [bannerIndiceActivo, setBannerIndiceActivo] = useState(0);
+  const [bannerControlesTouch, setBannerControlesTouch] = useState(false);
 
   // Estados para el carrito (debe estar ANTES de useEffect que los usa)
   const [carrito, setCarrito] = useState([]);
@@ -375,6 +369,32 @@ export default function Producto() {
   const [procesandoPedido, setProcesandoPedido] = useState(false);
   const [nuevaCategoria, setNuevaCategoria] = useState("");
   const bannerInputRef = useRef(null);
+  const bannerControlesTimeoutRef = useRef(null);
+  const carruselBanner = bannerImages?.length ? bannerImages : bannerUrl ? [bannerUrl] : [brebImage];
+
+  useEffect(() => {
+    if (carruselBanner.length < 2) {
+      setBannerIndiceActivo(0);
+      return undefined;
+    }
+    const intervalo = window.setInterval(() => {
+      setBannerIndiceActivo((actual) => (actual + 1) % carruselBanner.length);
+    }, 15000);
+    return () => window.clearInterval(intervalo);
+  }, [carruselBanner.length]);
+
+  useEffect(() => () => window.clearTimeout(bannerControlesTimeoutRef.current), []);
+
+  const activarControlesBannerTouch = () => {
+    setBannerControlesTouch(true);
+    window.clearTimeout(bannerControlesTimeoutRef.current);
+    bannerControlesTimeoutRef.current = window.setTimeout(() => setBannerControlesTouch(false), 5000);
+  };
+
+  const cambiarSlideBanner = (direccion) => {
+    setBannerIndiceActivo((actual) => (actual + direccion + carruselBanner.length) % carruselBanner.length);
+    activarControlesBannerTouch();
+  };
 
   useEffect(() => {
     const aplicarNombresGuardados = (valor) => {
@@ -530,115 +550,57 @@ export default function Producto() {
     formaPago: FORMAS_PAGO[0],
   });
 
-  const guardarConfiguracionBanner = (
-    zoom = bannerZoom,
-    posicionXValue = bannerPosicionX,
-    posicionYValue = bannerPosicionY,
-    modoFondo = bannerBackgroundMode,
-    colorFondo = bannerBackgroundColor
-  ) => {
-    try {
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(
-          "neosapp_banner_config",
-          JSON.stringify({
-            zoom,
-            posicionX: posicionXValue,
-            posicionY: posicionYValue,
-            backgroundMode: modoFondo,
-            backgroundColor: colorFondo,
-          })
-        );
-      }
-    } catch (error) {
-      console.warn("No se pudo guardar la configuración del banner:", error);
-    }
-  };
-
-  useEffect(() => {
-    try {
-      if (typeof window === "undefined") return;
-      const configGuardada = window.localStorage.getItem("neosapp_banner_config");
-      if (!configGuardada) return;
-
-      const config = JSON.parse(configGuardada);
-      if (Number.isFinite(Number(config.zoom))) {
-        setBannerZoom(Number(config.zoom));
-      }
-      if (Number.isFinite(Number(config.posicionX))) {
-        setBannerPosicionX(Number(config.posicionX));
-      }
-      if (Number.isFinite(Number(config.posicionY))) {
-        setBannerPosicionY(Number(config.posicionY));
-      }
-      if (config.backgroundMode) {
-        setBannerBackgroundMode(config.backgroundMode);
-      }
-      if (config.backgroundColor) {
-        setBannerBackgroundColor(config.backgroundColor);
-      }
-    } catch (error) {
-      console.warn("No se pudo cargar la configuración del banner:", error);
-    }
-  }, []);
-
   const abrirEditorBanner = () => {
-    setBannerPreviewUrl(bannerUrl || brebImage);
-    setBannerArchivoTemporal(null);
+    setBannerImagenesBorrador(carruselBanner.filter((url) => url !== brebImage).map((url) => ({ url, file: null })));
     setBannerEditorAbierto(true);
   };
 
   const cerrarEditorBanner = () => {
-    setBannerArchivoTemporal(null);
-    setBannerPreviewUrl("");
+    bannerImagenesBorrador.forEach((imagen) => { if (imagen.file) URL.revokeObjectURL(imagen.url); });
+    setBannerImagenesBorrador([]);
     setBannerEditorAbierto(false);
-    setBannerHandleDrag(null);
   };
 
   const manejarCambioBanner = (event) => {
-    const archivo = event.target.files?.[0];
-    if (!archivo) return;
-
-    if (!archivo.type.startsWith("image/")) {
-      alert("Solo puedes subir imágenes para el banner.");
-      return;
-    }
-
-    const urlPrevia = URL.createObjectURL(archivo);
-    setBannerArchivoTemporal(archivo);
-    setBannerPreviewUrl(urlPrevia);
-    setBannerEditorAbierto(true);
+    const archivos = Array.from(event.target.files || []).filter((archivo) => archivo.type.startsWith("image/"));
+    if (archivos.length !== (event.target.files?.length || 0)) alert("Solo se permiten archivos de imagen.");
+    const espacios = Math.max(0, 5 - bannerImagenesBorrador.length);
+    const seleccionados = archivos.slice(0, espacios);
+    if (archivos.length > espacios) alert("El carrusel permite un máximo de 5 imágenes.");
+    setBannerImagenesBorrador((actuales) => [
+      ...actuales,
+      ...seleccionados.map((file) => ({ file, url: URL.createObjectURL(file) })),
+    ]);
     event.target.value = "";
   };
 
-  const moverBannerConFlecha = (direccion) => {
-    if (esVistaMovil) {
-      setBannerPosicionX(50);
-      setBannerPosicionY(50);
-      return;
-    }
-
-    const paso = 6;
-
-    setBannerPosicionX((prev) => {
-      if (direccion === "left") return Math.max(0, prev - paso);
-      if (direccion === "right") return Math.min(100, prev + paso);
-      return prev;
-    });
-
-    setBannerPosicionY((prev) => {
-      if (direccion === "up") return Math.max(0, prev - paso);
-      if (direccion === "down") return Math.min(100, prev + paso);
-      return prev;
+  const quitarImagenBannerBorrador = (indice) => {
+    setBannerImagenesBorrador((actuales) => {
+      const removida = actuales[indice];
+      if (removida?.file) URL.revokeObjectURL(removida.url);
+      return actuales.filter((_, posicion) => posicion !== indice);
     });
   };
 
-  const getBannerImageStyles = () => ({
-    transform: esVistaMovil ? "scale(1)" : `scale(${bannerZoom / 100})`,
-    transformOrigin: esVistaMovil ? "50% 50%" : `${bannerPosicionX}% ${bannerPosicionY}%`,
-    objectPosition: esVistaMovil ? "50% 50%" : `${bannerPosicionX}% ${bannerPosicionY}%`,
-    background: bannerBackgroundMode === "transparent" ? "transparent" : bannerBackgroundColor,
-  });
+  const guardarCarruselBanner = async () => {
+    if (bannerImagenesBorrador.length < 2 || bannerImagenesBorrador.length > 5) {
+      alert("El carrusel debe tener entre 2 y 5 imágenes.");
+      return;
+    }
+    try {
+      const imagenesGuardadas = [];
+      for (const imagen of bannerImagenesBorrador) {
+        imagenesGuardadas.push(imagen.file ? await subirBanner(imagen.file) : imagen.url);
+      }
+      await guardarImagenesBanner(imagenesGuardadas);
+      bannerImagenesBorrador.forEach((imagen) => { if (imagen.file) URL.revokeObjectURL(imagen.url); });
+      setBannerEditorAbierto(false);
+      setBannerIndiceActivo(0);
+    } catch (error) {
+      console.error("No se pudo guardar el carrusel del banner:", error);
+      alert("No se pudo guardar el carrusel. Inténtalo de nuevo.");
+    }
+  };
 
   const abrirBannerMovil = () => {
     if (esVistaMovil) {
@@ -648,19 +610,6 @@ export default function Producto() {
 
   const cerrarBannerMovil = () => {
     setBannerAmpliadoMovil(false);
-  };
-
-  const guardarBannerEditado = async () => {
-    try {
-      if (bannerArchivoTemporal) {
-        await subirBanner(bannerArchivoTemporal);
-      }
-      guardarConfiguracionBanner();
-      cerrarEditorBanner();
-    } catch (error) {
-      console.error("Error al guardar banner:", error);
-      alert("No se pudo guardar el banner. Inténtalo de nuevo.");
-    }
   };
 
   useEffect(() => {
@@ -1814,21 +1763,35 @@ const obtenerProductosFiltrados = (categoria) => {
       </div>
 
       {/* IMAGEN INFORMATIVA DEL BANNER */}
+      {esAdmin() && (
+        <div className="banner-visibility-admin">
+          <button type="button" className="btn-primary" aria-pressed={bannerVisible} onClick={() => guardarBannerVisible(!bannerVisible)}>
+            {bannerVisible ? "Ocultar banner" : "Mostrar banner"}
+          </button>
+        </div>
+      )}
+      {bannerVisible && (
       <div
-        className="info-image-container"
-        style={{
-          background: bannerBackgroundMode === "transparent" ? "transparent" : bannerBackgroundColor,
-        }}
+        className={`info-image-container ${bannerControlesTouch ? "banner-controls-touch" : ""}`}
+        onTouchStart={activarControlesBannerTouch}
       >
-        <img
-          src={bannerPreviewUrl || bannerUrl || brebImage}
-          alt="Banner principal de NEOS BELLEZA"
-          onClick={abrirBannerMovil}
-          style={{
-            ...getBannerImageStyles(),
-            cursor: esVistaMovil ? "pointer" : "default",
-          }}
-        />
+        {carruselBanner.map((imagen, indice) => (
+          <img
+            key={`${indice}-${imagen}`}
+            className={`banner-carousel-slide ${indice === bannerIndiceActivo ? "activa" : ""}`}
+            src={imagen}
+            alt={`Imagen ${indice + 1} del carrusel de NEOS BELLEZA`}
+            onClick={() => { if (carruselBanner.length < 2) abrirBannerMovil(); }}
+            style={{ cursor: esVistaMovil ? "pointer" : "default" }}
+          />
+        ))}
+
+        {carruselBanner.length > 1 && (
+          <div className="banner-carousel-controls" aria-label="Controles del carrusel">
+            <button type="button" className="btn-carrusel-prev" onClick={() => cambiarSlideBanner(-1)} aria-label="Imagen anterior">❮</button>
+            <button type="button" className="btn-carrusel-next" onClick={() => cambiarSlideBanner(1)} aria-label="Imagen siguiente">❯</button>
+          </div>
+        )}
 
         {esAdmin() && (
           <div className="banner-admin-controls">
@@ -1837,12 +1800,13 @@ const obtenerProductosFiltrados = (categoria) => {
               className="btn-primary btn-banner-editor admin-action-control"
               onClick={abrirEditorBanner}
             >
-              ✏️ Editar banner
+              ✏️ Administrar carrusel
             </button>
             <input
               ref={bannerInputRef}
               type="file"
               accept="image/*"
+              multiple
               style={{ display: "none" }}
               onChange={manejarCambioBanner}
             />
@@ -1852,69 +1816,18 @@ const obtenerProductosFiltrados = (categoria) => {
         {esAdmin() && bannerEditorAbierto && (
           <div className="banner-editor-panel">
             <div className="banner-editor-header">
-              <h4>Ajustar banner</h4>
+              <h4>Imágenes del carrusel ({bannerImagenesBorrador.length}/5)</h4>
             </div>
 
-            <div
-              ref={bannerPreviewRef}
-              className="banner-editor-preview"
-              style={{
-                background: bannerBackgroundMode === "transparent" ? "transparent" : bannerBackgroundColor,
-              }}
-            >
-              <div className="banner-crop-frame" />
-              <div className="banner-crop-grid" />
-
-              <img
-                src={bannerPreviewUrl || bannerUrl || brebImage}
-                alt="Vista previa del banner"
-                style={getBannerImageStyles()}
-              />
-            </div>
-
-            <div className="banner-editor-directions" aria-label="Mover imagen del banner">
-              <button type="button" className="banner-direction-btn" onClick={() => moverBannerConFlecha("left")}>←</button>
-              <button type="button" className="banner-direction-btn" onClick={() => moverBannerConFlecha("right")}>→</button>
-              <button type="button" className="banner-direction-btn" onClick={() => moverBannerConFlecha("up")}>↑</button>
-              <button type="button" className="banner-direction-btn" onClick={() => moverBannerConFlecha("down")}>↓</button>
-            </div>
-
-            <div className="banner-editor-controls">
-              <label>
-                Zoom: <strong>{bannerZoom}%</strong>
-                <input
-                  type="range"
-                  min="10"
-                  max="180"
-                  step="5"
-                  value={bannerZoom}
-                  onChange={(e) => setBannerZoom(Number(e.target.value))}
-                />
-              </label>
-
-              <label className="banner-bg-picker">
-                Fondo del banner:
-                <select
-                  value={bannerBackgroundMode}
-                  onChange={(e) => setBannerBackgroundMode(e.target.value)}
-                >
-                  <option value="transparent">Transparente</option>
-                  <option value="color">Color sólido</option>
-                </select>
-              </label>
-
-              {bannerBackgroundMode === "color" && (
-                <label className="banner-color-picker">
-                  Color de fondo:
-                  <input
-                    type="color"
-                    value={bannerBackgroundColor}
-                    onChange={(e) => setBannerBackgroundColor(e.target.value)}
-                  />
-                </label>
-              )}
-
-              <p className="banner-editor-hint">Ajusta el zoom y mueve la imagen con las flechas para dejarla alineada al banner real.</p>
+            <p className="banner-editor-hint">Sube entre 2 y 5 imágenes. Se mostrarán en orden y cambiarán cada 15 segundos.</p>
+            <div className="banner-carousel-admin-list">
+              {bannerImagenesBorrador.map((imagen, indice) => (
+                <div className="banner-carousel-admin-item" key={`${indice}-${imagen.url}`}>
+                  <img src={imagen.url} alt={`Imagen ${indice + 1}`} />
+                  <span>Imagen {indice + 1}</span>
+                  <button type="button" aria-label={`Quitar imagen ${indice + 1}`} onClick={() => quitarImagenBannerBorrador(indice)}>Quitar</button>
+                </div>
+              ))}
             </div>
 
             <div className="banner-editor-actions">
@@ -1922,15 +1835,17 @@ const obtenerProductosFiltrados = (categoria) => {
                 type="button"
                 className="btn-secundario"
                 onClick={() => bannerInputRef.current?.click()}
+                disabled={bannerImagenesBorrador.length >= 5}
               >
-                Cambiar foto
+                Añadir imágenes
               </button>
               <button
                 type="button"
                 className="btn-primary"
-                onClick={guardarBannerEditado}
+                onClick={guardarCarruselBanner}
+                disabled={bannerImagenesBorrador.length < 2 || bannerImagenesBorrador.length > 5}
               >
-                Guardar
+                Guardar carrusel
               </button>
               <button
                 type="button"
@@ -1943,6 +1858,7 @@ const obtenerProductosFiltrados = (categoria) => {
           </div>
         )}
       </div>
+      )}
 
       {/* TÍTULO PARA CLIENTES */}
       {!esAdmin() && !esVendedor() && (
@@ -2059,7 +1975,7 @@ const obtenerProductosFiltrados = (categoria) => {
               ×
             </button>
             <img
-              src={bannerPreviewUrl || bannerUrl || brebImage}
+              src={carruselBanner[bannerIndiceActivo] || brebImage}
               alt="Banner ampliado"
               style={{
                 objectFit: "cover",

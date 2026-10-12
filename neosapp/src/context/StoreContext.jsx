@@ -20,12 +20,27 @@ export function StoreProvider({ children }) {
   const [categorias, setCategorias] = useState([]);
   const [cargandoCategorias, setCargandoCategorias] = useState(true);
   const [bannerUrl, setBannerUrl] = useState("");
+  const [bannerImages, setBannerImages] = useState([]);
+  const [bannerVisible, setBannerVisible] = useState(true);
 
   const DEFAULT_IMAGE =
     "https://images.unsplash.com/photo-1522338242592-cb0acf6f85a2?w=500";
 
   const cargarBannerDesdeSupabase = async () => {
     try {
+      const { data: carruselData, error: carruselError } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", "banner_images")
+        .maybeSingle();
+      if (!carruselError && carruselData?.value) {
+        const imagenes = Array.isArray(carruselData.value) ? carruselData.value : JSON.parse(carruselData.value);
+        if (Array.isArray(imagenes) && imagenes.length) {
+          setBannerImages(imagenes);
+          setBannerUrl(imagenes[0]);
+          return imagenes[0];
+        }
+      }
       const { data, error } = await supabase
         .from("site_settings")
         .select("value")
@@ -38,6 +53,7 @@ export function StoreProvider({ children }) {
 
       if (data?.value) {
         setBannerUrl(data.value);
+        setBannerImages([data.value]);
         return data.value;
       }
     } catch (error) {
@@ -46,9 +62,16 @@ export function StoreProvider({ children }) {
 
     if (typeof window !== "undefined") {
       try {
+        const imagenesGuardadas = JSON.parse(window.localStorage.getItem("neosapp_banner_images") || "[]");
+        if (Array.isArray(imagenesGuardadas) && imagenesGuardadas.length) {
+          setBannerImages(imagenesGuardadas);
+          setBannerUrl(imagenesGuardadas[0]);
+          return imagenesGuardadas[0];
+        }
         const bannerGuardado = window.localStorage.getItem("neosapp_banner_url");
         if (bannerGuardado) {
           setBannerUrl(bannerGuardado);
+          setBannerImages([bannerGuardado]);
           return bannerGuardado;
         }
       } catch (localError) {
@@ -57,6 +80,26 @@ export function StoreProvider({ children }) {
     }
 
     return "";
+  };
+
+  const guardarImagenesBanner = async (imagenes) => {
+    const imagenesValidas = (imagenes || []).filter(Boolean).slice(0, 5);
+    setBannerImages(imagenesValidas);
+    setBannerUrl(imagenesValidas[0] || "");
+    try {
+      window.localStorage.setItem("neosapp_banner_images", JSON.stringify(imagenesValidas));
+      if (imagenesValidas[0]) window.localStorage.setItem("neosapp_banner_url", imagenesValidas[0]);
+    } catch (error) {
+      console.warn("No se pudieron guardar localmente las imágenes del carrusel:", error);
+    }
+    try {
+      const { error } = await supabase
+        .from("site_settings")
+        .upsert({ key: "banner_images", value: JSON.stringify(imagenesValidas) }, { onConflict: "key" });
+      if (error) console.warn("No se pudieron guardar las imágenes del carrusel en Supabase:", error);
+    } catch (error) {
+      console.warn("No se pudieron sincronizar las imágenes del carrusel:", error);
+    }
   };
 
   const guardarBannerUrl = async (url) => {
@@ -85,6 +128,46 @@ export function StoreProvider({ children }) {
       }
     } catch (error) {
       console.warn("No se pudo guardar banner en Supabase:", error);
+    }
+  };
+
+  const guardarBannerVisible = async (visible) => {
+    const valor = Boolean(visible);
+    setBannerVisible(valor);
+    try {
+      window.localStorage.setItem("neosapp_banner_visible", String(valor));
+    } catch (error) {
+      console.warn("No se pudo guardar localmente la visibilidad del banner:", error);
+    }
+    try {
+      const { error } = await supabase
+        .from("site_settings")
+        .upsert({ key: "banner_visible", value: String(valor) }, { onConflict: "key" });
+      if (error) console.warn("No se pudo guardar la visibilidad del banner en Supabase:", error);
+    } catch (error) {
+      console.warn("No se pudo sincronizar la visibilidad del banner:", error);
+    }
+  };
+
+  const cargarVisibilidadBanner = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", "banner_visible")
+        .maybeSingle();
+      if (!error && data?.value != null) {
+        setBannerVisible(String(data.value) !== "false");
+        return;
+      }
+    } catch (error) {
+      console.warn("No se pudo cargar la visibilidad del banner:", error);
+    }
+    try {
+      const guardado = window.localStorage.getItem("neosapp_banner_visible");
+      if (guardado != null) setBannerVisible(guardado !== "false");
+    } catch (error) {
+      console.warn("No se pudo leer la visibilidad local del banner:", error);
     }
   };
 
@@ -601,6 +684,7 @@ const cargarProductos = async () => {
 
   useEffect(() => {
     cargarBannerDesdeSupabase();
+    cargarVisibilidadBanner();
   }, []);
 
   useEffect(() => {
@@ -2507,6 +2591,10 @@ return (
       vendedoresConUsuarios,
       tablaVendedoresExiste,
       bannerUrl,
+      bannerImages,
+      guardarImagenesBanner,
+      bannerVisible,
+      guardarBannerVisible,
       setBannerUrl,
       guardarBannerUrl,
       subirBanner,

@@ -126,6 +126,14 @@
 }
 
 /* CONTENEDOR DE IMAGEN INFORMATIVA */
+.banner-visibility-admin {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto 10px;
+  display: flex;
+  justify-content: flex-end;
+}
+
 .info-image-container {
   margin-bottom: 24px;
   width: 100%;
@@ -145,6 +153,83 @@
   object-fit: cover;
   object-position: center;
   display: block;
+}
+
+.info-image-container img.banner-carousel-slide {
+  position: absolute;
+  inset: 0;
+  object-fit: contain;
+  object-position: center;
+  opacity: 0;
+  transition: opacity 1.6s ease-in-out;
+  will-change: opacity;
+}
+
+.info-image-container img.banner-carousel-slide.activa {
+  opacity: 1;
+}
+
+.banner-carousel-controls {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.25s ease, visibility 0.25s ease;
+}
+
+.banner-carousel-controls .btn-carrusel-prev,
+.banner-carousel-controls .btn-carrusel-next {
+  pointer-events: auto;
+  background: rgba(0, 0, 0, 0.58);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+.banner-carousel-controls .btn-carrusel-prev:hover,
+.banner-carousel-controls .btn-carrusel-next:hover {
+  background: rgba(0, 0, 0, 0.78);
+}
+
+.info-image-container:hover .banner-carousel-controls,
+.info-image-container:focus-within .banner-carousel-controls,
+.info-image-container.banner-controls-touch .banner-carousel-controls {
+  opacity: 1;
+  visibility: visible;
+}
+
+.banner-carousel-admin-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  overflow-y: auto;
+  min-height: 80px;
+  padding: 4px;
+}
+
+.banner-carousel-admin-item {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  color: #fff;
+  font-size: 13px;
+}
+
+.banner-carousel-admin-item img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.banner-carousel-admin-item button {
+  justify-self: start;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .info-image-container img.banner-carousel-slide {
+    transition: none;
+  }
 }
 
 .banner-admin-controls {
