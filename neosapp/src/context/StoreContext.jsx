@@ -9,6 +9,15 @@ const MINIMOS_COMPRA_CATALOGO_DEFAULT = { General: 1, Emprendedor: 3, Mayorista:
 const PRODUCT_COLUMNS = "id,nombre,precio,stock,descripcion,categoria_id,imagen_url,precio_mayorista,precio_emprendedor,imagen_url2,imagen_url3,oculto_catalogo,catalogos_ocultos,minimos_compra";
 const VARIANT_COLUMNS = "id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,created_at,updated_at";
 
+const eliminarUsuarioAuthSeguro = async (userId) => {
+  const { data, error } = await supabase.functions.invoke("admin-delete-user", {
+    body: { userId },
+  });
+  if (error) return { error: error.message || "No se pudo eliminar la cuenta de acceso." };
+  if (!data?.success) return { error: data?.error || "No se pudo eliminar la cuenta de acceso." };
+  return { success: true };
+};
+
 export function StoreProvider({ children }) {
   const [productos, setProductos] = useState([]);
   const [clientes, setClientes] = useState([]);
@@ -407,7 +416,6 @@ const cargarProductos = async () => {
       return;
     }
 
-    console.log("Clientes cargados desde Supabase (clientes):", data);
 
     const adaptados = (data || []).map((cliente) => {
       // El ID del cliente es su ID único en la tabla clientes
@@ -640,14 +648,6 @@ const cargarProductos = async () => {
       )
     );
 
-    console.log("📦 Pedidos cargados:", pedidosAdaptados.map(p => ({
-      id: p.id,
-      cliente: p.cliente,
-      clienteCedula: p.clienteCedula,
-      cliente_id: p.cliente_id,
-      estado: p.estado,
-      total: p.total
-    })));
 
     setPedidos(pedidosAdaptados);
     return pedidosAdaptados;
@@ -1367,7 +1367,8 @@ const crearVendedor = async (nombre, zona, email, password) => {
     if (errorUsuario) {
       console.error("Error creando usuario vendedor:", errorUsuario);
 
-      await supabase.auth.admin.deleteUser(userId);
+      const rollbackAuth = await eliminarUsuarioAuthSeguro(userId);
+      if (rollbackAuth.error) console.error("No se pudo revertir la cuenta Auth:", rollbackAuth.error);
 
       if (previousSession) {
         const { error: restoreError } = await supabase.auth.setSession({
@@ -1446,7 +1447,7 @@ const crearCliente = async (
     telefono = "",
     correo = "",
     vendedor_id = null,
-    password = "123456"
+    password = ""
   ) => {
     if (!nombre || !cedula || !direccion) {
       return { error: "Nombre, cédula y dirección son requeridos" };
@@ -1454,7 +1455,7 @@ const crearCliente = async (
 
     // Si se proporciona correo, seguiremos la misma lógica que crearVendedor:
     // 1) crear usuario en Auth, 2) insertar en table `usuarios`, 3) insertar en `clientes`.
-    if (correo && correo.trim() !== "") {
+    if (correo && correo.trim() !== "" && password) {
       const { data: { session: previousSession } } = await supabase.auth.getSession();
       if (previousSession) {
         const { data: perfilActual, error: errorPerfilActual } = await supabase
@@ -1542,7 +1543,8 @@ const crearCliente = async (
         if (errorUsuario) {
           console.error("Error creando usuario cliente:", errorUsuario);
           // rollback: eliminar usuario auth creado
-          try { await supabase.auth.admin.deleteUser(userId); } catch (e) { console.error(e); }
+          const rollbackAuth = await eliminarUsuarioAuthSeguro(userId);
+          if (rollbackAuth.error) console.error("No se pudo revertir la cuenta Auth:", rollbackAuth.error);
 
           if (previousSession) {
             const { error: restoreError } = await supabase.auth.setSession({
@@ -1577,7 +1579,8 @@ const crearCliente = async (
         if (errorCliente) {
           console.error("Error creando cliente:", errorCliente);
           // rollback: eliminar usuario y usuario row
-          try { await supabase.auth.admin.deleteUser(userId); } catch (e) { console.error(e); }
+          const rollbackAuth = await eliminarUsuarioAuthSeguro(userId);
+          if (rollbackAuth.error) console.error("No se pudo revertir la cuenta Auth:", rollbackAuth.error);
           try { await supabase.from("usuarios").delete().eq("id", userId); } catch (e) { console.error(e); }
 
           if (previousSession) {
@@ -1808,7 +1811,8 @@ const datosCliente = {
         console.error("Error creando usuario repartidor:", errorUsuario);
 
         // rollback: eliminar usuario auth creado
-        await supabase.auth.admin.deleteUser(userId);
+        const rollbackAuth = await eliminarUsuarioAuthSeguro(userId);
+        if (rollbackAuth.error) console.error("No se pudo revertir la cuenta Auth:", rollbackAuth.error);
 
         if (previousSession) {
           const { error: restoreError } = await supabase.auth.setSession({
@@ -1908,6 +1912,10 @@ const datosCliente = {
         )
       );
 
+      // Eliminar Auth desde una función protegida antes de borrar el perfil local.
+      const authResult = await eliminarUsuarioAuthSeguro(id);
+      if (authResult.error) return { error: authResult.error };
+
       // 3) Eliminar el usuario en la tabla 'usuarios'
       const { data, error } = await supabase
         .from("usuarios")
@@ -1922,13 +1930,6 @@ const datosCliente = {
 
       // Actualizar state de repartidores
       setRepartidores((prev) => prev.filter((r) => String(r.id) !== String(id)));
-
-      // 4) Intentar eliminar en Auth (si la key/permite)
-      try {
-        await supabase.auth.admin.deleteUser(id);
-      } catch (e) {
-        console.warn("No se pudo eliminar usuario en Auth (posible falta de permisos):", e);
-      }
 
       return { success: true, data };
     } catch (err) {
@@ -2132,19 +2133,15 @@ const datosCliente = {
   const obtenerClienteActual = (usuarioId, emailFallback = null) => {
     if (!usuarioId && !emailFallback) return null;
     
-    console.log("🔍 Buscando cliente para usuarioId:", usuarioId, "o email:", emailFallback);
-    console.log("📋 Clientes disponibles:", clientes.map(c => ({ id: c.id, usuario_id: c.usuario_id, email: c.correo, nombre: c.nombre })));
     
     // Primero intenta buscar por usuario_id
     let cliente = usuarioId ? clientes.find((c) => String(c.usuario_id) === String(usuarioId)) : null;
     
     // Si no encuentra y tiene email, busca por email
     if (!cliente && emailFallback) {
-      console.log("⚠️ No encontrado por usuario_id, buscando por email:", emailFallback);
       cliente = clientes.find((c) => c.correo && c.correo.toLowerCase() === emailFallback.toLowerCase());
     }
     
-    console.log("✅ Cliente encontrado:", cliente);
     return cliente || null;
   };
 
@@ -2232,6 +2229,9 @@ const datosCliente = {
       // La fuente de verdad es `usuarios` con `rol = 'vendedor'`.
       // Si la tabla `vendedores` existe, su limpieza puede hacerse aparte/manualmente.
 
+      const authResult = await eliminarUsuarioAuthSeguro(vendedorUsuarioId);
+      if (authResult.error) return { error: authResult.error };
+
       const { error: errorEliminarUsuario } = await supabase
         .from("usuarios")
         .delete()
@@ -2246,12 +2246,6 @@ const datosCliente = {
       setUsuariosVendedores((prev) =>
         prev.filter((usuario) => String(usuario.id) !== String(vendedorUsuarioId))
       );
-
-      try {
-        await supabase.auth.admin.deleteUser(vendedorUsuarioId);
-      } catch (e) {
-        console.error("Error eliminando usuario en Auth:", e);
-      }
 
       return { success: true };
     } catch (err) {

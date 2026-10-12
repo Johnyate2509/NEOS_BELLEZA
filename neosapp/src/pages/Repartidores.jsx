@@ -19,9 +19,7 @@ export default function Repartidores() {
     }
 
     try {
-      console.log("Intentando crear repartidor:", { nombre, email, zona });
       const resultado = await crearRepartidor(nombre.trim(), email.trim(), zona.trim(), password);
-      console.log("crearRepartidor resultado:", resultado);
 
       if (!resultado || resultado.error) {
         const msg = (resultado && resultado.error) || "Error al crear repartidor";

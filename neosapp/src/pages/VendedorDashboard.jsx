@@ -48,20 +48,6 @@ export default function VendedorDashboard() {
     clientesVendedor.some(c => c.cedula === p.clienteCedula)
   ).length;
 
-  console.log("👨‍💼 VendedorDashboard - Datos:", {
-    vendedorId: vendedorData?.id,
-    clientesVendedor: clientesVendedor.map(c => ({ id: c.id, nombre: c.nombre, cedula: c.cedula, vendedor_id: c.vendedor_id })),
-    totalClientes: clientesVendedor.length,
-    totalPedidos: totalPedidosVendedor,
-    pedidosFiltrados: pedidos.filter(p => 
-      clientesVendedor.some(c => {
-        const match = c.cedula === p.clienteCedula;
-        console.log(`  Comparando pedido ${p.id} (cedula: "${p.clienteCedula}") con cliente ${c.id} (cedula: "${c.cedula}") = ${match}`);
-        return match;
-      })
-    ).map(p => ({ id: p.id, cliente: p.cliente, clienteCedula: p.clienteCedula }))
-  });
-
   const clienteSeleccionado = clienteSeleccionadoId
     ? clientesVendedor.find((c) => c.id === clienteSeleccionadoId)
     : null;

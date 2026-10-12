@@ -741,7 +741,13 @@ export default function Producto() {
   const guardarEstadoPersistente = (estado) => {
     if (typeof window === "undefined") return;
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(estado));
+      const estadoSeguro = {
+        ...estado,
+        datosCliente: estado.datosCliente
+          ? { ...estado.datosCliente, password: "" }
+          : estado.datosCliente,
+      };
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(estadoSeguro));
     } catch (error) {
       console.error("Error guardando estado persistente:", error);
     }
@@ -758,7 +764,11 @@ export default function Producto() {
     if (estadoGuardado.busquedaCliente) setBusquedaCliente(estadoGuardado.busquedaCliente);
     if (estadoGuardado.clienteSeleccionado) setClienteSeleccionado(estadoGuardado.clienteSeleccionado);
     if (estadoGuardado.mostrarListaClientes) setMostrarListaClientes(estadoGuardado.mostrarListaClientes);
-    if (estadoGuardado.datosCliente) setDatosCliente(estadoGuardado.datosCliente);
+    if (estadoGuardado.datosCliente) {
+      setDatosCliente({ ...estadoGuardado.datosCliente, password: "" });
+      // Reescribe el estado anterior para eliminar cualquier contraseña guardada.
+      guardarEstadoPersistente(estadoGuardado);
+    }
     if (estadoGuardado.mostrarDetalles) setMostrarDetalles(estadoGuardado.mostrarDetalles);
     if (estadoGuardado.indiceCarrusel != null) setIndiceCarrusel(estadoGuardado.indiceCarrusel);
     if (estadoGuardado.cantidadDetalles != null) setCantidadDetalles(estadoGuardado.cantidadDetalles);

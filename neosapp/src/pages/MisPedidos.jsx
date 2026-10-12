@@ -15,11 +15,6 @@ export default function MisPedidos() {
   const clienteActual = clientes.find((c) => c.usuario_id === user?.id || c.correo === user?.email);
 
   useEffect(() => {
-    console.log("🔍 MisPedidos - Usuario:", user?.id, user?.email);
-    console.log("👤 Cliente Actual:", clienteActual);
-    console.log("📋 Todos los Clientes:", clientes);
-    console.log("📦 Todos los Pedidos:", pedidos);
-    
     if (clienteActual) {
       // Filtrar pedidos: primero por cliente_id, luego por cedula como fallback
       const pedidosFiltrados = pedidos.filter((p) => {
@@ -27,11 +22,8 @@ export default function MisPedidos() {
         const porCedula = p.clienteCedula && clienteActual.cedula && p.clienteCedula === clienteActual.cedula;
         const resultado = porId || porCedula;
         
-        console.log(`  Pedido ${p.id}: cliente_id(${p.cliente_id}==${clienteActual.id}?${porId}) || cedula(${p.clienteCedula}==${clienteActual.cedula}?${porCedula}) = ${resultado}`);
-        
         return resultado;
       });
-      console.log("✅ Pedidos Filtrados:", pedidosFiltrados);
       setMisPedidos(pedidosFiltrados);
     }
   }, [clienteActual, pedidos]);
