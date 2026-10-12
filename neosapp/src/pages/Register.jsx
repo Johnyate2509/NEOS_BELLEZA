@@ -1,20 +1,15 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useStore } from "../context/StoreContext";
-import { supabase } from "../context/supabaseClient";
+import { useAuth } from "../context/AuthContext";
 import "./login.css";
 
 export default function Register() {
   const navigate = useNavigate();
-  const { crearCliente } = useStore();
+  const { register } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [nombre, setNombre] = useState("");
-  const [cedula, setCedula] = useState("");
-  const [direccion, setDireccion] = useState("");
-  const [telefono, setTelefono] = useState("");
   const [error, setError] = useState("");
   const [exito, setExito] = useState("");
   const [cargando, setCargando] = useState(false);
@@ -26,14 +21,8 @@ export default function Register() {
     setCargando(true);
 
     // Validar campos
-    if (!email.trim() || !password.trim() || !confirmPassword.trim() || !nombre.trim() || !cedula.trim() || !direccion.trim()) {
-      setError("Todos los campos son requeridos");
-      setCargando(false);
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError("Las contraseñas no coinciden");
+    if (!email.trim() || !password || !nombre.trim()) {
+      setError("Nombre, correo y contraseña son requeridos");
       setCargando(false);
       return;
     }
@@ -45,34 +34,31 @@ export default function Register() {
     }
 
     try {
-      // Usar crearCliente que maneja: Auth, usuarios table y clientes table
-      const resultado = await crearCliente(
-        nombre,
-        cedula,
-        direccion,
-        telefono,
-        email,  // correo
-        null,   // vendedor_id
-        password
-      );
+      // Auth de Supabase recibe la contraseña y se encarga de protegerla.
+      // Los datos de cliente se solicitan al completar el primer pedido.
+      const resultado = await register(email.trim().toLowerCase(), password, "cliente", { nombre: nombre.trim() });
 
-      if (resultado.error) {
-        setError(resultado.error);
+      if (!resultado.success) {
+        setError(resultado.error || "No se pudo crear la cuenta.");
         setCargando(false);
         return;
       }
 
-      setExito("¡Cuenta creada exitosamente! Revisa tu email para confirmar la cuenta. Redirigiendo al login...");
+      if (resultado.confirmationRequired) {
+        setExito("Cuenta creada. Revisa tu correo para confirmar la cuenta y luego inicia sesión.");
+      } else {
+        setExito("¡Cuenta creada exitosamente! Ya puedes completar tus datos cuando realices tu primer pedido.");
+      }
       
       setTimeout(() => {
         navigate("/login");
-      }, 3000);
+      }, resultado.confirmationRequired ? 3000 : 2200);
 
     } catch (err) {
       setError("Error al procesar el registro: " + err.message);
+    } finally {
+      setCargando(false);
     }
-
-    setCargando(false);
   };
 
   return (
@@ -85,7 +71,19 @@ export default function Register() {
 
         <form onSubmit={handleRegister} className="login-form register-form">
           <div className="form-group">
-            <label>Email</label>
+            <label>Nombre</label>
+            <input
+              type="text"
+              placeholder="Tu nombre completo"
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              disabled={cargando}
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Correo electrónico</label>
             <input
               type="email"
               placeholder="Ej: usuario@ejemplo.com"
@@ -105,65 +103,6 @@ export default function Register() {
               onChange={(e) => setPassword(e.target.value)}
               disabled={cargando}
               required
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Confirmar Contraseña</label>
-            <input
-              type="password"
-              placeholder="Repite tu contraseña"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              disabled={cargando}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Nombre Completo</label>
-            <input
-              type="text"
-              placeholder="Tu nombre completo"
-              value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
-              disabled={cargando}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Cédula</label>
-            <input
-              type="text"
-              placeholder="Número de cédula"
-              value={cedula}
-              onChange={(e) => setCedula(e.target.value)}
-              disabled={cargando}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Dirección</label>
-            <input
-              type="text"
-              placeholder="Tu dirección"
-              value={direccion}
-              onChange={(e) => setDireccion(e.target.value)}
-              disabled={cargando}
-              required
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Teléfono</label>
-            <input
-              type="tel"
-              placeholder="Número de teléfono"
-              value={telefono}
-              onChange={(e) => setTelefono(e.target.value)}
-              disabled={cargando}
             />
           </div>
 

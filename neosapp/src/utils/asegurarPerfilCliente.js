@@ -8,9 +8,13 @@ export async function asegurarPerfilCliente(supabase, authUser, datos = {}) {
   const cedula = String(datos.cedula || metadata.cedula || "").trim();
   const email = authUser?.email || datos.correo || "";
 
-  if (!userId || !nombre || !cedula || !email) {
-    return { error: "Faltan datos para completar el perfil del cliente." };
+  if (!userId || !nombre || !email) {
+    return { error: "Faltan datos básicos para completar el perfil." };
   }
+
+  // El registro desde /registro crea solo la cuenta Auth. La ficha de cliente
+  // se crea cuando el usuario completa los datos requeridos para su primer pedido.
+  if (!cedula) return { perfil: null, cliente: null, pendienteDatosPedido: true };
 
   let { data: perfil, error } = await supabase
     .from("usuarios")

@@ -13,6 +13,7 @@ export default function VendedorDashboard() {
     pedidos,
     productos,
     crearPedido,
+    crearClienteVendedor,
     registrarPago,
     actualizarFormaPagoVendedor,
     actualizarObservacionVendedor,
@@ -32,6 +33,10 @@ export default function VendedorDashboard() {
   const [telefonoCliente, setTelefonoCliente] = useState("");
   const [cargandoPedido, setCargandoPedido] = useState(false);
   const [cargandoPago, setCargandoPago] = useState(false);
+  const [mostrarCrearCliente, setMostrarCrearCliente] = useState(false);
+  const [guardandoCliente, setGuardandoCliente] = useState(false);
+  const [nuevoCliente, setNuevoCliente] = useState({ cedula: "", nombre: "", direccion: "", telefono: "", correo: "" });
+  const [mensajeCliente, setMensajeCliente] = useState("");
 
   // Obtener clientes del vendedor
   const clientesVendedor = clientes.filter((cliente) => {
@@ -74,6 +79,22 @@ export default function VendedorDashboard() {
       setTelefonoCliente(cliente.telefono || "");
     }
     setErroresValidacion([]);
+  };
+
+  const handleCrearCliente = async (event) => {
+    event.preventDefault();
+    setMensajeCliente("");
+    setGuardandoCliente(true);
+    const resultado = await crearClienteVendedor(nuevoCliente);
+    setGuardandoCliente(false);
+    if (!resultado?.success) {
+      setMensajeCliente(resultado?.error || "No se pudo crear el cliente.");
+      return;
+    }
+    setNuevoCliente({ cedula: "", nombre: "", direccion: "", telefono: "", correo: "" });
+    setClienteSeleccionadoId(resultado.cliente?.id ?? null);
+    setMostrarCrearCliente(false);
+    setMensajeCliente("Cliente creado y asignado a tu cartera.");
   };
 
   const handleAgregarProducto = (producto) => {
@@ -247,7 +268,24 @@ export default function VendedorDashboard() {
       <div className="vendedor-contenedor">
         {/* Lista de clientes */}
         <div className="clientes-lista">
-          <h3>Mis Clientes ({clientesVendedor.length})</h3>
+          <div className="clientes-lista-header">
+            <h3>Mis Clientes ({clientesVendedor.length})</h3>
+            <button type="button" className="btn-crear-cliente-vendedor" onClick={() => { setMostrarCrearCliente((visible) => !visible); setMensajeCliente(""); }}>
+              {mostrarCrearCliente ? "Cancelar" : "+ Crear cliente"}
+            </button>
+          </div>
+          {mensajeCliente && <p className="mensaje-cliente-vendedor" role="status">{mensajeCliente}</p>}
+          {mostrarCrearCliente && (
+            <form className="form-cliente-vendedor" onSubmit={handleCrearCliente}>
+              <label>Cédula<input required value={nuevoCliente.cedula} onChange={(e) => setNuevoCliente({ ...nuevoCliente, cedula: e.target.value })} /></label>
+              <label>Nombre<input required value={nuevoCliente.nombre} onChange={(e) => setNuevoCliente({ ...nuevoCliente, nombre: e.target.value })} /></label>
+              <label>Dirección<input required value={nuevoCliente.direccion} onChange={(e) => setNuevoCliente({ ...nuevoCliente, direccion: e.target.value })} /></label>
+              <label>Teléfono<input type="tel" value={nuevoCliente.telefono} onChange={(e) => setNuevoCliente({ ...nuevoCliente, telefono: e.target.value })} /></label>
+              <label>Correo<input type="email" value={nuevoCliente.correo} onChange={(e) => setNuevoCliente({ ...nuevoCliente, correo: e.target.value })} /></label>
+              <button type="submit" disabled={guardandoCliente}>{guardandoCliente ? "Guardando..." : "Guardar cliente"}</button>
+              <small>Se crea una ficha sin cuenta de acceso. Para modificarla, contacta al administrador.</small>
+            </form>
+          )}
           <div className="clientes-scroll">
             {clientesVendedor.length === 0 ? (
               <p className="texto-vacio">No tienes clientes asignados</p>

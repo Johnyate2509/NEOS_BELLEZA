@@ -83,6 +83,70 @@
   padding-bottom: 12px;
 }
 
+.clientes-lista-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 2px solid #f0f0f0;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+}
+
+.clientes-lista-header h3 {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.btn-crear-cliente-vendedor,
+.form-cliente-vendedor button {
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 12px;
+  background: #3498db;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.form-cliente-vendedor {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.form-cliente-vendedor label {
+  display: grid;
+  gap: 5px;
+  color: #555;
+  font-size: 13px;
+}
+
+.form-cliente-vendedor input {
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid #d6dbe1;
+  border-radius: 7px;
+  padding: 9px;
+}
+
+.form-cliente-vendedor button:disabled {
+  opacity: .65;
+  cursor: wait;
+}
+
+.form-cliente-vendedor small,
+.mensaje-cliente-vendedor {
+  color: #666;
+  line-height: 1.4;
+  font-size: 12px;
+}
+
+.mensaje-cliente-vendedor {
+  margin: 0 0 12px;
+}
+
 .clientes-scroll {
   display: flex;
   flex-direction: column;

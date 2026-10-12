@@ -669,17 +669,23 @@ export default function Producto() {
       if (mostrarModalPedido && user && getUserRole() === "cliente") {
         // Buscar cliente por usuario_id
         const clienteLogueado = clientes.find((c) => c.usuario_id === user.id);
-        
         if (clienteLogueado) {
-          setDatosCliente({
+          setDatosCliente((actual) => ({
+            ...actual,
             cedula: clienteLogueado.cedula || "",
-            nombre: clienteLogueado.nombre || "",
+            nombre: clienteLogueado.nombre || user.user_metadata?.nombre || "",
             direccion: clienteLogueado.direccion || "",
             correoElectronico: clienteLogueado.correo || user.email || "",
             numeroCelular: clienteLogueado.telefono || "",
             password: "",
-            formaPago: datosCliente.formaPago || FORMAS_PAGO[0],
-          });
+          }));
+        } else {
+          setDatosCliente((actual) => ({
+            ...actual,
+            nombre: actual.nombre || user.user_metadata?.nombre || "",
+            correoElectronico: user.email || actual.correoElectronico,
+            password: "",
+          }));
         }
       }
     };
@@ -2979,7 +2985,7 @@ const obtenerProductosFiltrados = (categoria) => {
                 </div>
               ) : (
                 <>
-                  {user && getUserRole() === "cliente" ? (
+                  {user && getUserRole() === "cliente" && clientes.some((cliente) => String(cliente.usuario_id) === String(user.id)) ? (
                     // Cliente logueado: mostrar resumen de datos
                     <div className="cliente-resumen-logueado">
                       <div className="resumen-item">
@@ -3046,14 +3052,16 @@ const obtenerProductosFiltrados = (categoria) => {
                         }
                       />
 
-                      <input
-                        type="password"
-                        placeholder="Contraseña para el cliente"
-                        value={datosCliente.password}
-                        onChange={(e) =>
-                          setDatosCliente({ ...datosCliente, password: e.target.value })
-                        }
-                      />
+                      {!user && (
+                        <input
+                          type="password"
+                          placeholder="Contraseña para crear tu cuenta (mínimo 6 caracteres)"
+                          value={datosCliente.password}
+                          onChange={(e) =>
+                            setDatosCliente({ ...datosCliente, password: e.target.value })
+                          }
+                        />
+                      )}
                     </>
                   )}
                 </>

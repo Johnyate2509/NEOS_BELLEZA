@@ -1663,6 +1663,52 @@ const datosCliente = {
       return String(vendedorAsignado) === String(vendedorId);
     });
 
+  const crearClienteVendedor = async ({ nombre, cedula, direccion, telefono = "", correo = "" } = {}) => {
+    const nombreLimpio = String(nombre ?? "").trim();
+    const cedulaLimpia = String(cedula ?? "").trim();
+    const direccionLimpia = String(direccion ?? "").trim();
+    if (!nombreLimpio || !cedulaLimpia || !direccionLimpia) {
+      return { error: "Nombre, cédula y dirección son requeridos." };
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.id) return { error: "Debes iniciar sesión para crear un cliente." };
+      const { data: perfil, error: perfilError } = await supabase
+        .from("usuarios").select("rol").eq("id", session.user.id).maybeSingle();
+      if (perfilError) return { error: perfilError.message };
+      if (perfil?.rol !== "vendedor") return { error: "Esta acción está disponible solo para vendedores." };
+
+      const { data: existente, error: consultaError } = await supabase
+        .from("clientes").select("id").eq("cedula", cedulaLimpia).maybeSingle();
+      if (consultaError) return { error: consultaError.message };
+      if (existente) return { error: "Ya existe un cliente con esta cédula." };
+
+      const { data, error } = await supabase.from("clientes").insert({
+        nombre: nombreLimpio,
+        cedula: cedulaLimpia,
+        direccion: direccionLimpia,
+        telefono: String(telefono ?? "").trim(),
+        correo: String(correo ?? "").trim(),
+        vendedor_usuario_id: session.user.id,
+      }).select().single();
+      if (error) return { error: error.message };
+
+      const clienteCreado = {
+        ...data,
+        vendedor_id: data.vendedor_usuario_id ?? session.user.id,
+        vendedor_usuario_id: data.vendedor_usuario_id ?? session.user.id,
+        saldo: data.saldo ?? 0,
+        transacciones: data.transacciones ?? [],
+      };
+      setClientes((prev) => [...prev, clienteCreado]);
+      return { success: true, cliente: clienteCreado };
+    } catch (error) {
+      console.error("Error creando cliente desde vendedor:", error);
+      return { error: error.message || "No se pudo crear el cliente." };
+    }
+  };
+
   const calcularVentasPorVendedor = (vendedorId) => {
     const clientesVendedor = obtenerClientesPorVendedor(vendedorId);
     const cedulas = clientesVendedor.map((cliente) => cliente.cedula);
@@ -1949,7 +1995,16 @@ const datosCliente = {
     return true;
   };
 
+  const esAdministradorActual = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user?.id) return false;
+    const { data: perfil, error } = await supabase
+      .from("usuarios").select("rol").eq("id", session.user.id).maybeSingle();
+    return !error && perfil?.rol === "admin";
+  };
+
   const actualizarClienteTelefono = async (clienteId, telefono) => {
+    if (!(await esAdministradorActual())) return false;
     const { error } = await supabase
       .from("clientes")
       .update({ telefono })
@@ -1967,6 +2022,7 @@ const datosCliente = {
   };
 
   const actualizarClienteDireccion = async (clienteId, direccion) => {
+    if (!(await esAdministradorActual())) return false;
     const { error } = await supabase
       .from("clientes")
       .update({ direccion })
@@ -1984,6 +2040,7 @@ const datosCliente = {
   };
 
   const actualizarClienteVendedor = async (clienteId, vendedorId) => {
+    if (!(await esAdministradorActual())) return false;
     const vendedorIdNormalized = vendedorId || null;
 
     const { error } = await supabase
@@ -2011,6 +2068,7 @@ const datosCliente = {
   };
 
   const actualizarClienteCompleto = async (clienteId, datos) => {
+    if (!(await esAdministradorActual())) return { error: "Solo un administrador puede modificar clientes." };
     const datosActualizados = {
       cedula: datos.cedula,
       nombre: datos.nombre,
@@ -2042,6 +2100,7 @@ const datosCliente = {
   };
 
   const eliminarCliente = async (clienteId) => {
+    if (!(await esAdministradorActual())) return { error: "Solo un administrador puede eliminar clientes." };
     const { error } = await supabase
       .from("clientes")
       .delete()
@@ -2607,6 +2666,7 @@ return (
       crearPedido,
       crearPedidoSeguro,
       crearCliente,
+      crearClienteVendedor,
       actualizarClienteCompleto,
       eliminarCliente,
       crearVendedor,
