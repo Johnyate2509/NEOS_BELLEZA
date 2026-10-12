@@ -14,9 +14,10 @@
 }
 
 .profile-modal {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  background: var(--bg-white, #fff);
+  border: 1px solid rgba(200, 169, 81, 0.28);
+  border-radius: 14px;
+  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.32);
   width: 90%;
   max-width: 500px;
   max-height: 90vh;
@@ -40,9 +41,10 @@
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  border-bottom: 1px solid #eee;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  border-bottom: 1px solid rgba(200, 169, 81, 0.32);
+  background: linear-gradient(135deg, var(--bg-dark, #111) 0%, #24211a 100%);
+  color: var(--text-light, #fff);
+  box-shadow: inset 0 -2px 0 var(--gold, #c8a951);
 }
 
 .profile-modal-header h2 {
@@ -82,7 +84,7 @@
 .profile-field-group label {
   display: block;
   font-weight: 600;
-  color: #333;
+  color: var(--text-dark, #1c1c1c);
   margin-bottom: 8px;
   font-size: 0.95rem;
 }
@@ -90,9 +92,10 @@
 .profile-value {
   margin: 0;
   padding: 10px 12px;
-  background: #f5f5f5;
+  background: #f8f6ef;
+  border: 1px solid #eee8d5;
   border-radius: 6px;
-  color: #666;
+  color: #4d493d;
   font-size: 0.95rem;
   line-height: 1.5;
 }
@@ -100,14 +103,14 @@
 .profile-password-section {
   margin-top: 20px;
   padding-top: 16px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid #eee8d5;
 }
 
 .profile-password-toggle {
   padding: 0;
   border: 0;
   background: transparent;
-  color: #667eea;
+  color: var(--primary-color-dark, #a1863d);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
@@ -138,8 +141,8 @@
 
 .profile-input:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: var(--gold, #c8a951);
+  box-shadow: 0 0 0 3px rgba(200, 169, 81, 0.16);
 }
 
 .profile-textarea {
@@ -155,15 +158,15 @@
 }
 
 .profile-modal-mensaje.error {
-  background: #fee;
-  color: #c33;
-  border-left: 4px solid #c33;
+  background: #fff3f1;
+  color: #9e342a;
+  border-left: 4px solid #b84b3f;
 }
 
 .profile-modal-mensaje.exito {
-  background: #efe;
-  color: #3c3;
-  border-left: 4px solid #3c3;
+  background: #eff7ef;
+  color: #286238;
+  border-left: 4px solid #4c8a59;
 }
 
 .profile-modal-acciones {
@@ -171,7 +174,7 @@
   gap: 10px;
   margin-top: 24px;
   padding-top: 16px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid #eee8d5;
 }
 
 .profile-btn-editar,
@@ -188,33 +191,34 @@
 }
 
 .profile-btn-editar {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: linear-gradient(135deg, var(--gold, #c8a951) 0%, var(--gold-soft, #e6d38b) 100%);
+  color: #17150f;
+  box-shadow: 0 4px 12px rgba(161, 134, 61, 0.18);
 }
 
 .profile-btn-editar:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 6px 16px rgba(161, 134, 61, 0.3);
 }
 
 .profile-btn-guardar {
-  background: #4caf50;
-  color: white;
+  background: var(--gold, #c8a951);
+  color: #17150f;
 }
 
 .profile-btn-guardar:hover:not(:disabled) {
-  background: #45a049;
-  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+  background: var(--gold-soft, #e6d38b);
+  box-shadow: 0 4px 12px rgba(161, 134, 61, 0.25);
 }
 
 .profile-btn-cancelar {
-  background: #f5f5f5;
-  color: #666;
-  border: 1px solid #ddd;
+  background: #f4f2eb;
+  color: #4d493d;
+  border: 1px solid #ded8c6;
 }
 
 .profile-btn-cancelar:hover:not(:disabled) {
-  background: #eeeeee;
+  background: #ebe7dc;
 }
 
 .profile-btn-editar:disabled,
