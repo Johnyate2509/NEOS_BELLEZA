@@ -97,6 +97,34 @@
   line-height: 1.5;
 }
 
+.profile-password-section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #eee;
+}
+
+.profile-password-toggle {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #667eea;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.profile-password-toggle:hover {
+  text-decoration: underline;
+}
+
+.profile-password-form {
+  margin-top: 16px;
+}
+
+.profile-password-form .profile-btn-guardar {
+  width: 100%;
+}
+
 .profile-input {
   width: 100%;
   padding: 10px 12px;

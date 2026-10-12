@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Header from "./layout/Header";
 import Sidebar from "./layout/Sidebar";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 
 import Login from "./pages/Login";
@@ -21,16 +21,22 @@ import MisPedidos from "./pages/MisPedidos";
 import "./styles/global.css";
 import "./styles/variables.css";
 import Productos from "./pages/Producto";
+import ResetPassword from "./pages/ResetPassword";
 
 
 export default function App() {
   const { usuarioAutenticado, esAdmin, esRepartidor, esVendedor, loading } = useAuth();
+  const location = useLocation();
   const [sidebarAbierto, setSidebarAbierto] = useState(true);
   const toggleSidebar = () => setSidebarAbierto((prev) => !prev);
 
   // Esperar a que el estado de autenticación esté listo
   if (loading) {
     return <div className="app">Cargando...</div>;
+  }
+
+  if (location.pathname === "/restablecer-contrasena") {
+    return <ResetPassword />;
   }
 
   // Si no está autenticado, mostrar tienda de productos sin sidebar

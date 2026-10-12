@@ -12,6 +12,8 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(false);
+  const [recuperando, setRecuperando] = useState(false);
+  const [mensajeRecuperacion, setMensajeRecuperacion] = useState("");
 
   // Redirigir si ya está autenticado
   useEffect(() => {
@@ -47,6 +49,27 @@ export default function Login() {
     setCargando(false);
   };
 
+  const handleRecuperarContrasena = async (e) => {
+    e.preventDefault();
+    setError("");
+    setMensajeRecuperacion("");
+    if (!email.trim()) {
+      setError("Escribe tu correo para enviarte el enlace de recuperación.");
+      return;
+    }
+
+    setCargando(true);
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/restablecer-contrasena`,
+    });
+    if (resetError) {
+      setError("No se pudo enviar el correo. Verifica la dirección e inténtalo de nuevo.");
+    } else {
+      setMensajeRecuperacion("Si el correo está registrado, recibirás un enlace para crear una contraseña nueva.");
+    }
+    setCargando(false);
+  };
+
   return (
     <div className="login-container">
       <div className="login-box">
@@ -55,12 +78,12 @@ export default function Login() {
           <p>Sistema de Gestión de Ventas</p>
         </div>
 
-        <form onSubmit={handleLogin} className="login-form">
+        <form onSubmit={recuperando ? handleRecuperarContrasena : handleLogin} className="login-form">
           <div className="form-group">
-            <label>Email</label>
+            <label>Correo electrónico</label>
             <input
               type="email"
-              placeholder="Ej: email@example.com"
+              placeholder="Ej: correo@ejemplo.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={cargando}
@@ -68,7 +91,7 @@ export default function Login() {
             />
           </div>
 
-          <div className="form-group">
+          {!recuperando && <div className="form-group">
             <label>Contraseña</label>
             <input
               type="password"
@@ -78,16 +101,31 @@ export default function Login() {
               disabled={cargando}
               required
             />
-          </div>
+          </div>}
 
           {error && <div className="error-message">{error}</div>}
+          {mensajeRecuperacion && <div className="success-message">{mensajeRecuperacion}</div>}
 
           <button type="submit" className="btn-login" disabled={cargando}>
-            {cargando ? "Ingresando..." : "Ingresar"}
+            {cargando ? "Procesando..." : recuperando ? "Enviar enlace" : "Ingresar"}
           </button>
         </form>
 
-        <div style={{ marginTop: "20px", textAlign: "center" }}>
+        <div style={{ textAlign: "center", marginTop: "-10px" }}>
+          <button
+            type="button"
+            onClick={() => {
+              setRecuperando((actual) => !actual);
+              setError("");
+              setMensajeRecuperacion("");
+            }}
+            style={{ background: "none", border: "none", color: "#c8a951", cursor: "pointer", textDecoration: "underline" }}
+          >
+            {recuperando ? "Volver al inicio de sesión" : "¿Olvidaste tu contraseña?"}
+          </button>
+        </div>
+
+        {!recuperando && <div style={{ marginTop: "20px", textAlign: "center" }}>
           <p style={{ color: "#aaa", fontSize: "14px" }}>
             ¿No tienes cuenta?{" "}
             <button
@@ -104,7 +142,7 @@ export default function Login() {
               Regístrate aquí
             </button>
           </p>
-        </div>
+        </div>}
       </div>
     </div>
   );

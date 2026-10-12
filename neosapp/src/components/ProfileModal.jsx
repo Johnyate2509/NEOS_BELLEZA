@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useStore } from "../context/StoreContext";
+import { supabase } from "../context/supabaseClient";
 import "../styles/profile-modal.css";
 
 export default function ProfileModal({ clienteId, onClose }) {
@@ -18,6 +19,10 @@ export default function ProfileModal({ clienteId, onClose }) {
   const [cargando, setCargando] = useState(false);
   const [mensajeError, setMensajeError] = useState("");
   const [mensajeExito, setMensajeExito] = useState("");
+  const [mostrarCambioContrasena, setMostrarCambioContrasena] = useState(false);
+  const [nuevaContrasena, setNuevaContrasena] = useState("");
+  const [confirmarContrasena, setConfirmarContrasena] = useState("");
+  const [cambiandoContrasena, setCambiandoContrasena] = useState(false);
 
   useEffect(() => {
     if (cliente) {
@@ -87,6 +92,31 @@ export default function ProfileModal({ clienteId, onClose }) {
     setDireccion(cliente?.direccion || "");
     setMensajeError("");
     setMensajeExito("");
+  };
+
+  const handleCambiarContrasena = async () => {
+    setMensajeError("");
+    setMensajeExito("");
+    if (nuevaContrasena.length < 6) {
+      setMensajeError("La contraseña debe tener al menos 6 caracteres.");
+      return;
+    }
+    if (nuevaContrasena !== confirmarContrasena) {
+      setMensajeError("Las contraseñas no coinciden.");
+      return;
+    }
+
+    setCambiandoContrasena(true);
+    const { error } = await supabase.auth.updateUser({ password: nuevaContrasena });
+    if (error) {
+      setMensajeError("No se pudo cambiar la contraseña. Vuelve a iniciar sesión e inténtalo de nuevo.");
+    } else {
+      setMensajeExito("Contraseña actualizada correctamente.");
+      setNuevaContrasena("");
+      setConfirmarContrasena("");
+      setMostrarCambioContrasena(false);
+    }
+    setCambiandoContrasena(false);
   };
 
   if (!cliente) {
@@ -180,6 +210,36 @@ export default function ProfileModal({ clienteId, onClose }) {
           <div className="profile-field-group">
             <label>Correo</label>
             <p className="profile-value">{cliente.correo}</p>
+          </div>
+
+          <div className="profile-password-section">
+            <button
+              type="button"
+              className="profile-password-toggle"
+              onClick={() => {
+                setMostrarCambioContrasena((visible) => !visible);
+                setNuevaContrasena("");
+                setConfirmarContrasena("");
+                setMensajeError("");
+              }}
+            >
+              {mostrarCambioContrasena ? "Cancelar cambio de contraseña" : "Cambiar contraseña"}
+            </button>
+            {mostrarCambioContrasena && (
+              <div className="profile-password-form">
+                <div className="profile-field-group">
+                  <label htmlFor="profile-new-password">Nueva contraseña</label>
+                  <input id="profile-new-password" className="profile-input" type="password" autoComplete="new-password" minLength={6} value={nuevaContrasena} onChange={(e) => setNuevaContrasena(e.target.value)} disabled={cambiandoContrasena} />
+                </div>
+                <div className="profile-field-group">
+                  <label htmlFor="profile-confirm-password">Confirmar contraseña</label>
+                  <input id="profile-confirm-password" className="profile-input" type="password" autoComplete="new-password" minLength={6} value={confirmarContrasena} onChange={(e) => setConfirmarContrasena(e.target.value)} disabled={cambiandoContrasena} />
+                </div>
+                <button type="button" className="profile-btn-guardar" onClick={handleCambiarContrasena} disabled={cambiandoContrasena}>
+                  {cambiandoContrasena ? "Actualizando..." : "Guardar contraseña"}
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="profile-modal-acciones">
