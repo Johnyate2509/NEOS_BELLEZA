@@ -361,6 +361,8 @@ export default function Producto() {
         ? predeterminado
         : MINIMOS_COMPRA_DEFAULT[catalogo] || 1;
   };
+  const obtenerPasoCompra = (producto, catalogo = tipoCatalogo) =>
+    catalogo === "Mayorista" ? obtenerMinimoCompra(producto, catalogo) : 1;
   const esCantidadValidaCatalogo = (cantidad, producto, catalogo = tipoCatalogo) => {
     const minimo = obtenerMinimoCompra(producto, catalogo);
     return catalogo === "Mayorista" ? cantidad >= minimo && cantidad % minimo === 0 : cantidad >= minimo;
@@ -1277,7 +1279,7 @@ export default function Producto() {
 
     const minimoCompra = obtenerMinimoCompra(producto);
     if (productoEnCarrito) {
-      const nuevaCantidad = productoEnCarrito.cantidad + minimoCompra;
+      const nuevaCantidad = productoEnCarrito.cantidad + obtenerPasoCompra(producto);
       if (controlaStock && nuevaCantidad > producto.stock) return;
       setCarrito(
         carrito.map((p) =>
@@ -1355,7 +1357,7 @@ export default function Producto() {
     setMensajeConfirmacionVariantes("");
     setCantidadesVariantesSeleccionadas((actuales) => ({
       ...actuales,
-      [variante.id]: Math.max(0, Math.min(stockDisponible, (actuales[variante.id] || 0) + (cambio > 0 || tipoCatalogo === "Mayorista" ? (cambio > 0 ? 1 : -1) * obtenerMinimoCompra(productoDetalles) : cambio))),
+      [variante.id]: Math.max(0, Math.min(stockDisponible, (actuales[variante.id] || 0) + (cambio > 0 ? obtenerPasoCompra(productoDetalles) : tipoCatalogo === "Mayorista" ? -obtenerMinimoCompra(productoDetalles) : cambio))),
     }));
   };
 
@@ -1456,8 +1458,8 @@ export default function Producto() {
         <button
           type="button"
           aria-label={`Agregar una unidad de ${producto.nombre}`}
-          onClick={() => actualizarCantidad(itemKey, cantidad + obtenerMinimoCompra(producto))}
-          disabled={controlaStock && cantidad + obtenerMinimoCompra(producto) > producto.stock}
+          onClick={() => actualizarCantidad(itemKey, cantidad + obtenerPasoCompra(producto))}
+          disabled={controlaStock && cantidad + obtenerPasoCompra(producto) > producto.stock}
         >
           +
         </button>
@@ -2618,7 +2620,7 @@ const obtenerProductosFiltrados = (categoria) => {
                         <label>Cantidad:</label>
                         <div className="cantidad-input-group-detalles">
                           <button
-                            onClick={() => setCantidadDetalles(Math.max(obtenerMinimoCompra(productoDetalles), cantidadDetalles - obtenerMinimoCompra(productoDetalles)))}
+                            onClick={() => setCantidadDetalles(Math.max(obtenerMinimoCompra(productoDetalles), cantidadDetalles - obtenerPasoCompra(productoDetalles)))}
                             className="btn-cantidad-detalles"
                           >
                             −
@@ -2638,7 +2640,7 @@ const obtenerProductosFiltrados = (categoria) => {
                             className="cantidad-input-detalles"
                           />
                           <button
-                            onClick={() => setCantidadDetalles(controlaStock ? Math.min(productoDetalles.stock, cantidadDetalles + obtenerMinimoCompra(productoDetalles)) : cantidadDetalles + obtenerMinimoCompra(productoDetalles))}
+                            onClick={() => setCantidadDetalles(controlaStock ? Math.min(productoDetalles.stock, cantidadDetalles + obtenerPasoCompra(productoDetalles)) : cantidadDetalles + obtenerPasoCompra(productoDetalles))}
                             className="btn-cantidad-detalles"
                           >
                             +
