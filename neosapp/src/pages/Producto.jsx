@@ -50,6 +50,7 @@ const NOMBRES_CATALOGOS_DEFAULT = {
   Mayorista: "SuperMayorista",
 };
 const CATALOGOS_STORAGE_KEY = "neosapp_nombres_catalogos";
+const MINIMOS_COMPRA_DEFAULT = { General: 1, Emprendedor: 3, Mayorista: 6 };
 const EVENTO_COMPRA_COMPLETADA = "neosapp:compra-completada";
 let finalizarPedidoEnCurso = false;
 
@@ -357,6 +358,14 @@ export default function Producto() {
   const [busquedaProducto, setBusquedaProducto] = useState("");
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState("Todas");
   const [tipoCatalogo, setTipoCatalogo] = useState("General");
+  const obtenerMinimoCompra = (producto, catalogo = tipoCatalogo) => {
+    const configurado = Number(producto?.minimos_compra?.[catalogo]);
+    return Number.isInteger(configurado) && configurado > 0 ? configurado : MINIMOS_COMPRA_DEFAULT[catalogo] || 1;
+  };
+  const esCantidadValidaCatalogo = (cantidad, producto, catalogo = tipoCatalogo) => {
+    const minimo = obtenerMinimoCompra(producto, catalogo);
+    return catalogo === "Mayorista" ? cantidad >= minimo && cantidad % minimo === 0 : cantidad >= minimo;
+  };
   const controlaStock = tipoCatalogo === "General";
   const [nombresCatalogos, setNombresCatalogos] = useState(NOMBRES_CATALOGOS_DEFAULT);
   const [busquedaCliente, setBusquedaCliente] = useState("");
@@ -1178,7 +1187,7 @@ export default function Producto() {
     setVariantesProducto(variantesGuardadas || []);
     setErrorVariantesProducto("");
     setIndiceCarrusel(0);
-    setCantidadDetalles(1);
+    setCantidadDetalles(obtenerMinimoCompra(producto));
     setMostrarDetalles(true);
     if (!tieneVariantesPrecargadas) {
       cargarVariantesProducto(producto.id);
@@ -1312,19 +1321,21 @@ export default function Producto() {
 
     const productoEnCarrito = carrito.find((p) => p.id === producto.id && !p.variante && (p.tipo_catalogo || "General") === tipoCatalogo);
 
+    const minimoCompra = obtenerMinimoCompra(producto);
     if (productoEnCarrito) {
-      if (controlaStock && productoEnCarrito.cantidad >= producto.stock) return;
+      const nuevaCantidad = productoEnCarrito.cantidad + minimoCompra;
+      if (controlaStock && nuevaCantidad > producto.stock) return;
       setCarrito(
         carrito.map((p) =>
           p.id === producto.id && !p.variante && (p.tipo_catalogo || "General") === tipoCatalogo
-            ? { ...p, cantidad: p.cantidad + 1 }
+            ? { ...p, cantidad: nuevaCantidad }
             : p
         )
       );
       return;
     }
 
-    setCarrito([...carrito, { ...producto, precio: precioSeleccionado, cantidad: 1, tipo_catalogo: tipoCatalogo }]);
+    setCarrito([...carrito, { ...producto, precio: precioSeleccionado, cantidad: minimoCompra, tipo_catalogo: tipoCatalogo }]);
   };
 
   const precioDisponibleEnCatalogo = (producto) => obtenerPrecioProducto(producto) != null;
@@ -1367,6 +1378,7 @@ export default function Producto() {
     }
 
     const stockDisponible = item.variante?.stock ?? item.stock;
+    if (!esCantidadValidaCatalogo(cantidad, item)) return;
     if (controlaStock && cantidad > stockDisponible) return;
 
     setCarrito(
@@ -1389,7 +1401,7 @@ export default function Producto() {
     setMensajeConfirmacionVariantes("");
     setCantidadesVariantesSeleccionadas((actuales) => ({
       ...actuales,
-      [variante.id]: Math.max(0, Math.min(stockDisponible, (actuales[variante.id] || 0) + cambio)),
+      [variante.id]: Math.max(0, Math.min(stockDisponible, (actuales[variante.id] || 0) + (cambio > 0 || tipoCatalogo === "Mayorista" ? (cambio > 0 ? 1 : -1) * obtenerMinimoCompra(productoDetalles) : cambio))),
     }));
   };
 
@@ -1402,6 +1414,7 @@ export default function Producto() {
     const carritoActualizado = [...carrito];
     let unidadesAgregadas = 0;
     seleccionadas.forEach(({ variante, cantidad }) => {
+      if (!esCantidadValidaCatalogo(cantidad, productoDetalles)) return;
       const precio = tipoCatalogo === "Emprendedor" && variante.precio_emprendedor != null
         ? variante.precio_emprendedor
         : tipoCatalogo === "Mayorista" && variante.precio_mayorista != null
@@ -1481,7 +1494,7 @@ export default function Producto() {
         <button
           type="button"
           aria-label={`Quitar una unidad de ${producto.nombre}`}
-          onClick={() => actualizarCantidad(itemKey, cantidad - 1)}
+          onClick={() => actualizarCantidad(itemKey, cantidad - (tipoCatalogo === "Mayorista" ? obtenerMinimoCompra(producto) : 1))}
         >
           −
         </button>
@@ -1489,8 +1502,8 @@ export default function Producto() {
         <button
           type="button"
           aria-label={`Agregar una unidad de ${producto.nombre}`}
-          onClick={() => actualizarCantidad(itemKey, cantidad + 1)}
-          disabled={controlaStock && cantidad >= producto.stock}
+          onClick={() => actualizarCantidad(itemKey, cantidad + obtenerMinimoCompra(producto))}
+          disabled={controlaStock && cantidad + obtenerMinimoCompra(producto) > producto.stock}
         >
           +
         </button>
@@ -2684,7 +2697,7 @@ const obtenerProductosFiltrados = (categoria) => {
                         <label>Cantidad:</label>
                         <div className="cantidad-input-group-detalles">
                           <button
-                            onClick={() => setCantidadDetalles(Math.max(1, cantidadDetalles - 1))}
+                            onClick={() => setCantidadDetalles(Math.max(obtenerMinimoCompra(productoDetalles), cantidadDetalles - obtenerMinimoCompra(productoDetalles)))}
                             className="btn-cantidad-detalles"
                           >
                             −
@@ -2695,15 +2708,16 @@ const obtenerProductosFiltrados = (categoria) => {
                             onChange={(e) => {
                               const valor = Number(e.target.value);
                               if (valor > 0 && (!controlaStock || valor <= productoDetalles.stock)) {
-                                setCantidadDetalles(valor);
+                                if (esCantidadValidaCatalogo(valor, productoDetalles)) setCantidadDetalles(valor);
                               }
                             }}
-                            min="1"
+                            min={obtenerMinimoCompra(productoDetalles)}
+                            step={tipoCatalogo === "Mayorista" ? obtenerMinimoCompra(productoDetalles) : 1}
                             max={controlaStock ? productoDetalles.stock : undefined}
                             className="cantidad-input-detalles"
                           />
                           <button
-                            onClick={() => setCantidadDetalles(controlaStock ? Math.min(productoDetalles.stock, cantidadDetalles + 1) : cantidadDetalles + 1)}
+                            onClick={() => setCantidadDetalles(controlaStock ? Math.min(productoDetalles.stock, cantidadDetalles + obtenerMinimoCompra(productoDetalles)) : cantidadDetalles + obtenerMinimoCompra(productoDetalles))}
                             className="btn-cantidad-detalles"
                           >
                             +
@@ -2714,7 +2728,7 @@ const obtenerProductosFiltrados = (categoria) => {
                       <button
                         className="btn-agregar-grande"
                         onClick={() => {
-                          if (cantidadDetalles <= 0 || (controlaStock && cantidadDetalles > productoDetalles.stock)) {
+                          if (!esCantidadValidaCatalogo(cantidadDetalles, productoDetalles) || (controlaStock && cantidadDetalles > productoDetalles.stock)) {
                             alert("Cantidad inválida");
                             return;
                           }
@@ -2728,6 +2742,10 @@ const obtenerProductosFiltrados = (categoria) => {
                           const productoEnCarrito = carrito.find((p) => p.id === productoDetalles.id && !p.variante && (p.tipo_catalogo || "General") === tipoCatalogo);
                           if (productoEnCarrito) {
                             const nuevaCantidad = productoEnCarrito.cantidad + cantidadDetalles;
+                            if (!esCantidadValidaCatalogo(nuevaCantidad, productoDetalles)) {
+                              alert(`La cantidad debe ser ${tipoCatalogo === "Mayorista" ? "un múltiplo de" : "al menos"} ${obtenerMinimoCompra(productoDetalles)} unidades.`);
+                              return;
+                            }
                             if (controlaStock && nuevaCantidad > productoDetalles.stock) {
                               alert(`No hay suficiente stock. Máximo disponible: ${productoDetalles.stock}`);
                               return;
@@ -2752,7 +2770,7 @@ const obtenerProductosFiltrados = (categoria) => {
                           }
 
                           setMostrarDetalles(false);
-                          setCantidadDetalles(1);
+                          setCantidadDetalles(obtenerMinimoCompra(productoDetalles));
                         }}
                         disabled={(controlaStock && productoDetalles.stock <= 0) || obtenerPrecioProducto(productoDetalles) == null}
                       >

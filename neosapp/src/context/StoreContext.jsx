@@ -5,7 +5,7 @@ import { enviarConfirmacionPedido, enviarNotificacionVendedor } from "../service
 import { asegurarPerfilCliente } from "../utils/asegurarPerfilCliente";
 
 const StoreContext = createContext(null);
-const PRODUCT_COLUMNS = "id,nombre,precio,stock,descripcion,categoria_id,imagen_url,precio_mayorista,precio_emprendedor,imagen_url2,imagen_url3,oculto_catalogo,catalogos_ocultos";
+const PRODUCT_COLUMNS = "id,nombre,precio,stock,descripcion,categoria_id,imagen_url,precio_mayorista,precio_emprendedor,imagen_url2,imagen_url3,oculto_catalogo,catalogos_ocultos,minimos_compra";
 const VARIANT_COLUMNS = "id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,created_at,updated_at";
 
 export function StoreProvider({ children }) {
@@ -138,6 +138,7 @@ const adaptarProducto = (p) => {
     precio_mayorista: p.precio_mayorista ?? p.precioMayorista ?? null,
     precio_costo: p.precio_costo ?? null,
     catalogos_ocultos: catalogosOcultos,
+    minimos_compra: p.minimos_compra && typeof p.minimos_compra === "object" ? p.minimos_compra : {},
     oculto_catalogo: catalogosOcultos.length === 3,
     stock: p.stock ?? p.existencias ?? 0,
     descripcion: p.descripcion,
@@ -746,6 +747,7 @@ const cargarProductos = async () => {
       categoria_id: categoriaEncontrada.id,
       precio_costo: opciones.precio_costo === "" || opciones.precio_costo == null ? null : Number(opciones.precio_costo),
       catalogos_ocultos: opciones.catalogos_ocultos || [],
+      minimos_compra: opciones.minimos_compra || {},
       oculto_catalogo: (opciones.catalogos_ocultos || []).length === 3,
     };
 
@@ -861,6 +863,9 @@ const cargarProductos = async () => {
       datosActualizacion.oculto_catalogo = datosActualizacion.catalogos_ocultos.length === catalogosValidos.length;
     } else if (datos.oculto_catalogo !== undefined) {
       datosActualizacion.oculto_catalogo = Boolean(datos.oculto_catalogo);
+    }
+    if (datos.minimos_compra !== undefined) {
+      datosActualizacion.minimos_compra = datos.minimos_compra;
     }
     if (datos.imagenes != null) {
       datosActualizacion.imagen_url = datos.imagenes[0] || null;

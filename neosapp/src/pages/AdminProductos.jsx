@@ -13,6 +13,7 @@ const FORMULARIO_VACIO = {
   precio: "",
   precio_emprendedor: "",
   precio_mayorista: "",
+  minimos_compra: { General: "", Emprendedor: "", Mayorista: "" },
   precio_costo: "",
   descripcion: "",
   imagenes: [],
@@ -373,6 +374,7 @@ export default function AdminProductos() {
       categoria_id: producto.categoria_id ?? "",
       stock: String(producto.stock ?? 0),
       imagenes: [...(producto.imagenes || [])].filter(Boolean),
+      minimos_compra: { ...FORMULARIO_VACIO.minimos_compra, ...(producto.minimos_compra || {}) },
     });
     setMensaje("");
     setError("");
@@ -438,6 +440,7 @@ export default function AdminProductos() {
       descripcion: formulario.descripcion,
       imagenes: formulario.imagenes,
       catalogos_ocultos: formulario.catalogos_ocultos,
+      minimos_compra: Object.fromEntries(Object.entries(formulario.minimos_compra || {}).map(([catalogo, valor]) => [catalogo, valor === "" ? null : Number(valor)])),
     };
 
     try {
@@ -452,7 +455,7 @@ export default function AdminProductos() {
             datos.stock,
             datos.descripcion,
             datos.imagenes,
-            { precio_costo: datos.precio_costo, catalogos_ocultos: datos.catalogos_ocultos }
+            { precio_costo: datos.precio_costo, catalogos_ocultos: datos.catalogos_ocultos, minimos_compra: datos.minimos_compra }
           );
 
       if (resultado?.error) throw new Error(resultado.error);
@@ -637,6 +640,13 @@ export default function AdminProductos() {
                 <label>Precio tienda física<input type="number" min="0" step="any" value={formulario.precio} onChange={(event) => actualizarCampo("precio", event.target.value)} /></label>
                 <label>Precio mayorista<input type="number" min="0" step="any" value={formulario.precio_emprendedor} onChange={(event) => actualizarCampo("precio_emprendedor", event.target.value)} /></label>
                 <label>Precio supermayorista<input type="number" min="0" step="any" value={formulario.precio_mayorista} onChange={(event) => actualizarCampo("precio_mayorista", event.target.value)} /></label>
+                <fieldset className="span-two admin-productos-checkbox">
+                  <legend>Mínimo de compra por catálogo</legend>
+                  <small>Déjalo vacío para usar el valor general. Supermayorista se vende en múltiplos del mínimo.</small>
+                  <div className="admin-productos-form-grid">
+                    {CATALOGOS.map((catalogo) => <label key={catalogo.id}>{catalogo.label}<input type="number" min="1" step="1" value={formulario.minimos_compra?.[catalogo.id] ?? ""} placeholder={catalogo.id === "General" ? "1" : catalogo.id === "Emprendedor" ? "3" : "6"} onChange={(event) => actualizarCampo("minimos_compra", { ...formulario.minimos_compra, [catalogo.id]: event.target.value })} /></label>)}
+                  </div>
+                </fieldset>
                 <label>Precio costo (interno)<input type="number" min="0" step="any" value={formulario.precio_costo} onChange={(event) => actualizarCampo("precio_costo", event.target.value)} /></label>
                 <label className="span-two">Descripción<textarea rows="3" value={formulario.descripcion} onChange={(event) => actualizarCampo("descripcion", event.target.value)} /></label>
                 <fieldset className="span-two admin-producto-images">
