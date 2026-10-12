@@ -61,6 +61,17 @@
   color: #191919;
   background: #c5a34e;
 }
+.admin-productos-header-actions { display: flex; align-items: center; gap: 10px; }
+.admin-productos-header-actions .admin-productos-primary {
+  border-color: #191919;
+  color: #dfbd68;
+  background: #191919;
+}
+.admin-productos-header-actions .admin-productos-primary:hover {
+  border-color: #c5a34e;
+  color: #191919;
+  background: #c5a34e;
+}
 .admin-productos-secondary { color: var(--ap-ink); background: white; border-color: var(--ap-line); }
 
 .admin-productos-toolbar {
@@ -221,7 +232,8 @@
   .admin-productos-page { padding: 22px 12px 32px; }
   .admin-productos-header { align-items: stretch; flex-direction: column; gap: 14px; margin-bottom: 18px; }
   .admin-productos-header h1 { font-size: 28px; }
-  .admin-productos-header .admin-productos-primary { width: 100%; }
+  .admin-productos-header-actions { flex-direction: column; align-items: stretch; }
+  .admin-productos-header-actions button { width: 100%; }
   .admin-productos-toolbar { grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 12px; }
   .admin-productos-filtros { justify-content: space-between; }
   .admin-productos-filtros button { flex: 1; }

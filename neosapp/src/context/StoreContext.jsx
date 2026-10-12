@@ -5,6 +5,7 @@ import { enviarConfirmacionPedido, enviarNotificacionVendedor } from "../service
 import { asegurarPerfilCliente } from "../utils/asegurarPerfilCliente";
 
 const StoreContext = createContext(null);
+const MINIMOS_COMPRA_CATALOGO_DEFAULT = { General: 1, Emprendedor: 3, Mayorista: 6 };
 const PRODUCT_COLUMNS = "id,nombre,precio,stock,descripcion,categoria_id,imagen_url,precio_mayorista,precio_emprendedor,imagen_url2,imagen_url3,oculto_catalogo,catalogos_ocultos,minimos_compra";
 const VARIANT_COLUMNS = "id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,created_at,updated_at";
 
@@ -22,6 +23,7 @@ export function StoreProvider({ children }) {
   const [bannerUrl, setBannerUrl] = useState("");
   const [bannerImages, setBannerImages] = useState([]);
   const [bannerVisible, setBannerVisible] = useState(true);
+  const [minimosCompraCatalogo, setMinimosCompraCatalogo] = useState(MINIMOS_COMPRA_CATALOGO_DEFAULT);
 
   const DEFAULT_IMAGE =
     "https://images.unsplash.com/photo-1522338242592-cb0acf6f85a2?w=500";
@@ -168,6 +170,54 @@ export function StoreProvider({ children }) {
       if (guardado != null) setBannerVisible(guardado !== "false");
     } catch (error) {
       console.warn("No se pudo leer la visibilidad local del banner:", error);
+    }
+  };
+
+  const cargarMinimosCompraCatalogo = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", "minimos_compra_catalogo")
+        .maybeSingle();
+      if (!error && data?.value) {
+        const valores = typeof data.value === "string" ? JSON.parse(data.value) : data.value;
+        const normalizados = Object.fromEntries(Object.keys(MINIMOS_COMPRA_CATALOGO_DEFAULT).map((catalogo) => {
+          const valor = Number(valores?.[catalogo]);
+          return [catalogo, Number.isInteger(valor) && valor > 0 ? valor : MINIMOS_COMPRA_CATALOGO_DEFAULT[catalogo]];
+        }));
+        setMinimosCompraCatalogo(normalizados);
+        return;
+      }
+    } catch (error) {
+      console.warn("No se pudieron cargar los mínimos generales de compra:", error);
+    }
+    try {
+      const guardado = JSON.parse(window.localStorage.getItem("neosapp_minimos_compra_catalogo") || "null");
+      if (guardado && typeof guardado === "object") {
+        setMinimosCompraCatalogo({ ...MINIMOS_COMPRA_CATALOGO_DEFAULT, ...guardado });
+      }
+    } catch (error) {
+      console.warn("No se pudieron cargar los mínimos locales de compra:", error);
+    }
+  };
+
+  const guardarMinimosCompraCatalogo = async (valores) => {
+    const normalizados = Object.fromEntries(Object.keys(MINIMOS_COMPRA_CATALOGO_DEFAULT).map((catalogo) => [catalogo, Number(valores[catalogo])]));
+    try {
+      const { error } = await supabase
+        .from("site_settings")
+        .upsert({ key: "minimos_compra_catalogo", value: JSON.stringify(normalizados) }, { onConflict: "key" });
+      if (error) return { error: error.message };
+      setMinimosCompraCatalogo(normalizados);
+      try {
+        window.localStorage.setItem("neosapp_minimos_compra_catalogo", JSON.stringify(normalizados));
+      } catch (errorLocal) {
+        console.warn("No se pudieron guardar localmente los mínimos de compra:", errorLocal);
+      }
+      return { success: true };
+    } catch (error) {
+      return { error: error.message || "No se pudieron guardar los mínimos de compra." };
     }
   };
 
@@ -685,6 +735,7 @@ const cargarProductos = async () => {
   useEffect(() => {
     cargarBannerDesdeSupabase();
     cargarVisibilidadBanner();
+    cargarMinimosCompraCatalogo();
   }, []);
 
   useEffect(() => {
@@ -2595,6 +2646,8 @@ return (
       guardarImagenesBanner,
       bannerVisible,
       guardarBannerVisible,
+      minimosCompraCatalogo,
+      guardarMinimosCompraCatalogo,
       setBannerUrl,
       guardarBannerUrl,
       subirBanner,

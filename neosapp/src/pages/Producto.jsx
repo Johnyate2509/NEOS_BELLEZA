@@ -55,7 +55,7 @@ const EVENTO_COMPRA_COMPLETADA = "neosapp:compra-completada";
 let finalizarPedidoEnCurso = false;
 
 export default function Producto() {
-  const { productos, categorias, setProductos, setCategorias, crearProducto, actualizarProducto, eliminarProducto, crearPedidoSeguro, clientes, bannerUrl, bannerImages, bannerVisible, guardarBannerVisible, guardarImagenesBanner, subirBanner } = useStore();
+  const { productos, categorias, setProductos, setCategorias, crearProducto, actualizarProducto, eliminarProducto, crearPedidoSeguro, clientes, bannerUrl, bannerImages, bannerVisible, guardarBannerVisible, guardarImagenesBanner, subirBanner, minimosCompraCatalogo } = useStore();
   const { esAdmin, esVendedor, obtenerDatosUsuario, user, getUserRole } = useAuth();
   const vendedorData = obtenerDatosUsuario();
 
@@ -354,7 +354,12 @@ export default function Producto() {
   const [tipoCatalogo, setTipoCatalogo] = useState("General");
   const obtenerMinimoCompra = (producto, catalogo = tipoCatalogo) => {
     const configurado = Number(producto?.minimos_compra?.[catalogo]);
-    return Number.isInteger(configurado) && configurado > 0 ? configurado : MINIMOS_COMPRA_DEFAULT[catalogo] || 1;
+    const predeterminado = Number(minimosCompraCatalogo?.[catalogo]);
+    return Number.isInteger(configurado) && configurado > 0
+      ? configurado
+      : Number.isInteger(predeterminado) && predeterminado > 0
+        ? predeterminado
+        : MINIMOS_COMPRA_DEFAULT[catalogo] || 1;
   };
   const esCantidadValidaCatalogo = (cantidad, producto, catalogo = tipoCatalogo) => {
     const minimo = obtenerMinimoCompra(producto, catalogo);

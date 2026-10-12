@@ -93,7 +93,7 @@ const obtenerNombreCategoria = (producto, categorias) =>
 
 export default function AdminProductos() {
   const { esAdmin } = useAuth();
-  const { productos, setProductos, categorias, crearProducto, actualizarProducto, eliminarProducto } = useStore();
+  const { productos, setProductos, categorias, crearProducto, actualizarProducto, eliminarProducto, minimosCompraCatalogo, guardarMinimosCompraCatalogo } = useStore();
   const esAdministrador = esAdmin();
   const [borradorInicial] = useState(leerBorrador);
   const [busqueda, setBusqueda] = useState(leerBusquedaGuardada);
@@ -114,6 +114,9 @@ export default function AdminProductos() {
   const [formularioVariante, setFormularioVariante] = useState(VARIANTE_VACIA);
   const [guardandoVariante, setGuardandoVariante] = useState(false);
   const [errorVariante, setErrorVariante] = useState("");
+  const [administrarCatalogosAbierto, setAdministrarCatalogosAbierto] = useState(false);
+  const [minimosCatalogosFormulario, setMinimosCatalogosFormulario] = useState({ General: "1", Emprendedor: "3", Mayorista: "6" });
+  const [guardandoMinimosCatalogos, setGuardandoMinimosCatalogos] = useState(false);
 
   useEffect(() => {
     if (!esAdministrador) return undefined;
@@ -475,6 +478,35 @@ export default function AdminProductos() {
     else setMensaje("Producto eliminado.");
   };
 
+  const abrirAdministrarCatalogos = () => {
+    setError("");
+    setMinimosCatalogosFormulario({
+      General: String(minimosCompraCatalogo?.General ?? 1),
+      Emprendedor: String(minimosCompraCatalogo?.Emprendedor ?? 3),
+      Mayorista: String(minimosCompraCatalogo?.Mayorista ?? 6),
+    });
+    setAdministrarCatalogosAbierto(true);
+  };
+
+  const guardarMinimosCatalogos = async (event) => {
+    event.preventDefault();
+    const valores = Object.fromEntries(Object.entries(minimosCatalogosFormulario).map(([catalogo, valor]) => [catalogo, Number(valor)]));
+    if (Object.values(valores).some((valor) => !Number.isInteger(valor) || valor < 1)) {
+      setError("Los mínimos deben ser números enteros mayores que cero.");
+      return;
+    }
+    setGuardandoMinimosCatalogos(true);
+    const resultado = await guardarMinimosCompraCatalogo(valores);
+    setGuardandoMinimosCatalogos(false);
+    if (resultado?.error) {
+      setError(`No se pudieron guardar los mínimos en Supabase: ${resultado.error}`);
+      return;
+    }
+    setAdministrarCatalogosAbierto(false);
+    setError("");
+    setMensaje("Mínimos predeterminados de compra actualizados.");
+  };
+
   return (
     <main className="admin-productos-page">
       <header className="admin-productos-header">
@@ -483,8 +515,38 @@ export default function AdminProductos() {
           <h1>Administrar productos</h1>
           <p>Precios, disponibilidad e imágenes en un solo lugar.</p>
         </div>
-        <button className="admin-productos-primary" type="button" onClick={abrirNuevo}>+ Nuevo producto</button>
+        <div className="admin-productos-header-actions">
+          <button className="admin-productos-secondary" type="button" onClick={abrirAdministrarCatalogos}>Administrar categorías</button>
+          <button className="admin-productos-primary" type="button" onClick={abrirNuevo}>+ Nuevo producto</button>
+        </div>
       </header>
+
+      {administrarCatalogosAbierto && (
+        <div className="admin-productos-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !guardandoMinimosCatalogos) setAdministrarCatalogosAbierto(false); }}>
+          <section className="admin-productos-modal" role="dialog" aria-modal="true" aria-labelledby="admin-minimos-catalogo-title">
+            <header className="admin-productos-modal-header">
+              <div><span>CONFIGURACIÓN GENERAL</span><h2 id="admin-minimos-catalogo-title">Administrar categorías</h2></div>
+              <button type="button" aria-label="Cerrar" onClick={() => setAdministrarCatalogosAbierto(false)}>×</button>
+            </header>
+            <form onSubmit={guardarMinimosCatalogos}>
+              <p>Define el mínimo predeterminado de compra para los productos sin una cantidad personalizada.</p>
+              <div className="admin-productos-form-grid">
+                {CATALOGOS.map((catalogo) => (
+                  <label key={catalogo.id}>{catalogo.label}
+                    <input type="number" min="1" step="1" required value={minimosCatalogosFormulario[catalogo.id]} onChange={(event) => setMinimosCatalogosFormulario((actual) => ({ ...actual, [catalogo.id]: event.target.value }))} />
+                  </label>
+                ))}
+              </div>
+              <small>En Supermayorista las cantidades se pedirán en múltiplos del mínimo configurado.</small>
+              {error && <p className="admin-productos-form-error" role="alert">{error}</p>}
+              <footer className="admin-productos-form-actions">
+                <button type="button" className="admin-productos-secondary" onClick={() => setAdministrarCatalogosAbierto(false)} disabled={guardandoMinimosCatalogos}>Cancelar</button>
+                <button type="submit" className="admin-productos-primary" disabled={guardandoMinimosCatalogos}>{guardandoMinimosCatalogos ? "Guardando..." : "Guardar mínimos"}</button>
+              </footer>
+            </form>
+          </section>
+        </div>
+      )}
 
       <section className="admin-productos-toolbar" aria-label="Filtros de productos">
         <label className="admin-productos-search">
@@ -644,7 +706,7 @@ export default function AdminProductos() {
                   <legend>Mínimo de compra por catálogo</legend>
                   <small>Déjalo vacío para usar el valor general. Supermayorista se vende en múltiplos del mínimo.</small>
                   <div className="admin-productos-form-grid">
-                    {CATALOGOS.map((catalogo) => <label key={catalogo.id}>{catalogo.label}<input type="number" min="1" step="1" value={formulario.minimos_compra?.[catalogo.id] ?? ""} placeholder={catalogo.id === "General" ? "1" : catalogo.id === "Emprendedor" ? "3" : "6"} onChange={(event) => actualizarCampo("minimos_compra", { ...formulario.minimos_compra, [catalogo.id]: event.target.value })} /></label>)}
+                    {CATALOGOS.map((catalogo) => <label key={catalogo.id}>{catalogo.label}<input type="number" min="1" step="1" value={formulario.minimos_compra?.[catalogo.id] ?? ""} placeholder={String(minimosCompraCatalogo?.[catalogo.id] ?? (catalogo.id === "General" ? 1 : catalogo.id === "Emprendedor" ? 3 : 6))} onChange={(event) => actualizarCampo("minimos_compra", { ...formulario.minimos_compra, [catalogo.id]: event.target.value })} /></label>)}
                   </div>
                 </fieldset>
                 <label>Precio costo (interno)<input type="number" min="0" step="any" value={formulario.precio_costo} onChange={(event) => actualizarCampo("precio_costo", event.target.value)} /></label>
