@@ -60,7 +60,7 @@ export default function Login() {
             <label>Email</label>
             <input
               type="email"
-              placeholder="Ej: admin@neosapp.com"
+              placeholder="Ej: email@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={cargando}

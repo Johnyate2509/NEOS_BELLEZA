@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useStore } from "../context/StoreContext";
 import ProfileModal from "../components/ProfileModal";
+import NotificationBell from "../components/NotificationBell";
 import "../styles/layout.css";
 
 export default function Header({ onToggleSidebar, sidebarAbierto }) {
@@ -85,6 +86,7 @@ export default function Header({ onToggleSidebar, sidebarAbierto }) {
       )}
 
       <div className="header-right">
+        <NotificationBell user={user} />
         <div className="usuario-info">
           <span className={`badge-tipo ${tipoClase}`}>
             {tipoUsuario}

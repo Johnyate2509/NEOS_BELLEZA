@@ -25,6 +25,18 @@ export function StoreProvider({ children }) {
   const [bannerVisible, setBannerVisible] = useState(true);
   const [minimosCompraCatalogo, setMinimosCompraCatalogo] = useState(MINIMOS_COMPRA_CATALOGO_DEFAULT);
 
+  const notificarEventoApp = async (tipo, entidadId) => {
+    try {
+      const { error } = await supabase.rpc("notificar_evento_app", {
+        p_tipo: tipo,
+        p_entidad_id: Number(entidadId),
+      });
+      if (error) console.warn("No se pudo registrar la notificación:", error.message);
+    } catch (error) {
+      console.warn("No se pudo registrar la notificación:", error);
+    }
+  };
+
   const DEFAULT_IMAGE =
     "https://images.unsplash.com/photo-1522338242592-cb0acf6f85a2?w=500";
 
@@ -1204,6 +1216,7 @@ const cargarProductos = async () => {
         setPedidos((prev) => [...prev.filter((actual) => String(actual.id) !== String(pedidoFallback.id)), pedidoFallback]);
       }
 
+      void notificarEventoApp("pedido_nuevo", resultado.id);
       return { success: true, pedido, total };
     } catch (error) {
       console.error("Excepción creando pedido seguro:", error);
@@ -1702,6 +1715,7 @@ const datosCliente = {
         transacciones: data.transacciones ?? [],
       };
       setClientes((prev) => [...prev, clienteCreado]);
+      void notificarEventoApp("nuevo_cliente", data.id);
       return { success: true, cliente: clienteCreado };
     } catch (error) {
       console.error("Error creando cliente desde vendedor:", error);
@@ -2278,6 +2292,10 @@ const datosCliente = {
           pedido.id === pedidoId ? { ...pedido, estado } : pedido
         )
       );
+      if (["En camino", "Entregado", "Cancelado"].includes(estado)) {
+        const tiposPorEstado = { "En camino": "pedido_en_camino", Entregado: "pedido_entregado", Cancelado: "pedido_cancelado" };
+        void notificarEventoApp(tiposPorEstado[estado], pedidoId);
+      }
       return true;
     } catch (err) {
       console.error("Excepción cambiando estado de pedido:", err);
@@ -2391,6 +2409,7 @@ const datosCliente = {
   };
 
   const asignarRepartidor = async (pedidoId, repartidorId) => {
+    const pedidoAntes = pedidos.find((pedido) => String(pedido.id) === String(pedidoId));
     // Si viene vacío, asignar null
     if (!repartidorId) {
       repartidorId = null;
@@ -2449,6 +2468,10 @@ const datosCliente = {
             : pedido
         )
       );
+
+      if (repartidorId && String(pedidoAntes?.repartidor_id || "") !== String(repartidorId)) {
+        void notificarEventoApp("pedido_asignado", pedidoId);
+      }
 
       return true;
     } catch (err) {
@@ -2525,6 +2548,7 @@ const datosCliente = {
   };
 
   const actualizarPrealistamientoPedido = async (pedidoId, preAlistamiento, estado = null) => {
+    const pedidoAntes = pedidos.find((pedido) => String(pedido.id) === String(pedidoId));
     try {
       const cambios = { pre_alistamiento: preAlistamiento };
       if (estado) cambios.estado = estado;
@@ -2543,6 +2567,9 @@ const datosCliente = {
           ? { ...pedido, pre_alistamiento: preAlistamiento, ...(estado ? { estado } : {}) }
           : pedido
       ));
+      if (estado === "Confirmado" && preAlistamiento?.confirmado && pedidoAntes?.estado !== "Confirmado" && !pedidoAntes?.pre_alistamiento?.confirmado) {
+        void notificarEventoApp("pedido_confirmado", pedidoId);
+      }
       return { success: true };
     } catch (error) {
       console.error("Excepción guardando pre-alistamiento del pedido:", error);
