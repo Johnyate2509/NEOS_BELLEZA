@@ -21,3 +21,4 @@ service-account*.json
 # SQL scripts
 *.sql
 !neosapp/scripts/fix_customer_order_permissions.sql
+!neosapp/scripts/actualizar_crear_pedido_seguro_stock_catalogos.sql

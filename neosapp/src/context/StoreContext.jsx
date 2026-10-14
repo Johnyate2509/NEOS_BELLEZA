@@ -1167,6 +1167,8 @@ const cargarProductos = async () => {
 
       const cantidadesBase = new Map();
       carrito.forEach((item) => {
+        // General corresponde al catálogo de Tienda física, el único que descuenta existencias.
+        if ((item.tipo_catalogo || "General") !== "General") return;
         if (item.variante || item.variante_id) return;
         const productoId = item.producto_id ?? item.id;
         cantidadesBase.set(

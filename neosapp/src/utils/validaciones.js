@@ -55,7 +55,7 @@ export const validarItemPedido = (item) => {
     errores.push("La cantidad debe ser mayor a 0");
   }
 
-  if (item.cantidad > (item.stock || 999)) {
+  if ((item.tipo_catalogo || "General") === "General" && item.cantidad > Number(item.stock || 0)) {
     errores.push(`No hay stock suficiente para ${item.nombre}. Stock disponible: ${item.stock}`);
   }
 
