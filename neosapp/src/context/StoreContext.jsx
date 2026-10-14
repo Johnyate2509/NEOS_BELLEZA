@@ -767,24 +767,12 @@ const cargarProductos = async () => {
     const calcularSaldoCliente = (cliente, pedidosArray) => {
       const transacciones = Array.isArray(cliente?.transacciones) ? cliente.transacciones : [];
 
-      const totalPedidosTransacciones = transacciones
-        .filter((trans) => String(trans.tipo).toLowerCase() === "pedido")
-        .reduce((acc, trans) => acc + Number(trans.monto ?? 0), 0);
-
       const totalPagosTransacciones = transacciones
         .filter((trans) => {
           const tipo = String(trans.tipo).toLowerCase();
           return tipo === "pago" || tipo === "abono";
         })
         .reduce((acc, trans) => acc + Number(trans.monto ?? 0), 0);
-
-      const tieneTransaccionesPedido = transacciones.some(
-        (trans) => String(trans.tipo).toLowerCase() === "pedido"
-      );
-
-      if (tieneTransaccionesPedido) {
-        return totalPedidosTransacciones - totalPagosTransacciones;
-      }
 
       const pedidosCliente = pedidosArray.filter((pedido) => {
         const clienteIdMatch = cliente?.id != null && String(pedido.cliente_id) === String(cliente.id);

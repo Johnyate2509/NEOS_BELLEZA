@@ -379,13 +379,43 @@
 
 .mis-pedidos-item {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 12px 0;
   border-bottom: 1px solid #f3f4f6;
 }
 
+.mis-pedidos-item-imagen {
+  flex: 0 0 72px;
+  width: 72px;
+  height: 72px;
+  padding: 0;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f9fafb;
+  color: #9ca3af;
+  cursor: zoom-in;
+}
+
+.mis-pedidos-item-imagen img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+}
+
+.mis-pedidos-item-imagen--vacia {
+  cursor: default;
+  font-size: 22px;
+}
+
 .mis-pedidos-item-info {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -399,6 +429,7 @@
 .mis-pedidos-item-meta {
   font-size: 12px;
   color: #6b7280;
+  overflow-wrap: anywhere;
 }
 
 .mis-pedidos-item-precio {
@@ -421,6 +452,46 @@
   border-top: 1px solid #e5e7eb;
   font-size: 16px;
   color: #111827;
+}
+
+.mis-pedidos-imagen-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(17, 24, 39, 0.82);
+}
+
+.mis-pedidos-imagen-modal {
+  position: relative;
+  width: min(760px, 100%);
+  max-height: 92vh;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.mis-pedidos-imagen-modal img {
+  display: block;
+  width: 100%;
+  max-height: 92vh;
+  object-fit: contain;
+}
+
+.mis-pedidos-imagen-modal button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.94);
+  color: #111827;
+  font-size: 25px;
+  cursor: pointer;
 }
 
 .transacciones-section {

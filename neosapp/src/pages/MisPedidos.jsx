@@ -10,6 +10,7 @@ export default function MisPedidos() {
   const { clientes, pedidos } = useStore();
   const [misPedidos, setMisPedidos] = useState([]);
   const [pedidoSeleccionado, setPedidoSeleccionado] = useState(null);
+  const [imagenAmpliada, setImagenAmpliada] = useState(null);
 
   // Obtener el cliente actual (el usuario logueado)
   const clienteActual = clientes.find((c) => c.usuario_id === user?.id || c.correo === user?.email);
@@ -27,6 +28,15 @@ export default function MisPedidos() {
       setMisPedidos(pedidosFiltrados);
     }
   }, [clienteActual, pedidos]);
+
+  useEffect(() => {
+    if (!imagenAmpliada) return undefined;
+    const cerrarConEscape = (event) => {
+      if (event.key === "Escape") setImagenAmpliada(null);
+    };
+    window.addEventListener("keydown", cerrarConEscape);
+    return () => window.removeEventListener("keydown", cerrarConEscape);
+  }, [imagenAmpliada]);
 
   const getEstadoClase = (estado) => {
     return estado?.toLowerCase().replace(" ", "-") || "pendiente";
@@ -149,6 +159,8 @@ export default function MisPedidos() {
                 <p><strong>Estado:</strong> <span className={`estado-badge estado-${getEstadoClase(pedidoSeleccionado.estado)}`}>{pedidoSeleccionado.estado}</span></p>
                 <p><strong>Dirección:</strong> {pedidoSeleccionado.direccion || "No especificada"}</p>
                 <p><strong>Repartidor:</strong> {pedidoSeleccionado.repartidor || "No asignado"}</p>
+                <p><strong>Forma de pago:</strong> {pedidoSeleccionado.formaPago || "No especificada"}</p>
+                {pedidoSeleccionado.fechaEntrega && <p><strong>Fecha de entrega:</strong> {pedidoSeleccionado.fechaEntrega}</p>}
               </div>
 
               <div className="mis-pedidos-detalle-items">
@@ -156,11 +168,25 @@ export default function MisPedidos() {
                 {pedidoSeleccionado.items?.length ? (
                   pedidoSeleccionado.items.map((item, index) => (
                     <div key={`${pedidoSeleccionado.id}-${index}`} className="mis-pedidos-item">
+                      {item.imagen ? (
+                        <button
+                          type="button"
+                          className="mis-pedidos-item-imagen"
+                          onClick={() => setImagenAmpliada(item.imagen)}
+                          aria-label={`Ampliar imagen de ${item.nombre || "producto"}`}
+                        >
+                          <img src={item.imagen} alt={item.nombre || `Producto ${index + 1}`} loading="lazy" />
+                        </button>
+                      ) : (
+                        <div className="mis-pedidos-item-imagen mis-pedidos-item-imagen--vacia" aria-label="Sin imagen disponible">?</div>
+                      )}
                       <div className="mis-pedidos-item-info">
                         <span className="mis-pedidos-item-nombre">{item.nombre || `Producto ${index + 1}`}</span>
-                        <span className="mis-pedidos-item-meta">Cantidad: {item.cantidad ?? 1}</span>
+                        {item.variante?.atributos && <span className="mis-pedidos-item-meta">Variante: {typeof item.variante.atributos === "string" ? item.variante.atributos : Object.entries(item.variante.atributos).map(([key, value]) => `${key}: ${value}`).join(" · ")}</span>}
+                        <span className="mis-pedidos-item-meta">Catálogo: {{ General: "Tienda física", Emprendedor: "Mayorista", Mayorista: "Supermayorista" }[item.tipo_catalogo || "General"]}</span>
+                        <span className="mis-pedidos-item-meta">Cantidad: {item.cantidad ?? 1} · Unitario: ${Number(item.precio || 0).toLocaleString()}</span>
                       </div>
-                      <span className="mis-pedidos-item-precio">
+                      <span className="mis-pedidos-item-precio" aria-label="Subtotal del producto">
                         ${(Number(item.precio || 0) * Number(item.cantidad || 1)).toLocaleString()}
                       </span>
                     </div>
@@ -176,6 +202,15 @@ export default function MisPedidos() {
               </div>
               <PedidoObservacion pedido={pedidoSeleccionado} />
             </div>
+          </div>
+        </div>
+      )}
+
+      {imagenAmpliada && (
+        <div className="mis-pedidos-imagen-overlay" onClick={() => setImagenAmpliada(null)}>
+          <div className="mis-pedidos-imagen-modal" onClick={(event) => event.stopPropagation()}>
+            <img src={imagenAmpliada} alt="Imagen ampliada del producto" />
+            <button type="button" onClick={() => setImagenAmpliada(null)} aria-label="Cerrar imagen ampliada">×</button>
           </div>
         </div>
       )}

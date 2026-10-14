@@ -22,7 +22,6 @@ DECLARE
   v_total numeric := 0;
   v_pedido_id integer;
   v_tipo text;
-  v_transacciones jsonb;
 BEGIN
   SELECT u.rol INTO v_role
   FROM public.usuarios u
@@ -137,20 +136,8 @@ BEGIN
 
   UPDATE public.pedidos SET total = v_total WHERE id = v_pedido_id;
 
-  v_transacciones := coalesce(v_cliente.transacciones, '[]'::jsonb)
-    || jsonb_build_array(jsonb_build_object(
-      'id', v_pedido_id,
-      'tipo', 'pedido',
-      'monto', v_total,
-      'descripcion', 'Pedido #' || v_pedido_id,
-      'fecha', to_char(now(), 'DD/MM/YYYY')
-    ));
-
-  UPDATE public.clientes
-  SET saldo = coalesce(saldo, 0) + v_total,
-      transacciones = v_transacciones
-  WHERE id = p_cliente_id;
-
+  -- El pedido es la fuente persistente del saldo. No actualizamos saldo ni
+  -- transacciones en clientes, campos protegidos por las reglas de la app.
   RETURN jsonb_build_object('id', v_pedido_id, 'cliente_id', p_cliente_id, 'total', v_total);
 END;
 $function$;
