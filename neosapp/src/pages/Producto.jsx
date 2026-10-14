@@ -386,7 +386,7 @@ export default function Producto() {
     }
     const intervalo = window.setInterval(() => {
       setBannerIndiceActivo((actual) => (actual + 1) % carruselBanner.length);
-    }, 15000);
+    }, 10000);
     return () => window.clearInterval(intervalo);
   }, [carruselBanner.length]);
 
@@ -1798,22 +1798,46 @@ const obtenerProductosFiltrados = (categoria) => {
         className={`info-image-container ${bannerControlesTouch ? "banner-controls-touch" : ""}`}
         onTouchStart={activarControlesBannerTouch}
       >
-        {carruselBanner.map((imagen, indice) => (
-          <img
-            key={`${indice}-${imagen}`}
-            className={`banner-carousel-slide ${indice === bannerIndiceActivo ? "activa" : ""}`}
-            src={imagen}
-            alt={`Imagen ${indice + 1} del carrusel de NEOS BELLEZA`}
-            onClick={() => { if (carruselBanner.length < 2) abrirBannerMovil(); }}
-            style={{ cursor: esVistaMovil ? "pointer" : "default" }}
-          />
-        ))}
+        <div className="banner-slider-viewport" aria-live="polite">
+          <div
+            className="banner-slider-inner"
+          >
+            {carruselBanner.map((imagen, indice) => (
+              <article
+                className={`banner-slider-slide${indice === bannerIndiceActivo ? " activa" : ""}`}
+                key={`${indice}-${imagen}`}
+              >
+                <img
+                  className="banner-carousel-slide"
+                  src={imagen}
+                  alt={`Imagen ${indice + 1} del carrusel de NEOS BELLEZA`}
+                  onClick={() => { if (carruselBanner.length < 2) abrirBannerMovil(); }}
+                  style={{ cursor: esVistaMovil ? "pointer" : "default" }}
+                />
+              </article>
+            ))}
+          </div>
+        </div>
 
         {carruselBanner.length > 1 && (
-          <div className="banner-carousel-controls" aria-label="Controles del carrusel">
-            <button type="button" className="btn-carrusel-prev" onClick={() => cambiarSlideBanner(-1)} aria-label="Imagen anterior">❮</button>
-            <button type="button" className="btn-carrusel-next" onClick={() => cambiarSlideBanner(1)} aria-label="Imagen siguiente">❯</button>
-          </div>
+          <>
+            <div className="banner-slider-prev-next-control" aria-label="Controles del carrusel">
+              <button type="button" onClick={() => cambiarSlideBanner(-1)} aria-label="Imagen anterior">‹</button>
+              <button type="button" onClick={() => cambiarSlideBanner(1)} aria-label="Imagen siguiente">›</button>
+            </div>
+            <div className="banner-slider-dot-control" aria-label="Elegir imagen del banner">
+              {carruselBanner.map((imagen, indice) => (
+                <button
+                  type="button"
+                  key={`${indice}-${imagen}-dot`}
+                  className={indice === bannerIndiceActivo ? "activa" : ""}
+                  onClick={() => { setBannerIndiceActivo(indice); activarControlesBannerTouch(); }}
+                  aria-label={`Mostrar imagen ${indice + 1}`}
+                  aria-current={indice === bannerIndiceActivo ? "true" : undefined}
+                />
+              ))}
+            </div>
+          </>
         )}
 
         {esAdmin() && (
