@@ -43,6 +43,95 @@ const obtenerPrecioCatalogo = (producto, variante, catalogo) => {
   return Number.isFinite(precio) && precio >= 0 ? precio : null;
 };
 
+function DeslizadorPrealistamiento({ value, onChange, onComplete, disabled }) {
+  const sliderRef = useRef(null);
+  const draggingRef = useRef(false);
+  const completedRef = useRef(false);
+
+  useEffect(() => {
+    if (value === 0) completedRef.current = false;
+  }, [value]);
+
+  const getProgress = (clientX) => {
+    const slider = sliderRef.current?.getBoundingClientRect();
+    if (!slider) return 0;
+    const inset = slider.height / 2;
+    return Math.round(Math.min(100, Math.max(0, (clientX - slider.left - inset) / Math.max(1, slider.width - inset * 2) * 100)));
+  };
+
+  const complete = (progress) => {
+    if (progress < 92 || disabled || completedRef.current) return false;
+    completedRef.current = true;
+    onChange(100);
+    onComplete();
+    return true;
+  };
+
+  return (
+    <div className="prealistamiento-slide-action">
+      <p className="prealistamiento-slide-message">Preparación del pedido</p>
+      <div className="prealistamiento-slide-border">
+        <div className="prealistamiento-slide-copy" aria-live="polite">
+          <strong>{disabled ? "Guardando cantidades…" : value >= 92 ? "Suelta para confirmar" : "Confirmar pre-alistamiento"}</strong>
+          <span>Desliza para confirmar</span>
+        </div>
+        <div
+          ref={sliderRef}
+          className={`prealistamiento-slide${disabled ? " is-disabled" : ""}`}
+          role="slider"
+          aria-label="Desliza para confirmar el pre-alistamiento"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={value}
+          aria-valuetext={`${value}% deslizado`}
+          aria-disabled={disabled}
+          tabIndex={disabled ? -1 : 0}
+          onPointerMove={(event) => {
+            if (draggingRef.current && !disabled) onChange(getProgress(event.clientX));
+          }}
+          onPointerUp={(event) => {
+            if (!draggingRef.current) return;
+            draggingRef.current = false;
+            if (!complete(getProgress(event.clientX))) onChange(0);
+          }}
+          onPointerCancel={() => {
+            draggingRef.current = false;
+            onChange(0);
+          }}
+          onKeyDown={(event) => {
+            if (disabled) return;
+            if (event.key === "ArrowRight" || event.key === "ArrowUp") {
+              event.preventDefault();
+              const next = Math.min(100, value + 10);
+              onChange(next);
+              complete(next);
+            } else if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
+              event.preventDefault();
+              onChange(Math.max(0, value - 10));
+            } else if ((event.key === "Enter" || event.key === " ") && value >= 92) {
+              event.preventDefault();
+              complete(value);
+            }
+          }}
+        >
+          <span
+            className="prealistamiento-slide-icon"
+            style={{ left: `calc(${value}% - ${value * 0.52}px)` }}
+            onPointerDown={(event) => {
+              if (disabled || completedRef.current) return;
+              draggingRef.current = true;
+              event.currentTarget.setPointerCapture(event.pointerId);
+            }}
+            aria-hidden="true"
+          >
+            →
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Pedidos({ vista = "pedidos" }) {
   const { 
     pedidos, 
@@ -862,29 +951,11 @@ export default function Pedidos({ vista = "pedidos" }) {
                 </div>
               ) : (
                 <div className="prealistamiento-slider-area">
-                  <div className="prealistamiento-slider-instruccion" id="prealistamiento-slider-instruccion">
-                    <span>Desliza para confirmar el pedido</span>
-                    <span className="prealistamiento-slider-ayuda" aria-hidden="true">
-                      <span>ARRASTRA</span>
-                      <span className="prealistamiento-slider-flecha">→</span>
-                    </span>
-                  </div>
-                  <input
-                    className="prealistamiento-slider"
-                    type="range"
-                    min="0"
-                    max="100"
+                  <DeslizadorPrealistamiento
                     value={sliderPrealistamiento}
-                    style={{ "--slider-progreso": `${sliderPrealistamiento}%` }}
-                    onChange={(event) => {
-                      const valor = Number(event.target.value);
-                      setSliderPrealistamiento(valor);
-                      if (valor === 100) solicitarConfirmacionPrealistamiento();
-                    }}
+                    onChange={setSliderPrealistamiento}
+                    onComplete={solicitarConfirmacionPrealistamiento}
                     disabled={guardandoPrealistamiento || resumenPrealistamientoActivo.total === 0}
-                    aria-label="Desliza a la derecha para confirmar"
-                    aria-describedby="prealistamiento-slider-instruccion"
-                    aria-valuetext={`${sliderPrealistamiento}% deslizado`}
                   />
                 </div>
               )}

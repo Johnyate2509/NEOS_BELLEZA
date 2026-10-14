@@ -1713,70 +1713,88 @@
 .prealistamiento-confirmado strong { font-size: 15px; }
 .prealistamiento-confirmado small { color: #5a6d60; font-size: 11px; text-align: right; }
 
-.prealistamiento-slider-instruccion {
+.prealistamiento-slide-action {
+  width: 100%;
+  margin: 2px auto 4px;
+}
+
+.prealistamiento-slide-message {
+  margin: 0 0 7px;
+  color: #8f8f8f;
+  text-align: center;
+  font-size: 10px;
+}
+
+.prealistamiento-slide-border {
+  position: relative;
+  height: 48px;
+  overflow: hidden;
+  border-radius: 32px;
+  background: #2fc77f;
+  box-shadow: 0 4px 10px rgba(28, 128, 80, .22);
+}
+
+.prealistamiento-slide-copy {
+  position: absolute;
+  z-index: 1;
+  inset: 0 44px;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  color: #26352b;
+  justify-content: center;
+  color: #fff;
+  text-align: center;
+  pointer-events: none;
+}
+
+.prealistamiento-slide-copy strong {
   font-size: 13px;
-  font-weight: 700;
+  line-height: 1.2;
 }
 
-.prealistamiento-slider-ayuda {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: #718077;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: .1em;
+.prealistamiento-slide-copy span {
+  margin-top: 2px;
+  font-size: 10px;
+  line-height: 1.2;
 }
 
-.prealistamiento-slider-flecha {
+.prealistamiento-slide {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  border-radius: inherit;
+  touch-action: pan-y;
+  outline: none;
+}
+
+.prealistamiento-slide:focus-visible {
+  box-shadow: inset 0 0 0 3px rgba(18, 97, 57, .35);
+}
+
+.prealistamiento-slide.is-disabled { opacity: .6; }
+
+.prealistamiento-slide-icon {
+  position: absolute;
+  top: 2px;
   display: grid;
-  width: 25px;
-  height: 25px;
+  width: 44px;
+  height: 44px;
   place-items: center;
-  border: 1px solid #c9ddcf;
   border-radius: 50%;
-  color: #176b38;
+  color: #19a66a;
   background: #fff;
-  font-size: 15px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .12);
+  cursor: grab;
+  touch-action: none;
+  font-size: 20px;
   line-height: 1;
 }
 
-.prealistamiento-slider {
-  width: 100%;
-  height: 56px;
-  margin: 2px 0 0;
-  padding: 0 8px;
-  border: 1px solid #d8e6dc;
-  border-radius: 30px;
-  appearance: none;
-  background: linear-gradient(
-    90deg,
-    #237b45 0%,
-    #237b45 var(--slider-progreso),
-    #edf3ef var(--slider-progreso),
-    #edf3ef 100%
-  );
-  box-shadow: inset 0 2px 4px rgba(20, 60, 35, .08), 0 3px 10px rgba(25, 70, 40, .07);
-  cursor: grab;
-  touch-action: pan-y;
-  transition: box-shadow .2s ease, border-color .2s ease;
-}
+.prealistamiento-slide-icon:active { cursor: grabbing; }
 
-.prealistamiento-slider:active { cursor: grabbing; }
-.prealistamiento-slider:hover:not(:disabled) { border-color: #a9cdb4; box-shadow: inset 0 2px 4px rgba(20, 60, 35, .08), 0 5px 15px rgba(25, 70, 40, .12); }
-.prealistamiento-slider:focus-visible { outline: 3px solid rgba(33, 130, 70, .28); outline-offset: 3px; }
-.prealistamiento-slider:disabled { opacity: .55; cursor: not-allowed; }
-.prealistamiento-slider::-webkit-slider-runnable-track { height: 14px; border-radius: 10px; background: transparent; }
-.prealistamiento-slider::-moz-range-track { height: 14px; border-radius: 10px; background: transparent; }
-.prealistamiento-slider::-webkit-slider-thumb { width: 40px; height: 40px; margin-top: -13px; border: 3px solid #fff; border-radius: 50%; appearance: none; background: linear-gradient(145deg, #2d9656, #176b38); box-shadow: 0 3px 9px rgba(13, 64, 32, .35); transition: transform .15s ease, box-shadow .15s ease; }
-.prealistamiento-slider::-moz-range-thumb { width: 34px; height: 34px; border: 3px solid #fff; border-radius: 50%; background: linear-gradient(145deg, #2d9656, #176b38); box-shadow: 0 3px 9px rgba(13, 64, 32, .35); transition: transform .15s ease, box-shadow .15s ease; }
-.prealistamiento-slider:active::-webkit-slider-thumb { transform: scale(1.08); box-shadow: 0 4px 13px rgba(13, 64, 32, .42); }
-.prealistamiento-slider:active::-moz-range-thumb { transform: scale(1.08); box-shadow: 0 4px 13px rgba(13, 64, 32, .42); }
+@media (prefers-reduced-motion: no-preference) {
+  .prealistamiento-slide-icon { transition: left .08s linear; }
+}
 
 .prealistamiento-cerrar,
 .prealistamiento-confirmacion button {
