@@ -20,3 +20,4 @@ service-account*.json
 
 # SQL scripts
 *.sql
+!neosapp/scripts/fix_customer_order_permissions.sql
