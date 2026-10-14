@@ -107,21 +107,22 @@ export function StoreProvider({ children }) {
 
   const guardarImagenesBanner = async (imagenes) => {
     const imagenesValidas = (imagenes || []).filter(Boolean).slice(0, 5);
+    const { error } = await supabase
+      .from("site_settings")
+      .upsert([
+        { key: "banner_images", value: JSON.stringify(imagenesValidas) },
+        { key: "banner_url", value: imagenesValidas[0] || "" },
+      ], { onConflict: "key" });
+    if (error) throw error;
+
     setBannerImages(imagenesValidas);
     setBannerUrl(imagenesValidas[0] || "");
     try {
       window.localStorage.setItem("neosapp_banner_images", JSON.stringify(imagenesValidas));
       if (imagenesValidas[0]) window.localStorage.setItem("neosapp_banner_url", imagenesValidas[0]);
-    } catch (error) {
-      console.warn("No se pudieron guardar localmente las imágenes del carrusel:", error);
-    }
-    try {
-      const { error } = await supabase
-        .from("site_settings")
-        .upsert({ key: "banner_images", value: JSON.stringify(imagenesValidas) }, { onConflict: "key" });
-      if (error) console.warn("No se pudieron guardar las imágenes del carrusel en Supabase:", error);
-    } catch (error) {
-      console.warn("No se pudieron sincronizar las imágenes del carrusel:", error);
+      else window.localStorage.removeItem("neosapp_banner_url");
+    } catch (errorLocal) {
+      console.warn("No se pudieron guardar localmente las imágenes del carrusel:", errorLocal);
     }
   };
 
@@ -156,19 +157,21 @@ export function StoreProvider({ children }) {
 
   const guardarBannerVisible = async (visible) => {
     const valor = Boolean(visible);
-    setBannerVisible(valor);
-    try {
-      window.localStorage.setItem("neosapp_banner_visible", String(valor));
-    } catch (error) {
-      console.warn("No se pudo guardar localmente la visibilidad del banner:", error);
-    }
     try {
       const { error } = await supabase
         .from("site_settings")
         .upsert({ key: "banner_visible", value: String(valor) }, { onConflict: "key" });
-      if (error) console.warn("No se pudo guardar la visibilidad del banner en Supabase:", error);
+      if (error) throw error;
+      setBannerVisible(valor);
+      try {
+        window.localStorage.setItem("neosapp_banner_visible", String(valor));
+      } catch (errorLocal) {
+        console.warn("No se pudo guardar localmente la visibilidad del banner:", errorLocal);
+      }
+      return { success: true };
     } catch (error) {
-      console.warn("No se pudo sincronizar la visibilidad del banner:", error);
+      console.error("No se pudo guardar la visibilidad del banner en Supabase:", error);
+      return { error: error.message || "No se pudo guardar la visibilidad del banner." };
     }
   };
 
@@ -245,36 +248,32 @@ export function StoreProvider({ children }) {
   const subirBanner = async (file) => {
     if (!file) return "";
 
-    const nombreArchivo = `banners/${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
-
-    try {
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("banners")
-        .upload(nombreArchivo, file, {
-          cacheControl: "3600",
-          upsert: true,
-          contentType: file.type || "image/jpeg",
-        });
-
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      const publicUrl = supabase.storage.from("banners").getPublicUrl(uploadData.path).data.publicUrl;
-      await guardarBannerUrl(publicUrl);
-      return publicUrl;
-    } catch (error) {
-      console.error("Error subiendo banner a Supabase Storage:", error);
-      const preview = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || ""));
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-      await guardarBannerUrl(preview);
-      return preview;
-    }
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const image = new Image();
+        image.onload = () => {
+          const maxDimension = 1600;
+          const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+          canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+          const context = canvas.getContext("2d");
+          if (!context) {
+            reject(new Error("El navegador no pudo procesar la imagen del banner."));
+            return;
+          }
+          context.fillStyle = "#ffffff";
+          context.fillRect(0, 0, canvas.width, canvas.height);
+          context.drawImage(image, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", 0.82));
+        };
+        image.onerror = () => reject(new Error(`No se pudo procesar la imagen ${file.name}.`));
+        image.src = String(reader.result || "");
+      };
+      reader.onerror = () => reject(new Error(`No se pudo leer la imagen ${file.name}.`));
+      reader.readAsDataURL(file);
+    });
   };
 
 const adaptarProducto = (p) => {

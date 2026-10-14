@@ -5,7 +5,6 @@ import { supabase } from "../context/supabaseClient";
 import { validarDatosPedido, validarCarrito } from "../utils/validaciones";
 import { asegurarPerfilCliente } from "../utils/asegurarPerfilCliente";
 import "./producto.css";
-import brebImage from "../components/img/breb.jpg";
 import editarIcon from "../components/img/editar.png";
 import eliminarIcon from "../components/img/eliminar.png";
 import ocultoIcon from "../components/img/oculto.png";
@@ -377,7 +376,7 @@ export default function Producto() {
   const [nuevaCategoria, setNuevaCategoria] = useState("");
   const bannerInputRef = useRef(null);
   const bannerControlesTimeoutRef = useRef(null);
-  const carruselBanner = bannerImages?.length ? bannerImages : bannerUrl ? [bannerUrl] : [brebImage];
+  const carruselBanner = bannerImages?.length ? bannerImages : bannerUrl ? [bannerUrl] : [];
 
   useEffect(() => {
     if (carruselBanner.length < 2) {
@@ -386,7 +385,7 @@ export default function Producto() {
     }
     const intervalo = window.setInterval(() => {
       setBannerIndiceActivo((actual) => (actual + 1) % carruselBanner.length);
-    }, 10000);
+    }, 15000);
     return () => window.clearInterval(intervalo);
   }, [carruselBanner.length]);
 
@@ -558,7 +557,7 @@ export default function Producto() {
   });
 
   const abrirEditorBanner = () => {
-    setBannerImagenesBorrador(carruselBanner.filter((url) => url !== brebImage).map((url) => ({ url, file: null })));
+    setBannerImagenesBorrador(carruselBanner.map((url) => ({ url, file: null })));
     setBannerEditorAbierto(true);
   };
 
@@ -590,8 +589,8 @@ export default function Producto() {
   };
 
   const guardarCarruselBanner = async () => {
-    if (bannerImagenesBorrador.length < 2 || bannerImagenesBorrador.length > 5) {
-      alert("El carrusel debe tener entre 2 y 5 imágenes.");
+    if (bannerImagenesBorrador.length > 5) {
+      alert("El carrusel permite un máximo de 5 imágenes.");
       return;
     }
     try {
@@ -605,7 +604,7 @@ export default function Producto() {
       setBannerIndiceActivo(0);
     } catch (error) {
       console.error("No se pudo guardar el carrusel del banner:", error);
-      alert("No se pudo guardar el carrusel. Inténtalo de nuevo.");
+      alert(`No se pudo guardar el carrusel: ${error?.message || "Error desconocido."}`);
     }
   };
 
@@ -1788,12 +1787,15 @@ const obtenerProductosFiltrados = (categoria) => {
       {/* IMAGEN INFORMATIVA DEL BANNER */}
       {esAdmin() && (
         <div className="banner-visibility-admin">
-          <button type="button" className="btn-primary" aria-pressed={bannerVisible} onClick={() => guardarBannerVisible(!bannerVisible)}>
+          <button type="button" className="btn-primary" aria-pressed={bannerVisible} onClick={async () => {
+            const resultado = await guardarBannerVisible(!bannerVisible);
+            if (resultado?.error) alert(`No se pudo guardar la visibilidad del banner: ${resultado.error}`);
+          }}>
             {bannerVisible ? "Ocultar banner" : "Mostrar banner"}
           </button>
         </div>
       )}
-      {bannerVisible && (
+      {bannerVisible && (carruselBanner.length > 0 || esAdmin()) && (
       <div
         className={`info-image-container ${bannerControlesTouch ? "banner-controls-touch" : ""}`}
         onTouchStart={activarControlesBannerTouch}
@@ -1801,11 +1803,16 @@ const obtenerProductosFiltrados = (categoria) => {
         <div className="banner-slider-viewport" aria-live="polite">
           <div
             className="banner-slider-inner"
+            style={{
+              width: `${Math.max(1, carruselBanner.length) * 100}%`,
+              transform: `translateX(-${carruselBanner.length ? (bannerIndiceActivo * 100) / carruselBanner.length : 0}%)`,
+            }}
           >
             {carruselBanner.map((imagen, indice) => (
               <article
-                className={`banner-slider-slide${indice === bannerIndiceActivo ? " activa" : ""}`}
+                className="banner-slider-slide"
                 key={`${indice}-${imagen}`}
+                style={{ flex: `0 0 ${100 / carruselBanner.length}%` }}
               >
                 <img
                   className="banner-carousel-slide"
@@ -1866,7 +1873,7 @@ const obtenerProductosFiltrados = (categoria) => {
               <h4>Imágenes del carrusel ({bannerImagenesBorrador.length}/5)</h4>
             </div>
 
-            <p className="banner-editor-hint">Sube entre 2 y 5 imágenes. Se mostrarán en orden y cambiarán cada 15 segundos.</p>
+            <p className="banner-editor-hint">Añade hasta 5 imágenes. Puedes guardar con una imagen o dejarlo vacío para quitar el carrusel. Cambiarán cada 15 segundos.</p>
             <div className="banner-carousel-admin-list">
               {bannerImagenesBorrador.map((imagen, indice) => (
                 <div className="banner-carousel-admin-item" key={`${indice}-${imagen.url}`}>
@@ -1890,7 +1897,7 @@ const obtenerProductosFiltrados = (categoria) => {
                 type="button"
                 className="btn-primary"
                 onClick={guardarCarruselBanner}
-                disabled={bannerImagenesBorrador.length < 2 || bannerImagenesBorrador.length > 5}
+                disabled={bannerImagenesBorrador.length > 5}
               >
                 Guardar carrusel
               </button>
@@ -2022,7 +2029,7 @@ const obtenerProductosFiltrados = (categoria) => {
               ×
             </button>
             <img
-              src={carruselBanner[bannerIndiceActivo] || brebImage}
+              src={carruselBanner[bannerIndiceActivo] || ""}
               alt="Banner ampliado"
               style={{
                 objectFit: "cover",
