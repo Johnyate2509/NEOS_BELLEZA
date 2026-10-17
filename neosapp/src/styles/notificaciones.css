@@ -124,5 +124,24 @@
 .notificaciones-vacio { margin: 0; padding: 22px 18px; color: #b6b6b6; font-size: 13px; text-align: center; }
 
 @media (max-width: 520px) {
-  .notificaciones-panel { right: -58px; }
+  .notificaciones-panel {
+    position: fixed;
+    top: calc(70px + env(safe-area-inset-top));
+    right: 12px;
+    left: 12px;
+    width: auto;
+    max-width: none;
+    max-height: calc(100dvh - 82px - env(safe-area-inset-top));
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+  }
+
+  .notificaciones-lista {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
 }

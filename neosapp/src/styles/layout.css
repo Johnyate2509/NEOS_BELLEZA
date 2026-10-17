@@ -327,7 +327,7 @@
   .header-toggle {
     display: none;
     border: none;
-    background: rgba(255, 255, 255, 0.08);
+    background: transparent;
     color: var(--gold);
     width: 42px;
     height: 42px;
@@ -339,11 +339,16 @@
   }
 
   .header-toggle:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(200, 169, 81, 0.1);
   }
 
   .app.sidebar-open .header-toggle {
-    background: rgba(255, 255, 255, 0.14);
+    background: transparent;
+  }
+
+  .header-toggle:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
   }
 
   .sidebar-backdrop {
