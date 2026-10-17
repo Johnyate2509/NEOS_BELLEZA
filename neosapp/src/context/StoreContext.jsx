@@ -32,6 +32,7 @@ export function StoreProvider({ children }) {
   const [bannerUrl, setBannerUrl] = useState("");
   const [bannerImages, setBannerImages] = useState([]);
   const [bannerVisible, setBannerVisible] = useState(true);
+  const [catalogosOcultos, setCatalogosOcultos] = useState([]);
   const [minimosCompraCatalogo, setMinimosCompraCatalogo] = useState(MINIMOS_COMPRA_CATALOGO_DEFAULT);
 
   const notificarEventoApp = async (tipo, entidadId) => {
@@ -194,6 +195,48 @@ export function StoreProvider({ children }) {
       if (guardado != null) setBannerVisible(guardado !== "false");
     } catch (error) {
       console.warn("No se pudo leer la visibilidad local del banner:", error);
+    }
+  };
+
+  const cargarCatalogosOcultos = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", "catalogos_ocultos")
+        .maybeSingle();
+      if (error) throw error;
+
+      const valor = data?.value;
+      const ocultos = Array.isArray(valor) ? valor : typeof valor === "string" ? JSON.parse(valor || "[]") : [];
+      const validos = ["General", "Emprendedor", "Mayorista"].filter((catalogo) => ocultos.includes(catalogo));
+      setCatalogosOcultos(validos.length < 3 ? validos : validos.slice(0, 2));
+    } catch (error) {
+      console.warn("No se pudieron cargar los catálogos ocultos:", error);
+    }
+  };
+
+  const guardarCatalogosOcultos = async (lista) => {
+    const catalogosValidos = ["General", "Emprendedor", "Mayorista"];
+    const ocultos = catalogosValidos.filter((catalogo) => Array.isArray(lista) && lista.includes(catalogo));
+    if (ocultos.length >= catalogosValidos.length) {
+      return { error: "Debe quedar al menos un catálogo visible." };
+    }
+    if (!(await esAdministradorActual())) {
+      return { error: "Solo un administrador puede cambiar la visibilidad de los catálogos." };
+    }
+
+    try {
+      const { error } = await supabase
+        .from("site_settings")
+        .upsert({ key: "catalogos_ocultos", value: JSON.stringify(ocultos) }, { onConflict: "key" });
+      if (error) throw error;
+
+      setCatalogosOcultos(ocultos);
+      return { success: true };
+    } catch (error) {
+      console.error("No se pudo guardar la visibilidad de los catálogos:", error);
+      return { error: error.message || "No se pudo guardar la visibilidad de los catálogos." };
     }
   };
 
@@ -746,6 +789,7 @@ const cargarProductos = async () => {
   useEffect(() => {
     cargarBannerDesdeSupabase();
     cargarVisibilidadBanner();
+    cargarCatalogosOcultos();
     cargarMinimosCompraCatalogo();
   }, []);
 
@@ -2748,6 +2792,8 @@ return (
       guardarImagenesBanner,
       bannerVisible,
       guardarBannerVisible,
+      catalogosOcultos,
+      guardarCatalogosOcultos,
       minimosCompraCatalogo,
       guardarMinimosCompraCatalogo,
       setBannerUrl,

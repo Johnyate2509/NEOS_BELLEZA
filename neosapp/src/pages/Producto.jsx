@@ -54,7 +54,7 @@ const EVENTO_COMPRA_COMPLETADA = "neosapp:compra-completada";
 let finalizarPedidoEnCurso = false;
 
 export default function Producto() {
-  const { productos, categorias, setProductos, setCategorias, crearProducto, actualizarProducto, eliminarProducto, crearPedidoSeguro, clientes, bannerUrl, bannerImages, bannerVisible, guardarBannerVisible, guardarImagenesBanner, subirBanner, minimosCompraCatalogo } = useStore();
+  const { productos, categorias, setProductos, setCategorias, crearProducto, actualizarProducto, eliminarProducto, crearPedidoSeguro, clientes, bannerUrl, bannerImages, bannerVisible, guardarBannerVisible, guardarImagenesBanner, subirBanner, minimosCompraCatalogo, catalogosOcultos: catalogosOcultosGlobales, guardarCatalogosOcultos } = useStore();
   const { esAdmin, esVendedor, obtenerDatosUsuario, user, getUserRole } = useAuth();
   const vendedorData = obtenerDatosUsuario();
 
@@ -351,6 +351,29 @@ export default function Producto() {
   const [busquedaProducto, setBusquedaProducto] = useState("");
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState("Todas");
   const [tipoCatalogo, setTipoCatalogo] = useState("General");
+  const catalogosVisibles = useMemo(
+    () => CATALOGOS.filter((catalogo) => !catalogosOcultosGlobales.includes(catalogo)),
+    [catalogosOcultosGlobales]
+  );
+
+  useEffect(() => {
+    if (!catalogosVisibles.includes(tipoCatalogo) && catalogosVisibles.length) {
+      setTipoCatalogo(catalogosVisibles[0]);
+    }
+  }, [catalogosVisibles, tipoCatalogo]);
+
+  const alternarVisibilidadCatalogo = async (catalogo) => {
+    const ocultar = !catalogosOcultosGlobales.includes(catalogo);
+    if (ocultar && catalogosVisibles.length <= 1) {
+      alert("Debe quedar al menos un catálogo visible.");
+      return;
+    }
+    const siguiente = ocultar
+      ? [...catalogosOcultosGlobales, catalogo]
+      : catalogosOcultosGlobales.filter((item) => item !== catalogo);
+    const resultado = await guardarCatalogosOcultos(siguiente);
+    if (resultado?.error) alert(`No se pudo actualizar el catálogo: ${resultado.error}`);
+  };
   const obtenerMinimoCompra = (producto, catalogo = tipoCatalogo) => {
     const configurado = Number(producto?.minimos_compra?.[catalogo]);
     const predeterminado = Number(minimosCompraCatalogo?.[catalogo]);
@@ -1790,7 +1813,7 @@ const obtenerProductosFiltrados = (categoria) => {
       <div className="selector-catalogo-container">
         <span className="selector-catalogo-label">¿Qué catálogo desea consultar?</span>
         <div className="catalogos-botones">
-          {CATALOGOS.map((catalogo) => (
+          {catalogosVisibles.map((catalogo) => (
             <div className="catalogo-boton-contenedor" key={catalogo}>
               <button
                 type="button"
@@ -1815,6 +1838,28 @@ const obtenerProductosFiltrados = (categoria) => {
             </div>
           ))}
         </div>
+        {esAdmin() && (
+          <div className="catalogos-admin-visibility" aria-label="Administrar visibilidad de catálogos">
+            <span>Visibilidad para todos:</span>
+            {CATALOGOS.map((catalogo) => {
+              const oculto = catalogosOcultosGlobales.includes(catalogo);
+              const ultimoVisible = !oculto && catalogosVisibles.length === 1;
+              return (
+                <button
+                  key={catalogo}
+                  type="button"
+                  className={`catalogo-visibility-toggle ${oculto ? "oculto" : "visible"}`}
+                  aria-pressed={!oculto}
+                  disabled={ultimoVisible}
+                  onClick={() => alternarVisibilidadCatalogo(catalogo)}
+                  title={ultimoVisible ? "Debe quedar al menos un catálogo visible" : `${oculto ? "Mostrar" : "Ocultar"} para todos`}
+                >
+                  {oculto ? "Mostrar" : "Ocultar"} {nombresCatalogos[catalogo]}
+                </button>
+              );
+            })}
+          </div>
+        )}
         {carrito.length > 0 && (
           <small className="catalogo-bloqueado-aviso">
             El catálogo queda bloqueado mientras haya productos en el carrito.
