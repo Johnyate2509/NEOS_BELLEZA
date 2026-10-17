@@ -84,6 +84,7 @@ export default function Producto() {
     if (existe) {
       setNuevaCategoria("");
       setCategoriaSeleccionada("Todas");
+      setCrearCategoriaMovilAbierto(false);
       return;
     }
 
@@ -106,6 +107,7 @@ export default function Producto() {
       });
       setCategoriaSeleccionada(categoriaCreada);
       setNuevaCategoria("");
+      setCrearCategoriaMovilAbierto(false);
     } catch (error) {
       console.error("Error creando categoría:", error);
       setCategorias((prev) => {
@@ -115,6 +117,7 @@ export default function Producto() {
       });
       setCategoriaSeleccionada(nombreNormalizado);
       setNuevaCategoria("");
+      setCrearCategoriaMovilAbierto(false);
     }
   };
 
@@ -397,6 +400,7 @@ export default function Producto() {
   const [erroresValidacion, setErroresValidacion] = useState([]);
   const [procesandoPedido, setProcesandoPedido] = useState(false);
   const [nuevaCategoria, setNuevaCategoria] = useState("");
+  const [crearCategoriaMovilAbierto, setCrearCategoriaMovilAbierto] = useState(false);
   const bannerInputRef = useRef(null);
   const bannerControlesTimeoutRef = useRef(null);
   const carruselBanner = bannerImages?.length ? bannerImages : bannerUrl ? [bannerUrl] : [];
@@ -701,12 +705,12 @@ export default function Producto() {
   useEffect(() => {
     const contenedor = document.querySelector(".content");
     const filtros = document.querySelector(".productos-filtros");
-    const header = document.querySelector(".header");
-    if (!contenedor || !filtros || !header) return undefined;
+    if (!contenedor || !filtros) return undefined;
 
     const actualizarCompacto = () => {
+      const bordeSuperiorDesplazable = contenedor.getBoundingClientRect().top;
       const compacto = window.innerWidth <= 820 &&
-        filtros.getBoundingClientRect().top <= header.getBoundingClientRect().bottom + 1;
+        filtros.getBoundingClientRect().top <= bordeSuperiorDesplazable + 1;
       setCategoriasCompactas((actual) => actual === compacto ? actual : compacto);
     };
     const frame = window.requestAnimationFrame(actualizarCompacto);
@@ -2123,6 +2127,26 @@ const obtenerProductosFiltrados = (categoria) => {
                 )}
               </div>
             ))}
+            {esAdmin() && (
+              <div className="categoria-crear-movil">
+                {crearCategoriaMovilAbierto ? (
+                  <>
+                    <input
+                      autoFocus
+                      type="text"
+                      value={nuevaCategoria}
+                      onChange={(event) => setNuevaCategoria(event.target.value)}
+                      onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); crearCategoria(); } }}
+                      placeholder="Nueva categoría"
+                      aria-label="Nombre de la nueva categoría"
+                    />
+                    <button type="button" onClick={crearCategoria} disabled={!nuevaCategoria.trim()}>Crear</button>
+                  </>
+                ) : (
+                  <button type="button" className="categoria-crear-movil-abrir" onClick={() => setCrearCategoriaMovilAbierto(true)}>+ Crear categoría</button>
+                )}
+              </div>
+            )}
           </div>
 
           {esAdmin() && (
