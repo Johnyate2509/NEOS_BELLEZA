@@ -546,13 +546,10 @@ const cargarProductos = async () => {
     let detalleData = [];
     let variantesData = [];
     if (pedidoIds.length > 0) {
-      const [detallesResponse, variantesResponse] = await Promise.all([
-        supabase
-          .from("pedido_detalle")
-          .select("*")
-          .in("pedido_id", pedidoIds),
-        supabase.from("producto_variantes").select(VARIANT_COLUMNS)
-      ]);
+      const detallesResponse = await supabase
+        .from("pedido_detalle")
+        .select("*")
+        .in("pedido_id", pedidoIds);
 
       if (detallesResponse.error) {
         console.error("Error cargando detalles de pedidos:", detallesResponse.error);
@@ -560,10 +557,38 @@ const cargarProductos = async () => {
         detalleData = detallesResponse.data || [];
       }
 
-      if (variantesResponse.error) {
-        console.error("Error cargando variantes de productos:", variantesResponse.error);
-      } else {
-        variantesData = variantesResponse.data || [];
+      const obtenerIdVariante = (detalle) =>
+        detalle.variante_id ?? detalle.producto_variante_id ?? detalle.variant_id ?? null;
+      const obtenerIdProducto = (detalle) =>
+        detalle.producto_id ?? detalle.Producto_id ?? detalle.productoId ?? detalle.ProductoId ?? null;
+      const idsVariantesNecesarias = [...new Set(
+        detalleData.map(obtenerIdVariante).filter((id) => id != null).map(String)
+      )];
+      const idsProductosLegacy = [...new Set(
+        detalleData
+          .filter((detalle) => obtenerIdVariante(detalle) == null)
+          .map(obtenerIdProducto)
+          .filter((id) => id != null)
+          .map(String)
+      )];
+      const consultasVariantes = [];
+      if (idsVariantesNecesarias.length) {
+        consultasVariantes.push(
+          supabase.from("producto_variantes").select(VARIANT_COLUMNS).in("id", idsVariantesNecesarias)
+        );
+      }
+      if (idsProductosLegacy.length) {
+        consultasVariantes.push(
+          supabase.from("producto_variantes").select(VARIANT_COLUMNS).in("producto_id", idsProductosLegacy)
+        );
+      }
+      const respuestasVariantes = await Promise.all(consultasVariantes);
+      for (const variantesResponse of respuestasVariantes) {
+        if (variantesResponse.error) {
+          console.error("Error cargando variantes de productos:", variantesResponse.error);
+        } else {
+          variantesData.push(...(variantesResponse.data || []));
+        }
       }
     }
 
@@ -875,7 +900,9 @@ const cargarProductos = async () => {
     };
 
     init();
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      // La sesión inicial se atiende en init() y la renovación de token no cambia los datos de la app.
+      if (!["SIGNED_IN", "SIGNED_OUT", "USER_UPDATED"].includes(event)) return;
       setTimeout(() => cargarDatos(Boolean(session)), 0);
     });
     return () => data?.subscription?.unsubscribe();
@@ -1290,19 +1317,11 @@ const cargarProductos = async () => {
             transacciones: [...(clienteParaPedido.transacciones || []), transaccion],
           }]);
 
-      let pedido = pedidoFallback;
-      try {
-        const pedidosActualizados = await cargarPedidos(productos, clientesParaPedido);
-        const pedidoActualizado = pedidosActualizados?.find((actual) => String(actual.id) === String(resultado.id));
-        if (pedidoActualizado) {
-          pedido = pedidoActualizado;
-        } else {
-          setPedidos((prev) => [...prev.filter((actual) => String(actual.id) !== String(pedidoFallback.id)), pedidoFallback]);
-        }
-      } catch (errorCarga) {
-        console.warn("Pedido creado; no se pudo refrescar el detalle local:", errorCarga);
-        setPedidos((prev) => [...prev.filter((actual) => String(actual.id) !== String(pedidoFallback.id)), pedidoFallback]);
-      }
+      const pedido = pedidoFallback;
+      setPedidos((prev) => [
+        ...prev.filter((actual) => String(actual.id) !== String(pedidoFallback.id)),
+        pedidoFallback,
+      ]);
 
       void notificarEventoApp("pedido_nuevo", resultado.id);
       return { success: true, pedido, total };
