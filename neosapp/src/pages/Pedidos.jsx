@@ -679,7 +679,8 @@ export default function Pedidos({ vista = "pedidos" }) {
     setErrorVariantesPedido("");
     const { data, error } = await supabase
       .from("producto_variantes")
-      .select("id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,created_at,updated_at");
+      .select("id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,archivada,created_at,updated_at")
+      .eq("archivada", false);
     if (error) {
       setErrorVariantesPedido("No se pudieron cargar las variantes. Puedes agregar productos sin variante.");
       setVariantesProductosPedido([]);

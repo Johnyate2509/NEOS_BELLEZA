@@ -7,7 +7,7 @@ import { asegurarPerfilCliente } from "../utils/asegurarPerfilCliente";
 const StoreContext = createContext(null);
 const MINIMOS_COMPRA_CATALOGO_DEFAULT = { General: 1, Emprendedor: 3, Mayorista: 6 };
 const PRODUCT_COLUMNS = "id,nombre,precio,stock,descripcion,categoria_id,imagen_url,precio_mayorista,precio_emprendedor,imagen_url2,imagen_url3,oculto_catalogo,catalogos_ocultos,minimos_compra";
-const VARIANT_COLUMNS = "id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,created_at,updated_at";
+const VARIANT_COLUMNS = "id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,archivada,created_at,updated_at";
 
 const eliminarUsuarioAuthSeguro = async (userId) => {
   const { data, error } = await supabase.functions.invoke("admin-delete-user", {
@@ -1051,18 +1051,44 @@ const cargarProductos = async () => {
     }
 
     try {
-      // Eliminar variantes asociadas primero si existen
-      try {
-        const { error: errorVariantes } = await supabase
-          .from("producto_variantes")
-          .delete()
-          .eq("producto_id", productoId);
+      const catalogosOcultos = ["General", "Emprendedor", "Mayorista"];
+      const { error: errorRetiro } = await supabase
+        .from("productos")
+        .update({ oculto_catalogo: true, catalogos_ocultos: catalogosOcultos })
+        .eq("id", productoId);
+      if (errorRetiro) throw errorRetiro;
 
-        if (errorVariantes) {
-          console.warn("Error eliminando variantes del producto:", errorVariantes);
+      // Ocultarlo primero evita que se creen nuevos detalles mientras verificamos el historial.
+      const { count, error: errorHistorial } = await supabase
+        .from("pedido_detalle")
+        .select("pedido_id", { count: "exact", head: true })
+        .eq("producto_id", productoId);
+
+      if (errorHistorial || count > 0) {
+        console.warn("Se conserva el producto retirado para proteger el historial de pedidos:", errorHistorial);
+        setProductos((prev) => prev.map((producto) => String(producto.id) === String(productoId)
+          ? { ...producto, oculto_catalogo: true, catalogos_ocultos: catalogosOcultos }
+          : producto));
+        return { success: true, archived: true };
+      }
+
+      const { error: errorVariantes } = await supabase
+        .from("producto_variantes")
+        .delete()
+        .eq("producto_id", productoId);
+      if (errorVariantes) {
+        if (errorVariantes.code === "23503") {
+          const { error: errorArchivarVariantes } = await supabase
+            .from("producto_variantes")
+            .update({ archivada: true })
+            .eq("producto_id", productoId);
+          if (errorArchivarVariantes) console.error("No se pudieron archivar las variantes del producto:", errorArchivarVariantes);
+          setProductos((prev) => prev.map((producto) => String(producto.id) === String(productoId)
+            ? { ...producto, oculto_catalogo: true, catalogos_ocultos: catalogosOcultos }
+            : producto));
+          return { success: true, archived: true };
         }
-      } catch (err) {
-        console.warn("No se pudo eliminar variantes asociadas o tabla no existe:", err);
+        throw errorVariantes;
       }
 
       const { data, error } = await supabase
@@ -1071,11 +1097,17 @@ const cargarProductos = async () => {
         .eq("id", productoId);
 
       if (error) {
+        if (error.code === "23503") {
+          setProductos((prev) => prev.map((producto) => String(producto.id) === String(productoId)
+            ? { ...producto, oculto_catalogo: true, catalogos_ocultos: catalogosOcultos }
+            : producto));
+          return { success: true, archived: true };
+        }
         console.error("Error eliminando producto:", error);
         return { error: error.message || String(error) };
       }
 
-      setProductos((prev) => prev.filter((p) => p.id !== productoId));
+      setProductos((prev) => prev.filter((p) => String(p.id) !== String(productoId)));
       return { success: true, data };
     } catch (err) {
       console.error("Excepción eliminando producto:", err);

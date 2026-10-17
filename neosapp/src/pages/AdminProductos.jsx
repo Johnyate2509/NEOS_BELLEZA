@@ -195,7 +195,7 @@ export default function AdminProductos() {
     try {
       const { data, error: errorConsulta } = await supabase
         .from("producto_variantes")
-        .select("id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,created_at,updated_at")
+        .select("id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,archivada,created_at,updated_at")
         .eq("producto_id", Number(productoId));
       if (errorConsulta) throw errorConsulta;
       const { data: costos } = await supabase.rpc("admin_list_product_costs");
@@ -323,7 +323,7 @@ export default function AdminProductos() {
         ? supabase.from("producto_variantes").update(payload).eq("id", varianteActiva.id).eq("producto_id", Number(productoVarianteActivo.id))
         : supabase.from("producto_variantes").insert([{ ...payload, producto_id: Number(productoVarianteActivo.id) }]);
       const { data, error: errorGuardado } = await consulta
-        .select("id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,created_at,updated_at")
+        .select("id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,archivada,created_at,updated_at")
         .single();
       if (errorGuardado) throw errorGuardado;
       setVariantesPorProducto((actuales) => {
@@ -344,13 +344,59 @@ export default function AdminProductos() {
   };
 
   const eliminarVariante = async (producto, variante) => {
-    if (!window.confirm(`¿Eliminar la variante “${variante.nombre || "Variante"}”?`)) return;
+    if (!window.confirm(`¿Retirar la variante “${variante.nombre || "Variante"}” del catálogo? Si ya aparece en pedidos, se conservará archivada en el historial.`)) return;
+    const { count, error: errorHistorial } = await supabase
+      .from("pedido_detalle")
+      .select("pedido_id", { count: "exact", head: true })
+      .eq("variante_id", String(variante.id));
+    if (errorHistorial) {
+      setErroresVariantes((actuales) => ({ ...actuales, [producto.id]: errorHistorial.message }));
+      return;
+    }
+
+    if (count > 0) {
+      const { error: errorArchivo } = await supabase
+        .from("producto_variantes")
+        .update({ archivada: true })
+        .eq("id", variante.id)
+        .eq("producto_id", Number(producto.id));
+      if (errorArchivo) {
+        setErroresVariantes((actuales) => ({ ...actuales, [producto.id]: errorArchivo.message }));
+        return;
+      }
+      setVariantesPorProducto((actuales) => ({
+        ...actuales,
+        [producto.id]: (actuales[producto.id] || []).map((actual) =>
+          actual.id === variante.id ? { ...actual, archivada: true } : actual
+        ),
+      }));
+      setMensaje("Variante retirada del catálogo y conservada en el historial de pedidos.");
+      return;
+    }
+
     const { error: errorEliminacion } = await supabase
       .from("producto_variantes")
       .delete()
       .eq("id", variante.id)
       .eq("producto_id", Number(producto.id));
     if (errorEliminacion) {
+      if (errorEliminacion.code === "23503") {
+        const { error: errorArchivo } = await supabase
+          .from("producto_variantes")
+          .update({ archivada: true })
+          .eq("id", variante.id)
+          .eq("producto_id", Number(producto.id));
+        if (!errorArchivo) {
+          setVariantesPorProducto((actuales) => ({
+            ...actuales,
+            [producto.id]: (actuales[producto.id] || []).map((actual) =>
+              actual.id === variante.id ? { ...actual, archivada: true } : actual
+            ),
+          }));
+          setMensaje("Variante retirada del catálogo y conservada en el historial de pedidos.");
+          return;
+        }
+      }
       setErroresVariantes((actuales) => ({ ...actuales, [producto.id]: errorEliminacion.message }));
       return;
     }
@@ -358,6 +404,25 @@ export default function AdminProductos() {
       ...actuales,
       [producto.id]: (actuales[producto.id] || []).filter((actual) => actual.id !== variante.id),
     }));
+  };
+
+  const restaurarVariante = async (producto, variante) => {
+    const { error: errorRestaurar } = await supabase
+      .from("producto_variantes")
+      .update({ archivada: false })
+      .eq("id", variante.id)
+      .eq("producto_id", Number(producto.id));
+    if (errorRestaurar) {
+      setErroresVariantes((actuales) => ({ ...actuales, [producto.id]: errorRestaurar.message }));
+      return;
+    }
+    setVariantesPorProducto((actuales) => ({
+      ...actuales,
+      [producto.id]: (actuales[producto.id] || []).map((actual) =>
+        actual.id === variante.id ? { ...actual, archivada: false } : actual
+      ),
+    }));
+    setMensaje("Variante restaurada en el catálogo.");
   };
 
   const abrirNuevo = () => {
@@ -472,10 +537,12 @@ export default function AdminProductos() {
   };
 
   const borrarProducto = async (producto) => {
-    if (!window.confirm(`¿Eliminar definitivamente “${producto.nombre}”?`)) return;
+    if (!window.confirm(`¿Retirar “${producto.nombre}” de todos los catálogos? Si ya aparece en pedidos, se conservará junto con sus variantes en el historial.`)) return;
     const resultado = await eliminarProducto(producto.id);
     if (resultado?.error) setError(`No se pudo eliminar: ${resultado.error}`);
-    else setMensaje("Producto eliminado.");
+    else setMensaje(resultado?.archived
+      ? "Producto retirado de los catálogos y conservado en el historial de pedidos."
+      : "Producto eliminado.");
   };
 
   const abrirAdministrarCatalogos = () => {
@@ -658,8 +725,17 @@ export default function AdminProductos() {
                                         <td>{formatearPrecio(variante.precio_emprendedor)}</td>
                                         <td>{formatearPrecio(variante.precio_mayorista)}</td>
                                         <td className="admin-producto-actions admin-productos-variant-actions">
-                                          <button type="button" onClick={() => abrirEdicionVariante(producto, variante)}>Editar</button>
-                                          <button type="button" className="danger" onClick={() => eliminarVariante(producto, variante)}>Eliminar</button>
+                                          {variante.archivada ? (
+                                            <>
+                                              <span className="admin-producto-status oculto">Archivada</span>
+                                              <button type="button" onClick={() => restaurarVariante(producto, variante)}>Restaurar</button>
+                                            </>
+                                          ) : (
+                                            <>
+                                              <button type="button" onClick={() => abrirEdicionVariante(producto, variante)}>Editar</button>
+                                              <button type="button" className="danger" onClick={() => eliminarVariante(producto, variante)}>Eliminar</button>
+                                            </>
+                                          )}
                                         </td>
                                       </tr>
                                     ))}

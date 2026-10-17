@@ -557,7 +557,7 @@ export default function Producto() {
   });
 
   const abrirEditorBanner = () => {
-    setBannerImagenesBorrador(carruselBanner.map((url) => ({ url, file: null })));
+    setBannerImagenesBorrador(carruselBanner.map((url) => ({ url, file: null, zoom: 1, x: 0, y: 0 })));
     setBannerEditorAbierto(true);
   };
 
@@ -575,10 +575,46 @@ export default function Producto() {
     if (archivos.length > espacios) alert("El carrusel permite un máximo de 5 imágenes.");
     setBannerImagenesBorrador((actuales) => [
       ...actuales,
-      ...seleccionados.map((file) => ({ file, url: URL.createObjectURL(file) })),
+      ...seleccionados.map((file) => ({ file, url: URL.createObjectURL(file), zoom: 1, x: 0, y: 0 })),
     ]);
     event.target.value = "";
   };
+
+  const ajustarEncuadreBanner = (indice, cambios) => {
+    setBannerImagenesBorrador((actuales) => actuales.map((imagen, posicion) =>
+      posicion === indice ? { ...imagen, ...cambios } : imagen
+    ));
+  };
+
+  const exportarEncuadreBanner = (url, zoom = 1, x = 0, y = 0) => new Promise((resolve, reject) => {
+    const imagen = new Image();
+    imagen.crossOrigin = "anonymous";
+    imagen.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = 1600;
+        canvas.height = 500;
+        const contexto = canvas.getContext("2d");
+        if (!contexto) throw new Error("No se pudo preparar el recorte del banner.");
+        contexto.fillStyle = "#fcfff4";
+        contexto.fillRect(0, 0, canvas.width, canvas.height);
+
+        const escalaBase = Math.max(canvas.width / imagen.naturalWidth, canvas.height / imagen.naturalHeight);
+        const ancho = imagen.naturalWidth * escalaBase * zoom;
+        const alto = imagen.naturalHeight * escalaBase * zoom;
+        const excesoX = Math.abs(ancho - canvas.width) / 2;
+        const excesoY = Math.abs(alto - canvas.height) / 2;
+        const destinoX = (canvas.width - ancho) / 2 + x * excesoX;
+        const destinoY = (canvas.height - alto) / 2 + y * excesoY;
+        contexto.drawImage(imagen, destinoX, destinoY, ancho, alto);
+        resolve(canvas.toDataURL("image/jpeg", 0.88));
+      } catch (error) {
+        reject(new Error("No se pudo recortar esta imagen. Prueba con otra imagen o vuelve a subirla."));
+      }
+    };
+    imagen.onerror = () => reject(new Error("No se pudo leer una imagen del carrusel."));
+    imagen.src = url;
+  });
 
   const quitarImagenBannerBorrador = (indice) => {
     setBannerImagenesBorrador((actuales) => {
@@ -596,7 +632,8 @@ export default function Producto() {
     try {
       const imagenesGuardadas = [];
       for (const imagen of bannerImagenesBorrador) {
-        imagenesGuardadas.push(imagen.file ? await subirBanner(imagen.file) : imagen.url);
+        const imagenPreparada = imagen.file ? await subirBanner(imagen.file) : imagen.url;
+        imagenesGuardadas.push(await exportarEncuadreBanner(imagenPreparada, imagen.zoom, imagen.x, imagen.y));
       }
       await guardarImagenesBanner(imagenesGuardadas);
       bannerImagenesBorrador.forEach((imagen) => { if (imagen.file) URL.revokeObjectURL(imagen.url); });
@@ -1075,8 +1112,9 @@ export default function Producto() {
     setErrorVariantesProducto("");
     try {
       const { data, error } = await supabase.from("producto_variantes")
-        .select("id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,created_at,updated_at")
-        .eq("producto_id", Number(productoId));
+        .select("id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,archivada,created_at,updated_at")
+        .eq("producto_id", Number(productoId))
+        .eq("archivada", false);
       if (error) throw error;
       const cargadas = data || [];
       setVariantesProducto(cargadas);
@@ -1873,12 +1911,42 @@ const obtenerProductosFiltrados = (categoria) => {
               <h4>Imágenes del carrusel ({bannerImagenesBorrador.length}/5)</h4>
             </div>
 
-            <p className="banner-editor-hint">Añade hasta 5 imágenes. Puedes guardar con una imagen o dejarlo vacío para quitar el carrusel. Cambiarán cada 15 segundos.</p>
+            <p className="banner-editor-hint">Añade hasta 5 imágenes. Ajusta el zoom y el encuadre de cada una; al guardar se conserva el recorte. Cambiarán cada 15 segundos.</p>
             <div className="banner-carousel-admin-list">
               {bannerImagenesBorrador.map((imagen, indice) => (
                 <div className="banner-carousel-admin-item" key={`${indice}-${imagen.url}`}>
-                  <img src={imagen.url} alt={`Imagen ${indice + 1}`} />
+                    <div className="banner-editor-preview banner-editor-preview--carousel">
+                    <img
+                      src={imagen.url}
+                      alt={`Vista previa de imagen ${indice + 1}`}
+                      style={{
+                        transform: `scale(${imagen.zoom ?? 1})`,
+                        objectPosition: `${50 - (imagen.x || 0) * 22}% ${50 - (imagen.y || 0) * 22}%`,
+                      }}
+                    />
+                    <div className="banner-crop-frame" />
+                    <div className="banner-crop-grid" />
+                  </div>
                   <span>Imagen {indice + 1}</span>
+                  <label className="banner-editor-zoom">
+                    Zoom: {Math.round((imagen.zoom ?? 1) * 100)}%
+                    <input
+                      type="range"
+                      min="0.65"
+                      max="2.5"
+                      step="0.05"
+                      value={imagen.zoom ?? 1}
+                      onChange={(event) => ajustarEncuadreBanner(indice, { zoom: Number(event.target.value) })}
+                      aria-label={`Zoom de imagen ${indice + 1}`}
+                    />
+                  </label>
+                  <div className="banner-editor-directions" aria-label={`Mover imagen ${indice + 1}`}>
+                    <button type="button" className="banner-direction-btn" onClick={() => ajustarEncuadreBanner(indice, { y: Math.max(-1, (imagen.y || 0) - 0.15) })} aria-label="Mover arriba">↑</button>
+                    <button type="button" className="banner-direction-btn" onClick={() => ajustarEncuadreBanner(indice, { x: Math.max(-1, (imagen.x || 0) - 0.15) })} aria-label="Mover a la izquierda">←</button>
+                    <button type="button" className="banner-direction-btn" onClick={() => ajustarEncuadreBanner(indice, { x: 0, y: 0 })} aria-label="Centrar imagen">●</button>
+                    <button type="button" className="banner-direction-btn" onClick={() => ajustarEncuadreBanner(indice, { x: Math.min(1, (imagen.x || 0) + 0.15) })} aria-label="Mover a la derecha">→</button>
+                    <button type="button" className="banner-direction-btn" onClick={() => ajustarEncuadreBanner(indice, { y: Math.min(1, (imagen.y || 0) + 0.15) })} aria-label="Mover abajo">↓</button>
+                  </div>
                   <button type="button" aria-label={`Quitar imagen ${indice + 1}`} onClick={() => quitarImagenBannerBorrador(indice)}>Quitar</button>
                 </div>
               ))}
@@ -2110,7 +2178,7 @@ const obtenerProductosFiltrados = (categoria) => {
                               className="btn-delete admin-action-control admin-action-control--danger"
                               onClick={async (e) => {
                                 e.stopPropagation();
-                                const confirmar = window.confirm("¿Eliminar este producto? Esta acción es irreversible.");
+                                const confirmar = window.confirm("¿Retirar este producto de todos los catálogos? Si ya aparece en pedidos, se conservará en el historial.");
                                 if (!confirmar) return;
 
                                 const resultado = await eliminarProducto(p.id);
@@ -2118,6 +2186,7 @@ const obtenerProductosFiltrados = (categoria) => {
                                   alert(`Error eliminando producto: ${resultado.error}`);
                                   return;
                                 }
+                                if (resultado.archived) alert("Producto retirado de los catálogos. Se conserva junto con el historial de pedidos.");
                               }}
                             >
                               Eliminar
@@ -2212,7 +2281,7 @@ const obtenerProductosFiltrados = (categoria) => {
                                 className="btn-delete admin-action-control admin-action-control--danger"
                                 onClick={async (e) => {
                                   e.stopPropagation();
-                                  const confirmar = window.confirm("¿Eliminar este producto? Esta acción es irreversible.");
+                                  const confirmar = window.confirm("¿Retirar este producto de todos los catálogos? Si ya aparece en pedidos, se conservará en el historial.");
                                   if (!confirmar) return;
 
                                   const resultado = await eliminarProducto(p.id);
@@ -2220,6 +2289,7 @@ const obtenerProductosFiltrados = (categoria) => {
                                     alert(`Error eliminando producto: ${resultado.error}`);
                                     return;
                                   }
+                                  if (resultado.archived) alert("Producto retirado de los catálogos. Se conserva junto con el historial de pedidos.");
                                 }}
                               >
                                 Eliminar
