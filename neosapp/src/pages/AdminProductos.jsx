@@ -99,6 +99,7 @@ const CAMPOS_VARIANTE_IMPORTACION = [
   { key: "precio", label: "Precio variante tienda física" },
   { key: "precio_emprendedor", label: "Precio variante mayorista" },
   { key: "precio_mayorista", label: "Precio variante supermayorista" },
+  { key: "precio_costo", label: "Precio de costo variante" },
 ];
 
 const valorCeldaVacia = (valor) => valor == null || String(valor).trim() === "";
@@ -213,6 +214,16 @@ export default function AdminProductos() {
         setError(`No se pudieron preparar las variantes de la plantilla: ${errorVariantes.message}`);
         return;
       }
+      const { data: costosVariantes, error: errorCostosVariantes } = await supabase.rpc("admin_list_product_costs");
+      if (errorCostosVariantes) {
+        setError(`No se pudieron cargar los precios de costo de las variantes: ${errorCostosVariantes.message}`);
+        return;
+      }
+      const costosPorVariante = new Map(
+        (costosVariantes || [])
+          .filter((fila) => fila.table_name === "producto_variantes")
+          .map((fila) => [String(fila.row_id), fila.precio_costo])
+      );
       const porId = new Map(productos.map((producto) => [String(producto.id), producto]));
       const hojaVariantes = [
         ["ID variante", "ID producto", "Producto", ...camposVariante.map((campo) => campo.label)],
@@ -221,7 +232,9 @@ export default function AdminProductos() {
           variante.producto_id,
           porId.get(String(variante.producto_id))?.nombre || "",
           ...camposVariante.map((campo) => {
-            const valor = variante[campo.key];
+            const valor = campo.key === "precio_costo"
+              ? costosPorVariante.get(String(variante.id))
+              : variante[campo.key];
             return campo.key === "atributos" && valor && typeof valor === "object" ? JSON.stringify(valor) : valor ?? "";
           }),
         ]),
@@ -303,7 +316,9 @@ export default function AdminProductos() {
             if (valor !== undefined) cambios[clave] = valorCeldaVacia(valor) ? "" : convertirNumeroCelda(valor, clave, numeroFila);
           }
           const costo = obtenerValor("precio_costo");
-          if (costo !== undefined) cambios.precio_costo = valorCeldaVacia(costo) ? null : convertirNumeroCelda(costo, "precio de costo", numeroFila);
+          if (costo !== undefined && !valorCeldaVacia(costo)) {
+            cambios.precio_costo = convertirNumeroCelda(costo, "precio de costo", numeroFila);
+          }
           const descripcion = obtenerValor("descripcion");
           if (descripcion !== undefined) cambios.descripcion = valorCeldaVacia(descripcion) ? "" : String(descripcion);
 
@@ -404,6 +419,10 @@ export default function AdminProductos() {
               const valor = obtenerValor(clave);
               if (valor !== undefined) payload[clave] = valorCeldaVacia(valor) ? null : convertirNumeroCelda(valor, clave, numeroFila);
             }
+            const costoVariante = obtenerValor("precio_costo");
+            if (costoVariante !== undefined && !valorCeldaVacia(costoVariante)) {
+              payload.precio_costo = convertirNumeroCelda(costoVariante, "precio de costo de variante", numeroFila);
+            }
             if (!idVariante && !payload.nombre) throw new Error(`Fila ${numeroFila}: una variante nueva necesita un nombre.`);
             let consulta = supabase.from("producto_variantes");
             if (idVariante) {
@@ -420,8 +439,10 @@ export default function AdminProductos() {
               return {
                 ...actuales,
                 [productoPadre.id]: idVariante
-                  ? lista.map((variante) => String(variante.id) === String(data.id) ? data : variante)
-                  : [...lista, data],
+                  ? lista.map((variante) => String(variante.id) === String(data.id)
+                    ? { ...data, precio_costo: payload.precio_costo ?? variante.precio_costo ?? null }
+                    : variante)
+                  : [...lista, { ...data, precio_costo: payload.precio_costo ?? null }],
               };
             });
             if (idVariante) variantesActualizadas += 1;
