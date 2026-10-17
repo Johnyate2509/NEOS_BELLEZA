@@ -1,5 +1,5 @@
-const CACHE_VERSION = "neos-belleza-pwa-v1";
-const APP_SHELL = ["/", "/index.html", "/manifest.webmanifest", "/neos-pwa.svg"];
+const CACHE_VERSION = "neos-belleza-pwa-v2";
+const APP_SHELL = ["/", "/index.html", "/manifest.webmanifest", "/favicon.ico", "/neos-icon-192.png", "/neos-icon-512.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

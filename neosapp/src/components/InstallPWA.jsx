@@ -79,7 +79,7 @@ export default function InstallPWA() {
 
   return (
     <aside className="pwa-install-notice" aria-label="Instalar aplicación">
-      <div className="pwa-install-icon" aria-hidden="true">N</div>
+      <img className="pwa-install-icon" src="/favicon.ico" alt="" />
       <div className="pwa-install-copy">
         <strong>Instala Neos Belleza</strong>
         <span>Accede más rápido desde tu dispositivo.</span>

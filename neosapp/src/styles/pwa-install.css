@@ -16,16 +16,11 @@
 }
 
 .pwa-install-icon {
-  display: grid;
   flex: 0 0 42px;
   width: 42px;
   height: 42px;
-  place-items: center;
   border-radius: 11px;
-  background: #171717;
-  color: #f1d77a;
-  font-size: 22px;
-  font-weight: 800;
+  object-fit: contain;
 }
 
 .pwa-install-copy {
