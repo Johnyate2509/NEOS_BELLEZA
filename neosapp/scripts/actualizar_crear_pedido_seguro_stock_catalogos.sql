@@ -25,6 +25,9 @@ DECLARE
   v_tipo text;
   v_minimos_catalogo jsonb := '{}'::jsonb;
   v_minimo integer;
+  v_totales_catalogo jsonb := '{}'::jsonb;
+  v_minimo_monto numeric;
+  v_total_catalogo numeric;
 BEGIN
   SELECT u.rol INTO v_role
   FROM public.usuarios u
@@ -169,7 +172,31 @@ BEGIN
     END IF;
 
     v_total := v_total + v_precio * v_cantidad;
+    v_totales_catalogo := jsonb_set(
+      v_totales_catalogo,
+      ARRAY[v_tipo],
+      to_jsonb(coalesce((v_totales_catalogo ->> v_tipo)::numeric, 0) + v_precio * v_cantidad),
+      true
+    );
   END LOOP;
+
+  v_minimo_monto := coalesce(nullif(v_minimos_catalogo ->> 'monto_General', '')::numeric, 0);
+  v_total_catalogo := coalesce((v_totales_catalogo ->> 'General')::numeric, 0);
+  IF v_minimo_monto > 0 AND v_total_catalogo < v_minimo_monto THEN
+    RAISE EXCEPTION 'El monto mínimo para Tienda física es $%; el total del catálogo es $%', v_minimo_monto, v_total_catalogo USING errcode = '22023';
+  END IF;
+
+  v_minimo_monto := coalesce(nullif(v_minimos_catalogo ->> 'monto_Emprendedor', '')::numeric, 0);
+  v_total_catalogo := coalesce((v_totales_catalogo ->> 'Emprendedor')::numeric, 0);
+  IF v_minimo_monto > 0 AND v_total_catalogo < v_minimo_monto THEN
+    RAISE EXCEPTION 'El monto mínimo para Mayorista es $%; el total del catálogo es $%', v_minimo_monto, v_total_catalogo USING errcode = '22023';
+  END IF;
+
+  v_minimo_monto := coalesce(nullif(v_minimos_catalogo ->> 'monto_Mayorista', '')::numeric, 0);
+  v_total_catalogo := coalesce((v_totales_catalogo ->> 'Mayorista')::numeric, 0);
+  IF v_minimo_monto > 0 AND v_total_catalogo < v_minimo_monto THEN
+    RAISE EXCEPTION 'El monto mínimo para Supermayorista es $%; el total del catálogo es $%', v_minimo_monto, v_total_catalogo USING errcode = '22023';
+  END IF;
 
   UPDATE public.pedidos SET total = v_total WHERE id = v_pedido_id;
 

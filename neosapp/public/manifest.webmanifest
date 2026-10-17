@@ -1,0 +1,21 @@
+{
+  "id": "/",
+  "name": "Neos Belleza",
+  "short_name": "Neos Belleza",
+  "description": "Catálogo y gestión de pedidos de Neos Belleza",
+  "lang": "es-CO",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f7f7f5",
+  "theme_color": "#171717",
+  "icons": [
+    {
+      "src": "/neos-pwa.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

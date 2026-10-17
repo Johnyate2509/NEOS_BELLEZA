@@ -54,7 +54,7 @@ const EVENTO_COMPRA_COMPLETADA = "neosapp:compra-completada";
 let finalizarPedidoEnCurso = false;
 
 export default function Producto() {
-  const { productos, categorias, setProductos, setCategorias, crearProducto, actualizarProducto, eliminarProducto, crearPedidoSeguro, clientes, bannerUrl, bannerImages, bannerVisible, guardarBannerVisible, guardarImagenesBanner, subirBanner, minimosCompraCatalogo, catalogosOcultos: catalogosOcultosGlobales, guardarCatalogosOcultos } = useStore();
+  const { productos, categorias, setProductos, setCategorias, crearProducto, actualizarProducto, eliminarProducto, crearPedidoSeguro, clientes, bannerUrl, bannerImages, bannerVisible, guardarBannerVisible, guardarImagenesBanner, subirBanner, minimosCompraCatalogo, montosMinimosCompraCatalogo, catalogosOcultos: catalogosOcultosGlobales, guardarCatalogosOcultos } = useStore();
   const { esAdmin, esVendedor, obtenerDatosUsuario, user, getUserRole } = useAuth();
   const vendedorData = obtenerDatosUsuario();
 
@@ -1684,6 +1684,20 @@ const obtenerProductosFiltrados = (categoria) => {
     if (!validacionCarrito.valido) {
       setErroresValidacion(validacionCarrito.errores);
       return;
+    }
+
+    const totalesCatalogo = carrito.reduce((totales, item) => {
+      const catalogo = item.tipo_catalogo || "General";
+      totales[catalogo] = (totales[catalogo] || 0) + Number(item.precio || 0) * Number(item.cantidad || 0);
+      return totales;
+    }, {});
+    for (const [catalogo, total] of Object.entries(totalesCatalogo)) {
+      const minimo = Number(montosMinimosCompraCatalogo?.[catalogo]) || 0;
+      if (minimo > 0 && total < minimo) {
+        const nombreCatalogo = { General: "Tienda física", Emprendedor: "Mayorista", Mayorista: "Supermayorista" }[catalogo] || catalogo;
+        setErroresValidacion([`El pedido del catálogo ${nombreCatalogo} debe ser mínimo de $${minimo.toLocaleString("es-CO")}. Agrega $${(minimo - total).toLocaleString("es-CO")} para continuar.`]);
+        return;
+      }
     }
 
     finalizarPedidoEnCurso = true;

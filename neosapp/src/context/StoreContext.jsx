@@ -6,6 +6,9 @@ import { asegurarPerfilCliente } from "../utils/asegurarPerfilCliente";
 
 const StoreContext = createContext(null);
 const MINIMOS_COMPRA_CATALOGO_DEFAULT = { General: 1, Emprendedor: 3, Mayorista: 6 };
+const MONTOS_MINIMOS_CATALOGO_DEFAULT = { General: 0, Emprendedor: 0, Mayorista: 0 };
+const PRODUCTOS_OFFLINE_KEY = "neosapp_productos_offline_v1";
+const CATEGORIAS_OFFLINE_KEY = "neosapp_categorias_offline_v1";
 const PRODUCT_COLUMNS = "id,nombre,precio,stock,descripcion,categoria_id,imagen_url,precio_mayorista,precio_emprendedor,imagen_url2,imagen_url3,imagen_url4,imagen_url5,oculto_catalogo,catalogos_ocultos,minimos_compra";
 const VARIANT_COLUMNS = "id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,archivada,created_at,updated_at";
 
@@ -34,6 +37,7 @@ export function StoreProvider({ children }) {
   const [bannerVisible, setBannerVisible] = useState(true);
   const [catalogosOcultos, setCatalogosOcultos] = useState([]);
   const [minimosCompraCatalogo, setMinimosCompraCatalogo] = useState(MINIMOS_COMPRA_CATALOGO_DEFAULT);
+  const [montosMinimosCompraCatalogo, setMontosMinimosCompraCatalogo] = useState(MONTOS_MINIMOS_CATALOGO_DEFAULT);
 
   const notificarEventoApp = async (tipo, entidadId) => {
     try {
@@ -254,6 +258,10 @@ export function StoreProvider({ children }) {
           return [catalogo, Number.isInteger(valor) && valor > 0 ? valor : MINIMOS_COMPRA_CATALOGO_DEFAULT[catalogo]];
         }));
         setMinimosCompraCatalogo(normalizados);
+        setMontosMinimosCompraCatalogo(Object.fromEntries(Object.keys(MONTOS_MINIMOS_CATALOGO_DEFAULT).map((catalogo) => {
+          const monto = Number(valores?.[`monto_${catalogo}`]);
+          return [catalogo, Number.isFinite(monto) && monto > 0 ? monto : 0];
+        })));
         return;
       }
     } catch (error) {
@@ -262,21 +270,26 @@ export function StoreProvider({ children }) {
     try {
       const guardado = JSON.parse(window.localStorage.getItem("neosapp_minimos_compra_catalogo") || "null");
       if (guardado && typeof guardado === "object") {
-        setMinimosCompraCatalogo({ ...MINIMOS_COMPRA_CATALOGO_DEFAULT, ...guardado });
+        setMinimosCompraCatalogo(Object.fromEntries(Object.keys(MINIMOS_COMPRA_CATALOGO_DEFAULT).map((catalogo) => [catalogo, Number(guardado[catalogo]) || MINIMOS_COMPRA_CATALOGO_DEFAULT[catalogo]])));
+        setMontosMinimosCompraCatalogo(Object.fromEntries(Object.keys(MONTOS_MINIMOS_CATALOGO_DEFAULT).map((catalogo) => [catalogo, Math.max(0, Number(guardado[`monto_${catalogo}`]) || 0)])));
       }
     } catch (error) {
       console.warn("No se pudieron cargar los mínimos locales de compra:", error);
     }
   };
 
-  const guardarMinimosCompraCatalogo = async (valores) => {
-    const normalizados = Object.fromEntries(Object.keys(MINIMOS_COMPRA_CATALOGO_DEFAULT).map((catalogo) => [catalogo, Number(valores[catalogo])]));
+  const guardarMinimosCompraCatalogo = async (valores, montos = MONTOS_MINIMOS_CATALOGO_DEFAULT) => {
+    const normalizados = Object.fromEntries([
+      ...Object.keys(MINIMOS_COMPRA_CATALOGO_DEFAULT).map((catalogo) => [catalogo, Number(valores[catalogo])]),
+      ...Object.keys(MONTOS_MINIMOS_CATALOGO_DEFAULT).map((catalogo) => [`monto_${catalogo}`, Math.max(0, Number(montos[catalogo]) || 0)]),
+    ]);
     try {
       const { error } = await supabase
         .from("site_settings")
         .upsert({ key: "minimos_compra_catalogo", value: JSON.stringify(normalizados) }, { onConflict: "key" });
       if (error) return { error: error.message };
-      setMinimosCompraCatalogo(normalizados);
+      setMinimosCompraCatalogo(Object.fromEntries(Object.keys(MINIMOS_COMPRA_CATALOGO_DEFAULT).map((catalogo) => [catalogo, normalizados[catalogo]])));
+      setMontosMinimosCompraCatalogo(Object.fromEntries(Object.keys(MONTOS_MINIMOS_CATALOGO_DEFAULT).map((catalogo) => [catalogo, normalizados[`monto_${catalogo}`]])));
       try {
         window.localStorage.setItem("neosapp_minimos_compra_catalogo", JSON.stringify(normalizados));
       } catch (errorLocal) {
@@ -443,11 +456,30 @@ const cargarProductos = async () => {
 
   if (error) {
     console.error("Error cargando productos:", error);
-    return [];
+    try {
+      const guardados = JSON.parse(window.localStorage.getItem(PRODUCTOS_OFFLINE_KEY) || "[]");
+      const productosOffline = Array.isArray(guardados) ? guardados : [];
+      setProductos(productosOffline);
+      return productosOffline;
+    } catch (errorCache) {
+      console.warn("No se pudo recuperar el catálogo guardado para uso offline:", errorCache);
+      return [];
+    }
   }
 
   const adaptados = (data || []).map(adaptarProducto);
   setProductos(adaptados);
+  try {
+    // Las imágenes base64 pueden ocupar todo el almacenamiento local. Se conserva
+    // el catálogo y sus URLs públicas, pero se omiten las imágenes incrustadas.
+    const productosParaOffline = adaptados.map((producto) => ({
+      ...producto,
+      imagenes: (producto.imagenes || []).filter((imagen) => typeof imagen === "string" && !imagen.startsWith("data:")),
+    }));
+    window.localStorage.setItem(PRODUCTOS_OFFLINE_KEY, JSON.stringify(productosParaOffline));
+  } catch (errorCache) {
+    console.warn("No se pudo actualizar el catálogo offline del dispositivo:", errorCache);
+  }
   return adaptados;
 };
 
@@ -802,10 +834,20 @@ const cargarProductos = async () => {
       const { data, error } = await supabase.from("categorias").select("*");
       if (error) {
         console.error("Error cargando categorías:", error);
-        setCategorias([]);
+        try {
+          const guardadas = JSON.parse(window.localStorage.getItem(CATEGORIAS_OFFLINE_KEY) || "[]");
+          setCategorias(Array.isArray(guardadas) ? guardadas : []);
+        } catch {
+          setCategorias([]);
+        }
         return;
       }
       setCategorias(data || []);
+      try {
+        window.localStorage.setItem(CATEGORIAS_OFFLINE_KEY, JSON.stringify(data || []));
+      } catch (errorCache) {
+        console.warn("No se pudieron guardar las categorías para uso offline:", errorCache);
+      }
     } finally {
       setCargandoCategorias(false);
     }
@@ -1226,6 +1268,18 @@ const cargarProductos = async () => {
         const nombreCatalogo = { General: "Tienda física", Emprendedor: "Mayorista", Mayorista: "Supermayorista" }[catalogo] || catalogo;
         const multiple = catalogo === "Mayorista" ? ` y en múltiplos de ${minimo}` : "";
         return `${producto}: el mínimo de ${nombreCatalogo} es ${minimo} unidades${multiple}.`;
+      }
+    }
+    const totalesPorCatalogo = {};
+    for (const item of carrito || []) {
+      const catalogo = item.tipo_catalogo || "General";
+      totalesPorCatalogo[catalogo] = (totalesPorCatalogo[catalogo] || 0) + Number(item.precio || 0) * Number(item.cantidad || 0);
+    }
+    for (const [catalogo, total] of Object.entries(totalesPorCatalogo)) {
+      const minimo = Number(montosMinimosCompraCatalogo?.[catalogo]) || 0;
+      if (minimo > 0 && total < minimo) {
+        const nombreCatalogo = { General: "Tienda física", Emprendedor: "Mayorista", Mayorista: "Supermayorista" }[catalogo] || catalogo;
+        return `El pedido del catálogo ${nombreCatalogo} debe ser mínimo de $${minimo.toLocaleString("es-CO")}. Agrega $${(minimo - total).toLocaleString("es-CO")} para continuar.`;
       }
     }
     return "";
@@ -2841,6 +2895,7 @@ return (
       catalogosOcultos,
       guardarCatalogosOcultos,
       minimosCompraCatalogo,
+      montosMinimosCompraCatalogo,
       guardarMinimosCompraCatalogo,
       setBannerUrl,
       guardarBannerUrl,

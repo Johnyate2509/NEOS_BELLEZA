@@ -139,7 +139,7 @@ const obtenerNombreCategoria = (producto, categorias) =>
 
 export default function AdminProductos() {
   const { esAdmin } = useAuth();
-  const { productos, setProductos, categorias, crearProducto, actualizarProducto, eliminarProducto, minimosCompraCatalogo, guardarMinimosCompraCatalogo } = useStore();
+  const { productos, setProductos, categorias, crearProducto, actualizarProducto, eliminarProducto, minimosCompraCatalogo, montosMinimosCompraCatalogo, guardarMinimosCompraCatalogo } = useStore();
   const esAdministrador = esAdmin();
   const [borradorInicial] = useState(leerBorrador);
   const [busqueda, setBusqueda] = useState(leerBusquedaGuardada);
@@ -162,6 +162,7 @@ export default function AdminProductos() {
   const [errorVariante, setErrorVariante] = useState("");
   const [administrarCatalogosAbierto, setAdministrarCatalogosAbierto] = useState(false);
   const [minimosCatalogosFormulario, setMinimosCatalogosFormulario] = useState({ General: "1", Emprendedor: "3", Mayorista: "6" });
+  const [montosMinimosCatalogosFormulario, setMontosMinimosCatalogosFormulario] = useState({ General: "0", Emprendedor: "0", Mayorista: "0" });
   const [guardandoMinimosCatalogos, setGuardandoMinimosCatalogos] = useState(false);
   const [importarPlantillaAbierto, setImportarPlantillaAbierto] = useState(false);
   const [camposProductoImportacion, setCamposProductoImportacion] = useState(() => Object.fromEntries(
@@ -902,6 +903,11 @@ export default function AdminProductos() {
       Emprendedor: String(minimosCompraCatalogo?.Emprendedor ?? 3),
       Mayorista: String(minimosCompraCatalogo?.Mayorista ?? 6),
     });
+    setMontosMinimosCatalogosFormulario({
+      General: String(montosMinimosCompraCatalogo?.General ?? 0),
+      Emprendedor: String(montosMinimosCompraCatalogo?.Emprendedor ?? 0),
+      Mayorista: String(montosMinimosCompraCatalogo?.Mayorista ?? 0),
+    });
     setAdministrarCatalogosAbierto(true);
   };
 
@@ -912,8 +918,13 @@ export default function AdminProductos() {
       setError("Los mínimos deben ser números enteros mayores que cero.");
       return;
     }
+    const montos = Object.fromEntries(Object.entries(montosMinimosCatalogosFormulario).map(([catalogo, valor]) => [catalogo, Number(valor)]));
+    if (Object.values(montos).some((valor) => !Number.isFinite(valor) || valor < 0)) {
+      setError("Los montos mínimos deben ser cero o un valor positivo.");
+      return;
+    }
     setGuardandoMinimosCatalogos(true);
-    const resultado = await guardarMinimosCompraCatalogo(valores);
+    const resultado = await guardarMinimosCompraCatalogo(valores, montos);
     setGuardandoMinimosCatalogos(false);
     if (resultado?.error) {
       setError(`No se pudieron guardar los mínimos en Supabase: ${resultado.error}`);
@@ -921,7 +932,7 @@ export default function AdminProductos() {
     }
     setAdministrarCatalogosAbierto(false);
     setError("");
-    setMensaje("Mínimos predeterminados de compra actualizados.");
+    setMensaje("Mínimos de unidades y monto actualizados.");
   };
 
   return (
@@ -1024,7 +1035,8 @@ export default function AdminProductos() {
               <button type="button" aria-label="Cerrar" onClick={() => setAdministrarCatalogosAbierto(false)}>×</button>
             </header>
             <form onSubmit={guardarMinimosCatalogos}>
-              <p>Define el mínimo predeterminado de compra para los productos sin una cantidad personalizada.</p>
+              <p>Configura el mínimo de unidades y el monto mínimo para los pedidos de cada catálogo. Un monto de $0 desactiva ese requisito.</p>
+              <h3>Mínimo de unidades</h3>
               <div className="admin-productos-form-grid">
                 {CATALOGOS.map((catalogo) => (
                   <label key={catalogo.id}>{catalogo.label}
@@ -1033,6 +1045,14 @@ export default function AdminProductos() {
                 ))}
               </div>
               <small>En Supermayorista las cantidades se pedirán en múltiplos del mínimo configurado.</small>
+              <h3>Monto mínimo del pedido</h3>
+              <div className="admin-productos-form-grid">
+                {CATALOGOS.map((catalogo) => (
+                  <label key={`monto-${catalogo.id}`}>{catalogo.label} (COP)
+                    <input type="number" min="0" step="1" required value={montosMinimosCatalogosFormulario[catalogo.id]} onChange={(event) => setMontosMinimosCatalogosFormulario((actual) => ({ ...actual, [catalogo.id]: event.target.value }))} />
+                  </label>
+                ))}
+              </div>
               {error && <p className="admin-productos-form-error" role="alert">{error}</p>}
               <footer className="admin-productos-form-actions">
                 <button type="button" className="admin-productos-secondary" onClick={() => setAdministrarCatalogosAbierto(false)} disabled={guardandoMinimosCatalogos}>Cancelar</button>

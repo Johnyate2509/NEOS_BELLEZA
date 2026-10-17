@@ -1,0 +1,131 @@
+.pwa-install-notice {
+  position: fixed;
+  z-index: 10001;
+  right: 18px;
+  bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(440px, calc(100vw - 28px));
+  padding: 14px;
+  border: 1px solid #ded8c5;
+  border-radius: 14px;
+  background: #fff;
+  color: #20201d;
+  box-shadow: 0 10px 36px #0003;
+}
+
+.pwa-install-icon {
+  display: grid;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 11px;
+  background: #171717;
+  color: #f1d77a;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.pwa-install-copy {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 13px;
+}
+
+.pwa-install-copy span {
+  color: #62625e;
+  font-size: 12px;
+}
+
+.pwa-install-primary {
+  flex: 0 0 auto;
+  padding: 9px 13px;
+  border: 0;
+  border-radius: 9px;
+  background: #171717;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pwa-install-close {
+  align-self: flex-start;
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: #777;
+  font-size: 21px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pwa-install-backdrop {
+  position: fixed;
+  z-index: 10002;
+  inset: 0;
+  display: grid;
+  padding: 18px;
+  place-items: center;
+  background: #0008;
+}
+
+.pwa-install-dialog {
+  position: relative;
+  width: min(420px, 100%);
+  padding: 28px;
+  border-radius: 16px;
+  background: #fff;
+  color: #20201d;
+  box-shadow: 0 16px 48px #0004;
+}
+
+.pwa-install-dialog .pwa-install-close {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+}
+
+.pwa-install-eyebrow {
+  color: #806b25;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+
+.pwa-install-dialog h2 {
+  margin: 8px 0 14px;
+  font-size: 22px;
+}
+
+.pwa-install-dialog ol,
+.pwa-install-dialog p {
+  margin: 0 0 20px;
+  padding-left: 22px;
+  color: #464642;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.pwa-install-dialog p {
+  padding-left: 0;
+}
+
+@media (max-width: 520px) {
+  .pwa-install-notice {
+    right: 10px;
+    bottom: 10px;
+    gap: 9px;
+    padding: 11px;
+  }
+
+  .pwa-install-copy span {
+    font-size: 11px;
+  }
+}
