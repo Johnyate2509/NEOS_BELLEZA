@@ -283,24 +283,29 @@
 
 .banner-carousel-admin-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr));
+  gap: 18px;
   overflow-y: auto;
-  min-height: 80px;
-  padding: 4px;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 6px 8px 12px 4px;
 }
 
 .banner-carousel-admin-item {
   display: grid;
-  gap: 8px;
+  gap: 12px;
   align-content: start;
   color: #fff;
-  font-size: 13px;
+  font-size: 15px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .banner-carousel-admin-item .banner-editor-preview {
   min-height: 0;
-  aspect-ratio: 16 / 5;
+  aspect-ratio: 16 / 7;
 }
 
 .banner-carousel-admin-item .banner-editor-preview img {
@@ -312,18 +317,21 @@
 
 .banner-editor-zoom {
   display: grid;
-  gap: 4px;
+  gap: 9px;
   color: #fff;
-  font-size: 12px;
+  font-size: 15px;
 }
 
 .banner-editor-zoom input {
   width: 100%;
+  min-height: 24px;
   accent-color: var(--gold);
 }
 
 .banner-carousel-admin-item button {
   justify-self: start;
+  min-height: 40px;
+  padding: 8px 14px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -357,12 +365,12 @@
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: min(80vw, 1200px);
-  height: min(80vh, 760px);
+  width: min(92vw, 1440px);
+  height: min(88vh, 900px);
   background: rgba(17, 24, 39, 0.78);
   backdrop-filter: blur(4px);
   border-radius: 16px;
-  padding: 18px;
+  padding: 22px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -382,9 +390,9 @@
   }
 
   .banner-editor-panel {
-    width: min(92vw, 720px);
-    height: min(72vh, 560px);
-    padding: 12px;
+    width: min(96vw, 820px);
+    height: min(88dvh, 780px);
+    padding: 14px;
   }
 
   .banner-editor-preview {
@@ -393,6 +401,11 @@
 
   .banner-carousel-admin-item .banner-editor-preview {
     min-height: 0;
+  }
+
+  .banner-carousel-admin-list {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
   }
 }
 
@@ -486,14 +499,14 @@
 }
 
 .banner-carousel-admin-item .banner-editor-directions {
-  gap: 5px;
+  gap: 10px;
   margin: 0;
 }
 
 .banner-carousel-admin-item .banner-direction-btn {
-  width: 31px;
-  height: 31px;
-  font-size: 15px;
+  width: 44px;
+  height: 44px;
+  font-size: 19px;
 }
 
 .banner-direction-btn:hover {
@@ -590,7 +603,7 @@
 .banner-editor-hint {
   margin: 0;
   color: rgba(255, 255, 255, 0.75);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .banner-editor-actions {
