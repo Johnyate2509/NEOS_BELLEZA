@@ -520,8 +520,9 @@ export default function AdminProductos() {
       if (erroresImportacion.length) {
         setError(`${resumen} ${erroresImportacion.length} filas tuvieron errores: ${erroresImportacion.slice(0, 8).join(" | ")}${erroresImportacion.length > 8 ? " | …" : ""} Las filas exitosas ya se guardaron; descarga una plantilla nueva antes de volver a importar.`);
       } else {
-        setMensaje(`Importación terminada: ${resumen}`);
+        setMensaje(`¡Todo se subió correctamente! ${resumen} La página se actualizará en un momento.`);
         setArchivoImportacion(null);
+        window.setTimeout(() => window.location.reload(), 1800);
       }
     } catch (errorImportacion) {
       setError(errorImportacion.message || "No se pudo leer el archivo de Excel.");
