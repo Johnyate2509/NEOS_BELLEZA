@@ -104,12 +104,56 @@ const CAMPOS_VARIANTE_IMPORTACION = [
 
 const valorCeldaVacia = (valor) => valor == null || String(valor).trim() === "";
 
+const normalizarCabeceraExcel = (valor) => String(valor ?? "")
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .toLocaleLowerCase("es")
+  .replace(/[^a-z0-9]+/g, " ")
+  .trim();
+
+const ALIAS_CABECERAS_IMPORTACION = {
+  precio: ["precio tienda fisica", "precio tienda", "precio base"],
+  precio_emprendedor: ["precio emprendedor", "precio mayorista"],
+  precio_mayorista: ["precio mayorista avanzado", "precio supermayorista", "precio super mayorista"],
+  minimo_General: ["minimo general", "minimo tienda", "cantidad minima tienda fisica"],
+  minimo_Emprendedor: ["minimo emprendedor", "minimo mayorista", "cantidad minima mayorista"],
+  minimo_Mayorista: ["minimo supermayorista", "minimo super mayorista", "cantidad minima supermayorista"],
+};
+
+const crearIndiceCabeceras = (cabeceras, campos) => {
+  const indices = new Map();
+  campos.forEach((campo) => {
+    const candidatas = [campo.label, campo.key, ...(ALIAS_CABECERAS_IMPORTACION[campo.key] || [])]
+      .map(normalizarCabeceraExcel);
+    indices.set(campo.key, cabeceras.findIndex((cabecera) => candidatas.includes(normalizarCabeceraExcel(cabecera))));
+  });
+  return indices;
+};
+
 const convertirNumeroCelda = (valor, etiqueta, fila, { permitirVacio = false, entero = false } = {}) => {
   if (valorCeldaVacia(valor)) {
     if (permitirVacio) return null;
     throw new Error(`Fila ${fila}: falta el valor de ${etiqueta}.`);
   }
-  const numero = Number(valor);
+  let numero = typeof valor === "number" ? valor : Number.NaN;
+  if (typeof valor !== "number") {
+    let texto = String(valor).trim().replace(/[\s\u00a0]/g, "").replace(/cop/gi, "").replace(/\$/g, "");
+    const ultimoPunto = texto.lastIndexOf(".");
+    const ultimaComa = texto.lastIndexOf(",");
+    if (ultimoPunto >= 0 && ultimaComa >= 0) {
+      const separadorDecimal = ultimoPunto > ultimaComa ? "." : ",";
+      const separadorMiles = separadorDecimal === "." ? "," : ".";
+      texto = texto.split(separadorMiles).join("");
+      if (separadorDecimal === ",") texto = texto.replace(",", ".");
+    } else if (ultimaComa >= 0 || ultimoPunto >= 0) {
+      const separador = ultimaComa >= 0 ? "," : ".";
+      const partes = texto.split(separador);
+      const decimales = partes[partes.length - 1];
+      if (partes.length > 2 || decimales.length === 3) texto = partes.join("");
+      else if (separador === ",") texto = texto.replace(",", ".");
+    }
+    numero = Number(texto);
+  }
   if (!Number.isFinite(numero) || numero < 0 || (entero && !Number.isInteger(numero))) {
     throw new Error(`Fila ${fila}: ${etiqueta} debe ser ${entero ? "un entero" : "un número"} igual o mayor a cero.`);
   }
@@ -271,10 +315,38 @@ export default function AdminProductos() {
       if (!hojaProductos) throw new Error("El archivo debe contener una hoja llamada Productos.");
       const filasProductos = XLSX.utils.sheet_to_json(hojaProductos, { header: 1, defval: "", raw: true });
       const cabecerasProductos = (filasProductos.shift() || []).map((cabecera) => String(cabecera).trim());
-      const indiceIdProducto = cabecerasProductos.indexOf("ID producto");
-      const indiceCampoProducto = new Map(CAMPOS_PRODUCTO_IMPORTACION.map((campo) => [campo.key, cabecerasProductos.indexOf(campo.label)]));
+      const indiceIdProducto = cabecerasProductos.findIndex((cabecera) => normalizarCabeceraExcel(cabecera) === "id producto");
+      const indiceCampoProducto = crearIndiceCabeceras(cabecerasProductos, CAMPOS_PRODUCTO_IMPORTACION);
       if (indiceIdProducto < 0 || indiceCampoProducto.get("nombre") < 0 || indiceCampoProducto.get("categoria") < 0) {
         throw new Error("La hoja Productos debe conservar las columnas ID producto, Nombre y Categoría.");
+      }
+      const camposProductoEsperados = CAMPOS_PRODUCTO_IMPORTACION.filter((campo) => campo.obligatorio || camposProductoImportacion[campo.key]);
+      const camposProductoFaltantes = camposProductoEsperados.filter((campo) => indiceCampoProducto.get(campo.key) < 0);
+      if (camposProductoFaltantes.length) {
+        throw new Error(`La plantilla no incluye estas columnas seleccionadas: ${camposProductoFaltantes.map((campo) => campo.label).join(", ")}. Descarga una plantilla nueva con esos campos y vuelve a importar.`);
+      }
+
+      const hojaVariantes = incluirVariantesImportacion ? libro.Sheets.Variantes : null;
+      let filasVariantes = [];
+      let indiceIdVariante = -1;
+      let indiceIdPadre = -1;
+      let indiceNombrePadre = -1;
+      let indiceCampoVariante = new Map();
+      if (hojaVariantes) {
+        filasVariantes = XLSX.utils.sheet_to_json(hojaVariantes, { header: 1, defval: "", raw: true });
+        const cabecerasVariantes = (filasVariantes.shift() || []).map((cabecera) => String(cabecera).trim());
+        indiceIdVariante = cabecerasVariantes.findIndex((cabecera) => normalizarCabeceraExcel(cabecera) === "id variante");
+        indiceIdPadre = cabecerasVariantes.findIndex((cabecera) => normalizarCabeceraExcel(cabecera) === "id producto");
+        indiceNombrePadre = cabecerasVariantes.findIndex((cabecera) => normalizarCabeceraExcel(cabecera) === "producto");
+        indiceCampoVariante = crearIndiceCabeceras(cabecerasVariantes, CAMPOS_VARIANTE_IMPORTACION);
+        if (indiceIdVariante < 0 || indiceIdPadre < 0 || indiceNombrePadre < 0) {
+          throw new Error("La hoja Variantes debe conservar ID variante, ID producto y Producto.");
+        }
+        const camposVarianteFaltantes = CAMPOS_VARIANTE_IMPORTACION
+          .filter((campo) => camposVarianteImportacion[campo.key] && indiceCampoVariante.get(campo.key) < 0);
+        if (camposVarianteFaltantes.length) {
+          throw new Error(`La hoja Variantes no incluye estas columnas seleccionadas: ${camposVarianteFaltantes.map((campo) => campo.label).join(", ")}. Descarga una plantilla nueva y vuelve a importar.`);
+        }
       }
 
       const categoriasPorNombre = new Map(categorias.map((categoria) => [String(categoria.nombre || "").trim().toLocaleLowerCase("es"), categoria]));
@@ -370,17 +442,7 @@ export default function AdminProductos() {
         }
       });
 
-      const hojaVariantes = libro.Sheets.Variantes;
       if (hojaVariantes) {
-        const filasVariantes = XLSX.utils.sheet_to_json(hojaVariantes, { header: 1, defval: "", raw: true });
-        const cabecerasVariantes = (filasVariantes.shift() || []).map((cabecera) => String(cabecera).trim());
-        const indiceIdVariante = cabecerasVariantes.indexOf("ID variante");
-        const indiceIdPadre = cabecerasVariantes.indexOf("ID producto");
-        const indiceNombrePadre = cabecerasVariantes.indexOf("Producto");
-        const indiceCampoVariante = new Map(CAMPOS_VARIANTE_IMPORTACION.map((campo) => [campo.key, cabecerasVariantes.indexOf(campo.label)]));
-        if (indiceIdVariante < 0 || indiceIdPadre < 0 || indiceNombrePadre < 0) {
-          throw new Error("La hoja Variantes debe conservar ID variante, ID producto y Producto.");
-        }
         const idsVarianteVistos = new Set();
         await procesarFilasPorLotes(filasVariantes, async (filaRecibida, indiceFila) => {
           const fila = filaRecibida || [];
