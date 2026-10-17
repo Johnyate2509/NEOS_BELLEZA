@@ -1,5 +1,6 @@
 -- Tienda física (General) valida y descuenta stock.
--- Mayorista (Emprendedor) y Supermayorista (Mayorista) solo requieren precio.
+-- Todos los catálogos aplican el mínimo configurado al producto o, si no existe,
+-- el mínimo global. Supermayorista (Mayorista) también exige múltiplos del mínimo.
 CREATE OR REPLACE FUNCTION public.crear_pedido_seguro(
   p_cliente_id integer,
   p_forma_pago text,
@@ -22,6 +23,8 @@ DECLARE
   v_total numeric := 0;
   v_pedido_id integer;
   v_tipo text;
+  v_minimos_catalogo jsonb := '{}'::jsonb;
+  v_minimo integer;
 BEGIN
   SELECT u.rol INTO v_role
   FROM public.usuarios u
@@ -50,6 +53,16 @@ BEGIN
     RAISE EXCEPTION 'Datos del pedido inválidos' USING errcode = '22023';
   END IF;
 
+  SELECT CASE jsonb_typeof(s.value::jsonb)
+    WHEN 'object' THEN s.value::jsonb
+    WHEN 'string' THEN (s.value::jsonb #>> '{}')::jsonb
+    ELSE '{}'::jsonb
+  END
+  INTO v_minimos_catalogo
+  FROM public.site_settings s
+  WHERE s.key = 'minimos_compra_catalogo';
+  v_minimos_catalogo := coalesce(v_minimos_catalogo, '{}'::jsonb);
+
   INSERT INTO public.pedidos (cliente_id, forma_pago, estado, total, fecha, pre_alistamiento, observacion)
   VALUES (p_cliente_id, p_forma_pago, 'Pendiente', 0, now(), '{}'::jsonb, NULL)
   RETURNING id INTO v_pedido_id;
@@ -71,6 +84,30 @@ BEGIN
     IF NOT FOUND OR v_producto.oculto_catalogo
        OR v_tipo = ANY(coalesce(v_producto.catalogos_ocultos, ARRAY[]::text[])) THEN
       RAISE EXCEPTION 'Producto no disponible' USING errcode = '22023';
+    END IF;
+
+    v_minimo := coalesce(
+      nullif(v_producto.minimos_compra ->> v_tipo, '')::integer,
+      nullif(v_minimos_catalogo ->> v_tipo, '')::integer,
+      CASE v_tipo
+        WHEN 'General' THEN 1
+        WHEN 'Emprendedor' THEN 3
+        ELSE 6
+      END
+    );
+    IF v_minimo IS NULL OR v_minimo < 1 THEN
+      v_minimo := CASE v_tipo
+        WHEN 'General' THEN 1
+        WHEN 'Emprendedor' THEN 3
+        ELSE 6
+      END;
+    END IF;
+    IF v_cantidad < v_minimo
+       OR (v_tipo = 'Mayorista' AND mod(v_cantidad, v_minimo) <> 0) THEN
+      RAISE EXCEPTION 'La cantidad debe ser al menos % unidades%',
+        v_minimo,
+        CASE WHEN v_tipo = 'Mayorista' THEN ' y un múltiplo de ese mínimo' ELSE '' END
+        USING errcode = '22023';
     END IF;
 
     IF nullif(v_line ->> 'variante_id', '') IS NOT NULL THEN

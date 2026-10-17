@@ -1179,10 +1179,33 @@ const cargarProductos = async () => {
     return true;
   };
 
+  const validarMinimosCarrito = (carrito) => {
+    for (const item of carrito || []) {
+      const catalogo = item.tipo_catalogo || "General";
+      const minimoProducto = Number(item.minimos_compra?.[catalogo]);
+      const minimoGeneral = Number(minimosCompraCatalogo?.[catalogo]);
+      const minimo = Number.isInteger(minimoProducto) && minimoProducto > 0
+        ? minimoProducto
+        : Number.isInteger(minimoGeneral) && minimoGeneral > 0
+          ? minimoGeneral
+          : MINIMOS_COMPRA_CATALOGO_DEFAULT[catalogo] || 1;
+      const cantidad = Number(item.cantidad || 0);
+      if (cantidad < minimo || (catalogo === "Mayorista" && cantidad % minimo !== 0)) {
+        const producto = item.variante?.nombre ? `${item.nombre} (${item.variante.nombre})` : item.nombre;
+        const nombreCatalogo = { General: "Tienda física", Emprendedor: "Mayorista", Mayorista: "Supermayorista" }[catalogo] || catalogo;
+        const multiple = catalogo === "Mayorista" ? ` y en múltiplos de ${minimo}` : "";
+        return `${producto}: el mínimo de ${nombreCatalogo} es ${minimo} unidades${multiple}.`;
+      }
+    }
+    return "";
+  };
+
   const crearPedidoSeguro = async ({ clienteId, cedula, nombre, direccion, correo = "", telefono = "", carrito, formaPago }) => {
     if (!clienteId || !Array.isArray(carrito) || carrito.length === 0) {
       return { error: "Selecciona un cliente y agrega productos para crear el pedido." };
     }
+    const errorMinimo = validarMinimosCarrito(carrito);
+    if (errorMinimo) return { error: errorMinimo };
 
     try {
       const lineas = carrito.map((item) => ({
