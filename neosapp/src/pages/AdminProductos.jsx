@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useStore } from "../context/StoreContext";
 import { supabase } from "../context/supabaseClient";
+import * as XLSX from "xlsx";
 import HorizontalScroll from "../components/HorizontalScroll";
 import "../styles/admin-productos.css";
 
@@ -77,6 +78,50 @@ const CATALOGOS = [
   { id: "Mayorista", label: "Supermayorista" },
 ];
 
+const CAMPOS_PRODUCTO_IMPORTACION = [
+  { key: "nombre", label: "Nombre", obligatorio: true },
+  { key: "categoria", label: "Categoría", obligatorio: true },
+  { key: "stock", label: "Stock" },
+  { key: "precio", label: "Precio tienda física" },
+  { key: "precio_emprendedor", label: "Precio mayorista" },
+  { key: "precio_mayorista", label: "Precio supermayorista" },
+  { key: "precio_costo", label: "Precio de costo" },
+  { key: "descripcion", label: "Descripción" },
+  { key: "minimo_General", label: "Mínimo tienda física" },
+  { key: "minimo_Emprendedor", label: "Mínimo mayorista" },
+  { key: "minimo_Mayorista", label: "Mínimo supermayorista" },
+];
+
+const CAMPOS_VARIANTE_IMPORTACION = [
+  { key: "nombre", label: "Nombre variante" },
+  { key: "atributos", label: "Atributos (texto o JSON)" },
+  { key: "stock", label: "Stock variante" },
+  { key: "precio", label: "Precio variante tienda física" },
+  { key: "precio_emprendedor", label: "Precio variante mayorista" },
+  { key: "precio_mayorista", label: "Precio variante supermayorista" },
+];
+
+const valorCeldaVacia = (valor) => valor == null || String(valor).trim() === "";
+
+const convertirNumeroCelda = (valor, etiqueta, fila, { permitirVacio = false, entero = false } = {}) => {
+  if (valorCeldaVacia(valor)) {
+    if (permitirVacio) return null;
+    throw new Error(`Fila ${fila}: falta el valor de ${etiqueta}.`);
+  }
+  const numero = Number(valor);
+  if (!Number.isFinite(numero) || numero < 0 || (entero && !Number.isInteger(numero))) {
+    throw new Error(`Fila ${fila}: ${etiqueta} debe ser ${entero ? "un entero" : "un número"} igual o mayor a cero.`);
+  }
+  return numero;
+};
+
+const procesarFilasPorLotes = async (filas, procesarFila, tamanoLote = 5) => {
+  for (let inicio = 0; inicio < filas.length; inicio += tamanoLote) {
+    const lote = filas.slice(inicio, inicio + tamanoLote);
+    await Promise.all(lote.map((fila, indice) => procesarFila(fila, inicio + indice)));
+  }
+};
+
 const formatearPrecio = (precio) =>
   precio == null || precio === "" || Number(precio) === 0
     ? "—"
@@ -117,6 +162,290 @@ export default function AdminProductos() {
   const [administrarCatalogosAbierto, setAdministrarCatalogosAbierto] = useState(false);
   const [minimosCatalogosFormulario, setMinimosCatalogosFormulario] = useState({ General: "1", Emprendedor: "3", Mayorista: "6" });
   const [guardandoMinimosCatalogos, setGuardandoMinimosCatalogos] = useState(false);
+  const [importarPlantillaAbierto, setImportarPlantillaAbierto] = useState(false);
+  const [camposProductoImportacion, setCamposProductoImportacion] = useState(() => Object.fromEntries(
+    CAMPOS_PRODUCTO_IMPORTACION.map((campo) => [campo.key, true])
+  ));
+  const [camposVarianteImportacion, setCamposVarianteImportacion] = useState(() => Object.fromEntries(
+    CAMPOS_VARIANTE_IMPORTACION.map((campo) => [campo.key, true])
+  ));
+  const [incluirVariantesImportacion, setIncluirVariantesImportacion] = useState(true);
+  const [archivoImportacion, setArchivoImportacion] = useState(null);
+  const [importandoPlantilla, setImportandoPlantilla] = useState(false);
+
+  const cerrarImportarPlantilla = () => {
+    if (importandoPlantilla) return;
+    setImportarPlantillaAbierto(false);
+    setArchivoImportacion(null);
+  };
+
+  const descargarPlantillaExcel = async () => {
+    const camposProducto = CAMPOS_PRODUCTO_IMPORTACION.filter((campo) =>
+      campo.obligatorio || camposProductoImportacion[campo.key]
+    );
+    const camposVariante = CAMPOS_VARIANTE_IMPORTACION.filter((campo) => camposVarianteImportacion[campo.key]);
+    const hojaProductos = [
+      ["ID producto", ...camposProducto.map((campo) => campo.label)],
+      ...productos.map((producto) => [
+        producto.id,
+        ...camposProducto.map((campo) => {
+          if (campo.key === "categoria") return obtenerNombreCategoria(producto, categorias);
+          if (campo.key === "minimo_General") return producto.minimos_compra?.General ?? "";
+          if (campo.key === "minimo_Emprendedor") return producto.minimos_compra?.Emprendedor ?? "";
+          if (campo.key === "minimo_Mayorista") return producto.minimos_compra?.Mayorista ?? "";
+          return producto[campo.key] ?? "";
+        }),
+      ]),
+      ["", ...camposProducto.map(() => "")],
+    ];
+    const libro = XLSX.utils.book_new();
+    const sheetProductos = XLSX.utils.aoa_to_sheet(hojaProductos);
+    sheetProductos["!cols"] = [{ wch: 14 }, ...camposProducto.map((campo) => ({ wch: Math.max(18, campo.label.length + 2) }))];
+    XLSX.utils.book_append_sheet(libro, sheetProductos, "Productos");
+
+    if (incluirVariantesImportacion && camposVariante.length) {
+      const { data, error: errorVariantes } = await supabase
+        .from("producto_variantes")
+        .select("id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,archivada")
+        .eq("archivada", false)
+        .order("producto_id", { ascending: true });
+      if (errorVariantes) {
+        setError(`No se pudieron preparar las variantes de la plantilla: ${errorVariantes.message}`);
+        return;
+      }
+      const porId = new Map(productos.map((producto) => [String(producto.id), producto]));
+      const hojaVariantes = [
+        ["ID variante", "ID producto", "Producto", ...camposVariante.map((campo) => campo.label)],
+        ...(data || []).map((variante) => [
+          variante.id,
+          variante.producto_id,
+          porId.get(String(variante.producto_id))?.nombre || "",
+          ...camposVariante.map((campo) => {
+            const valor = variante[campo.key];
+            return campo.key === "atributos" && valor && typeof valor === "object" ? JSON.stringify(valor) : valor ?? "";
+          }),
+        ]),
+        ["", "", "", ...camposVariante.map(() => "")],
+      ];
+      const sheetVariantes = XLSX.utils.aoa_to_sheet(hojaVariantes);
+      sheetVariantes["!cols"] = [{ wch: 14 }, { wch: 14 }, { wch: 30 }, ...camposVariante.map((campo) => ({ wch: Math.max(20, campo.label.length + 2) }))];
+      XLSX.utils.book_append_sheet(libro, sheetVariantes, "Variantes");
+    }
+
+    XLSX.writeFile(libro, "plantilla_importar_productos.xlsx");
+    setError("");
+    setMensaje("Plantilla descargada. Edita las filas actuales o agrega filas nuevas y luego impórtala aquí.");
+  };
+
+  const importarArchivoExcel = async () => {
+    if (!archivoImportacion) {
+      setError("Selecciona primero un archivo de Excel para importar.");
+      return;
+    }
+    setImportandoPlantilla(true);
+    setError("");
+    setMensaje("");
+    const erroresImportacion = [];
+    let productosCreados = 0;
+    let productosActualizados = 0;
+    let variantesCreadas = 0;
+    let variantesActualizadas = 0;
+
+    try {
+      const libro = XLSX.read(await archivoImportacion.arrayBuffer(), { type: "array", cellFormula: false, cellHTML: false });
+      const hojaProductos = libro.Sheets.Productos;
+      if (!hojaProductos) throw new Error("El archivo debe contener una hoja llamada Productos.");
+      const filasProductos = XLSX.utils.sheet_to_json(hojaProductos, { header: 1, defval: "", raw: true });
+      const cabecerasProductos = (filasProductos.shift() || []).map((cabecera) => String(cabecera).trim());
+      const indiceIdProducto = cabecerasProductos.indexOf("ID producto");
+      const indiceCampoProducto = new Map(CAMPOS_PRODUCTO_IMPORTACION.map((campo) => [campo.key, cabecerasProductos.indexOf(campo.label)]));
+      if (indiceIdProducto < 0 || indiceCampoProducto.get("nombre") < 0 || indiceCampoProducto.get("categoria") < 0) {
+        throw new Error("La hoja Productos debe conservar las columnas ID producto, Nombre y Categoría.");
+      }
+
+      const categoriasPorNombre = new Map(categorias.map((categoria) => [String(categoria.nombre || "").trim().toLocaleLowerCase("es"), categoria]));
+      const productosPorId = new Map(productos.map((producto) => [String(producto.id), producto]));
+      const productosNuevosPorNombre = new Map();
+      const idsProductoVistos = new Set();
+      await procesarFilasPorLotes(filasProductos, async (filaRecibida, indiceFila) => {
+        const fila = filaRecibida || [];
+        if (fila.every(valorCeldaVacia)) return;
+        const numeroFila = indiceFila + 2;
+        try {
+          const idCelda = fila[indiceIdProducto];
+          const id = valorCeldaVacia(idCelda) ? "" : String(idCelda).trim();
+          if (id && idsProductoVistos.has(id)) throw new Error(`Fila ${numeroFila}: el ID ${id} está repetido en el archivo.`);
+          if (id) idsProductoVistos.add(id);
+          const existente = id ? productosPorId.get(id) : null;
+          if (id && !existente) throw new Error(`Fila ${numeroFila}: no existe el producto con ID ${id}.`);
+          const obtenerValor = (clave) => {
+            const indice = indiceCampoProducto.get(clave);
+            return indice == null || indice < 0 ? undefined : fila[indice];
+          };
+          const nombreCelda = obtenerValor("nombre");
+          const categoriaCelda = obtenerValor("categoria");
+          const nombre = valorCeldaVacia(nombreCelda) ? existente?.nombre || "" : String(nombreCelda).trim();
+          if (!nombre) throw new Error(`Fila ${numeroFila}: el nombre del producto es obligatorio.`);
+
+          const cambios = { nombre };
+          if (!valorCeldaVacia(categoriaCelda)) {
+            const categoria = categoriasPorNombre.get(String(categoriaCelda).trim().toLocaleLowerCase("es"));
+            if (!categoria) throw new Error(`Fila ${numeroFila}: no existe la categoría “${categoriaCelda}”.`);
+            cambios.categoria_id = categoria.id;
+          } else if (!existente) {
+            throw new Error(`Fila ${numeroFila}: la categoría es obligatoria para crear un producto.`);
+          }
+
+          const stockCelda = obtenerValor("stock");
+          if (stockCelda !== undefined && !valorCeldaVacia(stockCelda)) cambios.stock = convertirNumeroCelda(stockCelda, "stock", numeroFila, { entero: true });
+          for (const clave of ["precio", "precio_emprendedor", "precio_mayorista"]) {
+            const valor = obtenerValor(clave);
+            if (valor !== undefined) cambios[clave] = valorCeldaVacia(valor) ? "" : convertirNumeroCelda(valor, clave, numeroFila);
+          }
+          const costo = obtenerValor("precio_costo");
+          if (costo !== undefined) cambios.precio_costo = valorCeldaVacia(costo) ? null : convertirNumeroCelda(costo, "precio de costo", numeroFila);
+          const descripcion = obtenerValor("descripcion");
+          if (descripcion !== undefined) cambios.descripcion = valorCeldaVacia(descripcion) ? "" : String(descripcion);
+
+          const minimos = { ...(existente?.minimos_compra || {}) };
+          let hayMinimos = false;
+          for (const [clave, catalogo] of [["minimo_General", "General"], ["minimo_Emprendedor", "Emprendedor"], ["minimo_Mayorista", "Mayorista"]]) {
+            const valor = obtenerValor(clave);
+            if (valor === undefined) continue;
+            const minimo = valorCeldaVacia(valor) ? null : convertirNumeroCelda(valor, `mínimo ${catalogo}`, numeroFila, { entero: true });
+            if (minimo !== null && minimo < 1) throw new Error(`Fila ${numeroFila}: el mínimo ${catalogo} debe ser mayor que cero.`);
+            minimos[catalogo] = minimo;
+            hayMinimos = true;
+          }
+          if (hayMinimos) cambios.minimos_compra = minimos;
+
+          if (existente) {
+            const resultado = await actualizarProducto(existente.id, cambios);
+            if (resultado?.error) throw new Error(resultado.error);
+            productosPorId.set(String(existente.id), resultado.producto || { ...existente, ...cambios });
+            productosActualizados += 1;
+          } else {
+            const precios = [cambios.precio, cambios.precio_emprendedor, cambios.precio_mayorista];
+            if (!precios.some((precio) => precio !== undefined && precio !== "" && Number(precio) > 0)) {
+              throw new Error(`Fila ${numeroFila}: un producto nuevo necesita al menos un precio mayor que cero.`);
+            }
+            const categoriaNombre = categorias.find((categoria) => String(categoria.id) === String(cambios.categoria_id))?.nombre;
+            const resultado = await crearProducto(
+              cambios.nombre,
+              cambios.precio ?? "",
+              cambios.precio_emprendedor ?? "",
+              cambios.precio_mayorista ?? "",
+              categoriaNombre,
+              cambios.stock ?? 0,
+              cambios.descripcion ?? "",
+              [],
+              { precio_costo: cambios.precio_costo, minimos_compra: cambios.minimos_compra || {} }
+            );
+            if (resultado?.error) throw new Error(resultado.error);
+            productosCreados += 1;
+            if (resultado?.producto) {
+              productosPorId.set(String(resultado.producto.id), resultado.producto);
+              const claveNombre = resultado.producto.nombre.trim().toLocaleLowerCase("es");
+              productosNuevosPorNombre.set(claveNombre, [...(productosNuevosPorNombre.get(claveNombre) || []), resultado.producto]);
+            }
+          }
+        } catch (errorFila) {
+          erroresImportacion.push(errorFila.message || `Fila ${numeroFila}: error al importar.`);
+        }
+      });
+
+      const hojaVariantes = libro.Sheets.Variantes;
+      if (hojaVariantes) {
+        const filasVariantes = XLSX.utils.sheet_to_json(hojaVariantes, { header: 1, defval: "", raw: true });
+        const cabecerasVariantes = (filasVariantes.shift() || []).map((cabecera) => String(cabecera).trim());
+        const indiceIdVariante = cabecerasVariantes.indexOf("ID variante");
+        const indiceIdPadre = cabecerasVariantes.indexOf("ID producto");
+        const indiceNombrePadre = cabecerasVariantes.indexOf("Producto");
+        const indiceCampoVariante = new Map(CAMPOS_VARIANTE_IMPORTACION.map((campo) => [campo.key, cabecerasVariantes.indexOf(campo.label)]));
+        if (indiceIdVariante < 0 || indiceIdPadre < 0 || indiceNombrePadre < 0) {
+          throw new Error("La hoja Variantes debe conservar ID variante, ID producto y Producto.");
+        }
+        const idsVarianteVistos = new Set();
+        await procesarFilasPorLotes(filasVariantes, async (filaRecibida, indiceFila) => {
+          const fila = filaRecibida || [];
+          if (fila.every(valorCeldaVacia)) return;
+          const numeroFila = indiceFila + 2;
+          try {
+            const idCelda = fila[indiceIdVariante];
+            const idVariante = valorCeldaVacia(idCelda) ? "" : String(idCelda).trim();
+            if (idVariante && idsVarianteVistos.has(idVariante)) throw new Error(`Fila ${numeroFila}: el ID de variante ${idVariante} está repetido en el archivo.`);
+            if (idVariante) idsVarianteVistos.add(idVariante);
+            const idPadreCelda = fila[indiceIdPadre];
+            let productoPadre = valorCeldaVacia(idPadreCelda) ? null : productosPorId.get(String(idPadreCelda).trim());
+            if (!productoPadre) {
+              const nombrePadre = String(fila[indiceNombrePadre] || "").trim().toLocaleLowerCase("es");
+              const coincidencias = productosNuevosPorNombre.get(nombrePadre) || productos.filter((producto) => producto.nombre.trim().toLocaleLowerCase("es") === nombrePadre);
+              if (coincidencias.length === 1) productoPadre = coincidencias[0];
+            }
+            if (!productoPadre) throw new Error(`Fila ${numeroFila}: no se encontró un producto padre único para la variante.`);
+            const obtenerValor = (clave) => {
+              const indice = indiceCampoVariante.get(clave);
+              return indice == null || indice < 0 ? undefined : fila[indice];
+            };
+            const payload = {};
+            const nombreVariante = obtenerValor("nombre");
+            if (nombreVariante !== undefined) payload.nombre = valorCeldaVacia(nombreVariante) ? null : String(nombreVariante).trim();
+            const atributos = obtenerValor("atributos");
+            if (atributos !== undefined) {
+              if (valorCeldaVacia(atributos)) payload.atributos = null;
+              else {
+                try { payload.atributos = JSON.parse(String(atributos)); }
+                catch { payload.atributos = String(atributos); }
+              }
+            }
+            const stock = obtenerValor("stock");
+            if (stock !== undefined && !valorCeldaVacia(stock)) payload.stock = convertirNumeroCelda(stock, "stock de variante", numeroFila, { entero: true });
+            for (const clave of ["precio", "precio_emprendedor", "precio_mayorista"]) {
+              const valor = obtenerValor(clave);
+              if (valor !== undefined) payload[clave] = valorCeldaVacia(valor) ? null : convertirNumeroCelda(valor, clave, numeroFila);
+            }
+            if (!idVariante && !payload.nombre) throw new Error(`Fila ${numeroFila}: una variante nueva necesita un nombre.`);
+            let consulta = supabase.from("producto_variantes");
+            if (idVariante) {
+              consulta = consulta.update(payload).eq("id", idVariante).eq("producto_id", Number(productoPadre.id));
+            } else {
+              consulta = consulta.insert([{ ...payload, producto_id: Number(productoPadre.id) }]);
+            }
+            const { data, error: errorGuardado } = await consulta
+              .select("id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,archivada,created_at,updated_at")
+              .single();
+            if (errorGuardado) throw new Error(errorGuardado.message);
+            setVariantesPorProducto((actuales) => {
+              const lista = actuales[productoPadre.id] || [];
+              return {
+                ...actuales,
+                [productoPadre.id]: idVariante
+                  ? lista.map((variante) => String(variante.id) === String(data.id) ? data : variante)
+                  : [...lista, data],
+              };
+            });
+            if (idVariante) variantesActualizadas += 1;
+            else variantesCreadas += 1;
+          } catch (errorFila) {
+            erroresImportacion.push(`Variantes ${errorFila.message || `fila ${numeroFila}: error al importar.`}`);
+          }
+        });
+      }
+
+      const resumen = `${productosCreados} productos creados, ${productosActualizados} actualizados, ${variantesCreadas} variantes creadas y ${variantesActualizadas} actualizadas.`;
+      if (erroresImportacion.length) {
+        setError(`${resumen} ${erroresImportacion.length} filas tuvieron errores: ${erroresImportacion.slice(0, 8).join(" | ")}${erroresImportacion.length > 8 ? " | …" : ""} Las filas exitosas ya se guardaron; descarga una plantilla nueva antes de volver a importar.`);
+      } else {
+        setMensaje(`Importación terminada: ${resumen}`);
+        setArchivoImportacion(null);
+      }
+    } catch (errorImportacion) {
+      setError(errorImportacion.message || "No se pudo leer el archivo de Excel.");
+    } finally {
+      setImportandoPlantilla(false);
+      setArchivoImportacion(null);
+    }
+  };
 
   useEffect(() => {
     if (!esAdministrador) return undefined;
@@ -584,9 +913,87 @@ export default function AdminProductos() {
         </div>
         <div className="admin-productos-header-actions">
           <button className="admin-productos-secondary" type="button" onClick={abrirAdministrarCatalogos}>Administrar categorías</button>
+          <button className="admin-productos-secondary" type="button" onClick={() => { setError(""); setMensaje(""); setImportarPlantillaAbierto(true); }}>Importar plantilla</button>
           <button className="admin-productos-primary" type="button" onClick={abrirNuevo}>+ Nuevo producto</button>
         </div>
       </header>
+
+      {importarPlantillaAbierto && (
+        <div className="admin-productos-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) cerrarImportarPlantilla(); }}>
+          <section className="admin-productos-modal admin-productos-import-modal" role="dialog" aria-modal="true" aria-labelledby="admin-importar-plantilla-title">
+            <header className="admin-productos-modal-header">
+              <div><span>IMPORTACIÓN MASIVA</span><h2 id="admin-importar-plantilla-title">Importar plantilla</h2></div>
+              <button type="button" aria-label="Cerrar" onClick={cerrarImportarPlantilla} disabled={importandoPlantilla}>×</button>
+            </header>
+            <div className="admin-productos-import-body">
+              <p>Elige los campos y descarga un archivo Excel con los productos actuales para editarlos. También puedes agregar filas nuevas. Las imágenes no se incluyen.</p>
+              <fieldset className="admin-productos-import-fields">
+                <legend>Campos del producto</legend>
+                <label className="admin-productos-import-select-all">
+                  <input
+                    type="checkbox"
+                    checked={CAMPOS_PRODUCTO_IMPORTACION.filter((campo) => !campo.obligatorio).every((campo) => camposProductoImportacion[campo.key])}
+                    onChange={(event) => setCamposProductoImportacion(Object.fromEntries(CAMPOS_PRODUCTO_IMPORTACION.map((campo) => [campo.key, campo.obligatorio || event.target.checked])))}
+                  />
+                  Todos los campos
+                </label>
+                <div className="admin-productos-import-checks">
+                  {CAMPOS_PRODUCTO_IMPORTACION.map((campo) => (
+                    <label key={campo.key}>
+                      <input
+                        type="checkbox"
+                        checked={campo.obligatorio || Boolean(camposProductoImportacion[campo.key])}
+                        disabled={campo.obligatorio}
+                        onChange={(event) => setCamposProductoImportacion((actual) => ({ ...actual, [campo.key]: event.target.checked }))}
+                      />
+                      {campo.label}{campo.obligatorio ? " *" : ""}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <fieldset className="admin-productos-import-fields">
+                <legend>Variantes</legend>
+                <label className="admin-productos-import-include-variants">
+                  <input type="checkbox" checked={incluirVariantesImportacion} onChange={(event) => setIncluirVariantesImportacion(event.target.checked)} />
+                  Incluir hoja de variantes
+                </label>
+                {incluirVariantesImportacion && (
+                  <>
+                  <label className="admin-productos-import-select-all">
+                    <input type="checkbox" checked={CAMPOS_VARIANTE_IMPORTACION.every((campo) => camposVarianteImportacion[campo.key])} onChange={(event) => setCamposVarianteImportacion(Object.fromEntries(CAMPOS_VARIANTE_IMPORTACION.map((campo) => [campo.key, event.target.checked])))} />
+                    Todos los campos de variantes
+                  </label>
+                  <div className="admin-productos-import-checks">
+                    {CAMPOS_VARIANTE_IMPORTACION.map((campo) => (
+                      <label key={campo.key}>
+                        <input type="checkbox" checked={Boolean(camposVarianteImportacion[campo.key])} onChange={(event) => setCamposVarianteImportacion((actual) => ({ ...actual, [campo.key]: event.target.checked }))} />
+                        {campo.label}
+                      </label>
+                    ))}
+                  </div>
+                  </>
+                )}
+              </fieldset>
+              <div className="admin-productos-import-notice">
+                <strong>Cómo se aplica:</strong> conserva el ID para actualizar; deja el ID vacío en una fila nueva para crear. Las filas que dejes fuera no se eliminan. Para variantes nuevas, completa el ID del producto o su nombre exacto. Si algunas filas fallan, las demás quedan guardadas y no se revierten.
+              </div>
+              <div className="admin-productos-import-actions">
+                <button type="button" className="admin-productos-secondary" onClick={descargarPlantillaExcel} disabled={importandoPlantilla || (incluirVariantesImportacion && !CAMPOS_VARIANTE_IMPORTACION.some((campo) => camposVarianteImportacion[campo.key]))}>Descargar plantilla Excel</button>
+                <label className="admin-productos-import-file">
+                  <span>{archivoImportacion?.name || "Seleccionar archivo Excel"}</span>
+                  <input key={archivoImportacion?.name || "sin-archivo"} type="file" accept=".xlsx,.xls" disabled={importandoPlantilla} onChange={(event) => setArchivoImportacion(event.target.files?.[0] || null)} />
+                </label>
+                <button type="button" className="admin-productos-primary" onClick={importarArchivoExcel} disabled={importandoPlantilla || !archivoImportacion}>{importandoPlantilla ? "Importando…" : "Importar productos"}</button>
+              </div>
+              {error && <p className="admin-productos-form-error" role="alert">{error}</p>}
+              {mensaje && <p className="admin-productos-import-success" role="status">{mensaje}</p>}
+              <footer className="admin-productos-form-actions">
+                <button type="button" className="admin-productos-secondary" onClick={cerrarImportarPlantilla} disabled={importandoPlantilla}>Cerrar</button>
+              </footer>
+            </div>
+          </section>
+        </div>
+      )}
 
       {administrarCatalogosAbierto && (
         <div className="admin-productos-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !guardandoMinimosCatalogos) setAdministrarCatalogosAbierto(false); }}>

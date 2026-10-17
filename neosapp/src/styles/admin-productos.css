@@ -164,6 +164,25 @@
 .admin-productos-modal-header h2 { margin-top: 3px; font-family: Georgia, "Times New Roman", serif; font-size: 23px; font-weight: 600; }
 .admin-productos-modal-header button { width: 34px; height: 34px; border: 1px solid var(--ap-line); border-radius: 4px; color: var(--ap-ink); background: #fff; font-size: 23px; line-height: 1; cursor: pointer; }
 .admin-productos-modal form { padding: 20px 22px 22px; }
+.admin-productos-import-modal { width: min(820px, 100%); }
+.admin-productos-import-body { padding: 18px 22px 22px; }
+.admin-productos-import-body > p { margin: 0 0 15px; color: var(--ap-muted); font-size: 13px; line-height: 1.5; }
+.admin-productos-import-fields { margin: 0 0 14px; padding: 12px; border: 1px solid var(--ap-line); border-radius: 4px; }
+.admin-productos-import-fields legend { padding: 0 5px; color: var(--ap-ink); font-size: 12px; font-weight: 700; }
+.admin-productos-import-select-all { display: inline-flex; align-items: center; gap: 7px; margin: 0 0 11px; color: var(--ap-green); font-size: 12px; font-weight: 700; }
+.admin-productos-import-select-all input { width: 16px; height: 16px; accent-color: var(--ap-green); }
+.admin-productos-import-checks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px 12px; }
+.admin-productos-import-checks label,
+.admin-productos-import-include-variants { display: flex; align-items: center; gap: 7px; min-width: 0; color: var(--ap-ink); font-size: 12px; }
+.admin-productos-import-checks input,
+.admin-productos-import-include-variants input { width: 16px; height: 16px; flex: 0 0 auto; accent-color: var(--ap-green); }
+.admin-productos-import-include-variants { margin: 0 0 12px; font-weight: 700; }
+.admin-productos-import-notice { padding: 11px 12px; border-radius: 4px; color: #47564d; background: #f1f5f1; font-size: 11px; line-height: 1.5; }
+.admin-productos-import-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-top: 15px; }
+.admin-productos-import-file { position: relative; display: inline-flex; align-items: center; min-height: 42px; max-width: 100%; overflow: hidden; padding: 0 12px; border: 1px solid var(--ap-line); border-radius: 5px; color: var(--ap-green); background: #fff; font-size: 12px; font-weight: 700; cursor: pointer; }
+.admin-productos-import-file span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-productos-import-file input { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; }
+.admin-productos-import-success { margin: 13px 0 0; color: #20583e; font-size: 12px; line-height: 1.5; }
 .admin-productos-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
 .admin-productos-form-grid > label:not(.admin-productos-checkbox) { display: grid; align-content: start; gap: 7px; color: var(--ap-muted); font-size: 11px; font-weight: 700; }
 .admin-productos-form-grid .span-two { grid-column: 1 / -1; }
@@ -245,6 +264,11 @@
   .admin-productos-modal-header { padding: 15px; }
   .admin-productos-modal-header h2 { font-size: 21px; }
   .admin-productos-modal form { padding: 15px 15px calc(18px + env(safe-area-inset-bottom)); }
+  .admin-productos-import-body { padding: 15px 15px calc(18px + env(safe-area-inset-bottom)); }
+  .admin-productos-import-checks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-productos-import-actions { align-items: stretch; flex-direction: column; }
+  .admin-productos-import-actions > button,
+  .admin-productos-import-file { width: 100%; justify-content: center; }
   .admin-productos-form-grid { grid-template-columns: 1fr; }
   .admin-productos-form-grid .span-two { grid-column: auto; }
   .admin-productos-form-actions > button { flex: 1; }
