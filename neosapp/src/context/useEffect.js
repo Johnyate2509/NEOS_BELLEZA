@@ -1,7 +1,7 @@
 const cargarProductos = async () => {
   const { data, error } = await supabase
     .from("productos")
-    .select("id,nombre,precio,stock,descripcion,categoria_id,imagen_url,precio_mayorista,precio_emprendedor,imagen_url2,imagen_url3,oculto_catalogo,catalogos_ocultos");
+    .select("id,nombre,precio,stock,descripcion,categoria_id,imagen_url,precio_mayorista,precio_emprendedor,imagen_url2,imagen_url3,imagen_url4,imagen_url5,oculto_catalogo,catalogos_ocultos");
 
   if (error) {
     console.error(error);
@@ -15,7 +15,7 @@ const cargarProductos = async () => {
     stock: p.stock,
     categoria: p.categoria,
     descripcion: p.descripcion,
-    imagenes: p.imagen_url ? [p.imagen_url] : [],
+    imagenes: [p.imagen_url, p.imagen_url2, p.imagen_url3, p.imagen_url4, p.imagen_url5].filter(Boolean),
   }));
 
   setProductos(formateados);

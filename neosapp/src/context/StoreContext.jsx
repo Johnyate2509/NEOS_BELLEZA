@@ -6,7 +6,7 @@ import { asegurarPerfilCliente } from "../utils/asegurarPerfilCliente";
 
 const StoreContext = createContext(null);
 const MINIMOS_COMPRA_CATALOGO_DEFAULT = { General: 1, Emprendedor: 3, Mayorista: 6 };
-const PRODUCT_COLUMNS = "id,nombre,precio,stock,descripcion,categoria_id,imagen_url,precio_mayorista,precio_emprendedor,imagen_url2,imagen_url3,oculto_catalogo,catalogos_ocultos,minimos_compra";
+const PRODUCT_COLUMNS = "id,nombre,precio,stock,descripcion,categoria_id,imagen_url,precio_mayorista,precio_emprendedor,imagen_url2,imagen_url3,imagen_url4,imagen_url5,oculto_catalogo,catalogos_ocultos,minimos_compra";
 const VARIANT_COLUMNS = "id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,archivada,created_at,updated_at";
 
 const eliminarUsuarioAuthSeguro = async (userId) => {
@@ -320,7 +320,7 @@ export function StoreProvider({ children }) {
   };
 
 const adaptarProducto = (p) => {
-  const imagenesDesdeColumnas = [p.imagen_url, p.imagen_url2, p.imagen_url3].filter(Boolean);
+  const imagenesDesdeColumnas = [p.imagen_url, p.imagen_url2, p.imagen_url3, p.imagen_url4, p.imagen_url5].filter(Boolean);
   const catalogosOcultos = Array.isArray(p.catalogos_ocultos)
     ? p.catalogos_ocultos
     : p.oculto_catalogo
@@ -969,6 +969,8 @@ const cargarProductos = async () => {
       productoInsert.imagen_url = imagenes[0] || null;
       productoInsert.imagen_url2 = imagenes[1] || null;
       productoInsert.imagen_url3 = imagenes[2] || null;
+      productoInsert.imagen_url4 = imagenes[3] || null;
+      productoInsert.imagen_url5 = imagenes[4] || null;
     }
 
     const { data, error } = await supabase
@@ -1076,6 +1078,8 @@ const cargarProductos = async () => {
       datosActualizacion.imagen_url = datos.imagenes[0] || null;
       datosActualizacion.imagen_url2 = datos.imagenes[1] || null;
       datosActualizacion.imagen_url3 = datos.imagenes[2] || null;
+      datosActualizacion.imagen_url4 = datos.imagenes[3] || null;
+      datosActualizacion.imagen_url5 = datos.imagenes[4] || null;
     }
 
     const { data, error } = await supabase

@@ -622,9 +622,9 @@ export default function AdminProductos() {
   const agregarImagenesVariante = async (event) => {
     const archivos = Array.from(event.target.files || []);
     event.target.value = "";
-    const disponibles = Math.max(0, 5 - formularioVariante.imagenes.length);
+    const disponibles = Math.max(0, 1 - formularioVariante.imagenes.length);
     const seleccionados = archivos.slice(0, disponibles);
-    if (archivos.length > disponibles) setErrorVariante("Se permiten hasta 5 imágenes por variante.");
+    if (archivos.length > disponibles) setErrorVariante("Se permite solo 1 imagen por variante.");
     try {
       const imagenesNuevas = await Promise.all(seleccionados.map((archivo) => new Promise((resolve, reject) => {
         const lector = new FileReader();
@@ -665,7 +665,7 @@ export default function AdminProductos() {
       precio_emprendedor: formularioVariante.precio_emprendedor === "" ? null : Number(formularioVariante.precio_emprendedor),
       precio_mayorista: formularioVariante.precio_mayorista === "" ? null : Number(formularioVariante.precio_mayorista),
       stock: Number(formularioVariante.stock),
-      imagenes: formularioVariante.imagenes,
+      imagenes: formularioVariante.imagenes.slice(0, 1),
     };
     setGuardandoVariante(true);
     try {
@@ -814,9 +814,9 @@ export default function AdminProductos() {
   const agregarImagenes = async (event) => {
     const archivos = Array.from(event.target.files || []);
     event.target.value = "";
-    const disponibles = Math.max(0, 3 - formulario.imagenes.length);
+    const disponibles = Math.max(0, 5 - formulario.imagenes.length);
     if (archivos.length > disponibles) {
-      setError("Se permiten hasta 3 imágenes por producto.");
+      setError("Se permiten hasta 5 imágenes por producto.");
     }
     const seleccionados = archivos.slice(0, disponibles);
     const imagenesNuevas = await Promise.all(seleccionados.map((archivo) => new Promise((resolve, reject) => {
@@ -1216,8 +1216,8 @@ export default function AdminProductos() {
                 <label>Precio costo (interno)<input type="number" min="0" step="any" value={formulario.precio_costo} onChange={(event) => actualizarCampo("precio_costo", event.target.value)} /></label>
                 <label className="span-two">Descripción<textarea rows="3" value={formulario.descripcion} onChange={(event) => actualizarCampo("descripcion", event.target.value)} /></label>
                 <fieldset className="span-two admin-producto-images">
-                  <legend>Imágenes <span>{formulario.imagenes.length}/3</span></legend>
-                  <label className="admin-productos-upload">Añadir imágenes<input type="file" accept="image/*" multiple onChange={agregarImagenes} disabled={formulario.imagenes.length >= 3} /></label>
+                  <legend>Imágenes <span>{Math.min(formulario.imagenes.length, 5)}/5</span></legend>
+                  <label className="admin-productos-upload">Añadir imágenes<input type="file" accept="image/*" multiple onChange={agregarImagenes} disabled={formulario.imagenes.length >= 5} /></label>
                   <div className="admin-productos-previews">
                     {formulario.imagenes.map((imagen, indice) => <div key={`${indice}-${imagen.slice(0, 24)}`}><img src={imagen} alt={`Imagen ${indice + 1}`} /><button type="button" aria-label={`Quitar imagen ${indice + 1}`} onClick={() => actualizarCampo("imagenes", formulario.imagenes.filter((_, posicion) => posicion !== indice))}>×</button></div>)}
                     {formulario.imagenes.length === 0 && <span>Sin imágenes</span>}
@@ -1265,8 +1265,8 @@ export default function AdminProductos() {
                 <label>Precio mayorista<input type="number" min="0" step="any" value={formularioVariante.precio_emprendedor} onChange={(event) => setFormularioVariante((actual) => ({ ...actual, precio_emprendedor: event.target.value }))} /></label>
                 <label>Precio supermayorista<input type="number" min="0" step="any" value={formularioVariante.precio_mayorista} onChange={(event) => setFormularioVariante((actual) => ({ ...actual, precio_mayorista: event.target.value }))} /></label>
                 <fieldset className="span-two admin-producto-images">
-                  <legend>Imágenes <span>{formularioVariante.imagenes.length}/5</span></legend>
-                  <label className="admin-productos-upload">Añadir imágenes<input type="file" accept="image/*" multiple onChange={agregarImagenesVariante} disabled={formularioVariante.imagenes.length >= 5} /></label>
+                  <legend>Imagen <span>{Math.min(formularioVariante.imagenes.length, 1)}/1</span></legend>
+                  <label className="admin-productos-upload">Añadir imagen<input type="file" accept="image/*" onChange={agregarImagenesVariante} disabled={formularioVariante.imagenes.length >= 1} /></label>
                   <div className="admin-productos-previews">
                     {formularioVariante.imagenes.map((imagen, indice) => (
                       <div key={`${indice}-${imagen.slice(0, 24)}`}>

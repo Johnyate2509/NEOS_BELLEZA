@@ -955,7 +955,7 @@ export default function Producto() {
               atributosValue = v.atributos;
             }
           }
-          await supabase.from("producto_variantes").insert([{ producto_id: Number(nuevoProducto.id), nombre: v.nombre || null, atributos: atributosValue, precio: v.precio ? Number(v.precio) : null, precio_emprendedor: v.precio_emprendedor ? Number(v.precio_emprendedor) : null, precio_mayorista: v.precio_mayorista ? Number(v.precio_mayorista) : null, stock: v.stock ? Number(v.stock) : 0, imagenes: v.imagenes || null }]);
+          await supabase.from("producto_variantes").insert([{ producto_id: Number(nuevoProducto.id), nombre: v.nombre || null, atributos: atributosValue, precio: v.precio ? Number(v.precio) : null, precio_emprendedor: v.precio_emprendedor ? Number(v.precio_emprendedor) : null, precio_mayorista: v.precio_mayorista ? Number(v.precio_mayorista) : null, stock: v.stock ? Number(v.stock) : 0, imagenes: (v.imagenes || []).slice(0, 1) }]);
         } catch (err) {
           console.error("Error guardando variante temporal:", err);
         }
@@ -994,11 +994,11 @@ export default function Producto() {
 
   const handleImagenVarianteTempSeleccionada = (e) => {
     const archivos = Array.from(e.target.files);
-    const maxImagenes = 5;
+    const maxImagenes = 1;
     const actuales = varianteTemp.imagenes || [];
 
     if (archivos.length + actuales.length > maxImagenes) {
-      alert(`Máximo ${maxImagenes} imágenes permitidas por variante`);
+      alert(`Máximo ${maxImagenes} imagen permitida por variante`);
       return;
     }
 
@@ -1024,11 +1024,11 @@ export default function Producto() {
 
   const handleImagenVarianteEditSeleccionada = (e) => {
     const archivos = Array.from(e.target.files);
-    const maxImagenes = 5;
+    const maxImagenes = 1;
     const actuales = varianteEditTemp.imagenes || [];
 
     if (archivos.length + actuales.length > maxImagenes) {
-      alert(`Máximo ${maxImagenes} imágenes permitidas por variante`);
+      alert(`Máximo ${maxImagenes} imagen permitida por variante`);
       return;
     }
 
@@ -1080,7 +1080,7 @@ export default function Producto() {
         precio_emprendedor: variante.precio_emprendedor ? Number(variante.precio_emprendedor) : null,
         precio_mayorista: variante.precio_mayorista ? Number(variante.precio_mayorista) : null,
         stock: variante.stock ? Number(variante.stock) : 0,
-        imagenes: variante.imagenes || null,
+        imagenes: (variante.imagenes || []).slice(0, 1),
       };
       const { data, error } = await supabase.from("producto_variantes").insert([payload])
         .select("id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,created_at,updated_at")
@@ -1110,7 +1110,7 @@ export default function Producto() {
         precio_emprendedor: variante.precio_emprendedor ? Number(variante.precio_emprendedor) : null,
         precio_mayorista: variante.precio_mayorista ? Number(variante.precio_mayorista) : null,
         stock: variante.stock ? Number(variante.stock) : 0,
-        imagenes: variante.imagenes || null,
+        imagenes: (variante.imagenes || []).slice(0, 1),
       };
       const { data, error } = await supabase.from("producto_variantes").update(payload).eq("id", varianteId)
         .select("id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,created_at,updated_at")
@@ -2509,8 +2509,8 @@ const obtenerProductosFiltrados = (categoria) => {
                   <input type="number" placeholder={`Precio ${nombresCatalogos.Mayorista}`} value={varianteTemp.precio_mayorista} onChange={(e) => setVarianteTemp({ ...varianteTemp, precio_mayorista: e.target.value })} />
                   <input type="number" placeholder="Stock" value={varianteTemp.stock} onChange={(e) => setVarianteTemp({ ...varianteTemp, stock: e.target.value })} />
                   <div className="seccion-imagenes-variantes">
-                    <label className="etiqueta-imagenes">Imágenes de la variante (máximo 5):</label>
-                    <input type="file" multiple accept="image/*" onChange={handleImagenVarianteTempSeleccionada} />
+                    <label className="etiqueta-imagenes">Imagen de la variante (máximo 1):</label>
+                    <input type="file" accept="image/*" onChange={handleImagenVarianteTempSeleccionada} />
                     {varianteTemp.imagenes?.length > 0 && (
                       <div className="previsualizacion-imagenes">
                         {varianteTemp.imagenes.map((imagen, index) => (
@@ -2964,8 +2964,8 @@ const obtenerProductosFiltrados = (categoria) => {
             <input type="number" placeholder={`Precio ${nombresCatalogos.Mayorista}`} value={varianteEditTemp.precio_mayorista} onChange={(e) => setVarianteEditTemp({ ...varianteEditTemp, precio_mayorista: e.target.value })} />
             <input type="number" placeholder="Stock" value={varianteEditTemp.stock} onChange={(e) => setVarianteEditTemp({ ...varianteEditTemp, stock: e.target.value })} />
             <div className="seccion-imagenes-variantes">
-              <label className="etiqueta-imagenes">Imágenes de la variante (máximo 5):</label>
-              <input type="file" multiple accept="image/*" onChange={handleImagenVarianteEditSeleccionada} />
+              <label className="etiqueta-imagenes">Imagen de la variante (máximo 1):</label>
+              <input type="file" accept="image/*" onChange={handleImagenVarianteEditSeleccionada} />
               {varianteEditTemp.imagenes?.length > 0 && (
                 <div className="previsualizacion-imagenes">
                   {varianteEditTemp.imagenes.map((imagen, index) => (

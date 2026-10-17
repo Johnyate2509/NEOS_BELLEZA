@@ -23,3 +23,4 @@ service-account*.json
 !neosapp/scripts/fix_customer_order_permissions.sql
 !neosapp/scripts/actualizar_crear_pedido_seguro_stock_catalogos.sql
 !neosapp/scripts/archivar_variantes_con_historial.sql
+!neosapp/scripts/add_product_images_4_and_5.sql
