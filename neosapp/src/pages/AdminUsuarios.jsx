@@ -12,6 +12,20 @@ const ROLES = [
 
 const etiquetaRol = (rol) => ROLES.find((opcion) => opcion.value === rol)?.label || rol || "Sin rol";
 
+const mensajeDeErrorFuncion = async (errorFuncion, data, fallback) => {
+  if (data?.error) return data.error;
+  const respuesta = errorFuncion?.context;
+  if (respuesta && typeof respuesta.clone === "function") {
+    try {
+      const detalle = await respuesta.clone().json();
+      if (detalle?.error || detalle?.message) return detalle.error || detalle.message;
+    } catch {
+      // Algunas respuestas de error no traen JSON; se usa el mensaje del SDK.
+    }
+  }
+  return errorFuncion?.message || fallback;
+};
+
 export default function AdminUsuarios() {
   const { user } = useAuth();
   const [usuarios, setUsuarios] = useState([]);
@@ -58,7 +72,7 @@ export default function AdminUsuarios() {
     });
     setProcesandoId(null);
     if (errorFuncion || data?.error) {
-      setError(data?.error || errorFuncion?.message || "No se pudo cambiar el rol.");
+      setError(await mensajeDeErrorFuncion(errorFuncion, data, "No se pudo cambiar el rol."));
       return;
     }
     setUsuarios((actuales) => actuales.map((item) => item.id === usuario.id ? { ...item, rol: data.usuario?.rol || rol } : item));
@@ -81,7 +95,7 @@ export default function AdminUsuarios() {
     });
     setProcesandoId(null);
     if (errorFuncion || data?.error) {
-      setError(data?.error || errorFuncion?.message || "No se pudo eliminar el usuario.");
+      setError(await mensajeDeErrorFuncion(errorFuncion, data, "No se pudo eliminar el usuario."));
       return;
     }
     setUsuarios((actuales) => actuales.filter((item) => item.id !== usuario.id));
