@@ -1,0 +1,4 @@
+[functions.admin-manage-user]
+# La función valida Authorization y el rol admin dentro del handler.
+# El gateway debe permitir OPTIONS sin JWT para que el navegador complete CORS.
+verify_jwt = false
