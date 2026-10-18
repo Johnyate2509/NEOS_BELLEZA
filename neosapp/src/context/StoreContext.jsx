@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useMemo } from "react";
-import { supabase } from "./supabaseClient";
+import { supabase, supabaseAuthIsolated } from "./supabaseClient";
 import { validarDatosPedido, validarCarrito } from "../utils/validaciones";
 import { enviarConfirmacionPedido, enviarNotificacionVendedor } from "../services/emailService";
 import { asegurarPerfilCliente } from "../utils/asegurarPerfilCliente";
@@ -1542,7 +1542,7 @@ const crearVendedor = async (nombre, zona, email, password) => {
 
     // 2. Crear usuario en Supabase Auth
     const { data: authData, error: authError } =
-      await supabase.auth.signUp({
+      await supabaseAuthIsolated.auth.signUp({
         email,
         password,
       });
@@ -1557,12 +1557,6 @@ const crearVendedor = async (nombre, zona, email, password) => {
     }
 
     const userId = authData.user.id;
-
-    const { error: restoreAfterSignupError } = await supabase.auth.setSession({
-      access_token: previousSession.access_token,
-      refresh_token: previousSession.refresh_token,
-    });
-    if (restoreAfterSignupError) return { error: restoreAfterSignupError.message };
 
     // 3. Insertar en tabla usuarios con rol "vendedor"
     const { data: usuarioData, error: errorUsuario } =
@@ -1586,31 +1580,11 @@ const crearVendedor = async (nombre, zona, email, password) => {
       const rollbackAuth = await eliminarUsuarioAuthSeguro(userId);
       if (rollbackAuth.error) console.error("No se pudo revertir la cuenta Auth:", rollbackAuth.error);
 
-      if (previousSession) {
-        const { error: restoreError } = await supabase.auth.setSession({
-          access_token: previousSession.access_token,
-          refresh_token: previousSession.refresh_token,
-        });
-        if (restoreError) {
-          console.error("Error restaurando sesión anterior tras rollback:", restoreError);
-        }
-      }
-
       return { error: errorUsuario.message };
     }
 
     // La fuente de vendedores es `usuarios` con rol `vendedor`.
     await cargarUsuariosVendedores();
-
-    if (previousSession) {
-      const { error: restoreError } = await supabase.auth.setSession({
-        access_token: previousSession.access_token,
-        refresh_token: previousSession.refresh_token,
-      });
-      if (restoreError) {
-        console.error("Error restaurando sesión anterior:", restoreError);
-      }
-    }
 
     return {
       success: true,

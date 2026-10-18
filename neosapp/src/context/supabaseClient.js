@@ -8,3 +8,13 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseKey)
+
+// Usado en flujos administrativos que crean otra cuenta con signUp: esta
+// instancia aislada evita reemplazar o emitir eventos en la sesión del admin.
+export const supabaseAuthIsolated = createClient(supabaseUrl, supabaseKey, {
+	auth: {
+		persistSession: false,
+		autoRefreshToken: false,
+		detectSessionInUrl: false,
+	},
+})
