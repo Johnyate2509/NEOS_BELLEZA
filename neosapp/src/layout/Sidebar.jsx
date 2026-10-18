@@ -84,6 +84,10 @@ export default function Sidebar() {
             <NavLink to="/admin-clientes">
               Administrar clientes
             </NavLink>
+
+            <NavLink to="/admin-usuarios">
+              Usuarios
+            </NavLink>
           </>
         )}
       </nav>

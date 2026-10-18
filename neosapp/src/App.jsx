@@ -16,6 +16,7 @@ import ReportesVendedor from "./pages/ReportesVendedor";
 import Mapa from "./pages/Mapa";
 import Clientes from "./pages/Clientes";
 import AdminClientes from "./pages/AdminClientes";
+import AdminUsuarios from "./pages/AdminUsuarios";
 import AdminProductos from "./pages/AdminProductos";
 import MisPedidos from "./pages/MisPedidos";
 import "./styles/global.css";
@@ -124,6 +125,7 @@ export default function App() {
             <Route path="/admin-productos" element={<AdminProductos />} />
             <Route path="/clientes" element={esAdmin() ? <Clientes /> : <Navigate to="/" replace />} />
             <Route path="/admin-clientes" element={esAdmin() ? <AdminClientes /> : <Navigate to="/" replace />} />
+            <Route path="/admin-usuarios" element={esAdmin() ? <AdminUsuarios /> : <Navigate to="/" replace />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </div>
