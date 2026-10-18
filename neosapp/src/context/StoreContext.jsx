@@ -10,6 +10,7 @@ import {
   leerCacheProductos,
   tieneConsentimientoCacheCatalogo,
 } from "../utils/catalogCache";
+import { subirImagenesProducto } from "../utils/productImageStorage";
 
 const StoreContext = createContext(null);
 const MINIMOS_COMPRA_CATALOGO_DEFAULT = { General: 1, Emprendedor: 3, Mayorista: 6 };
@@ -478,16 +479,29 @@ const cargarProductos = async () => {
     return cache.productos;
   }
 
-  const { data, error } = await supabase.from("productos").select(PRODUCT_COLUMNS);
+  // Trae el catálogo en páginas pequeñas para evitar que una sola respuesta
+  // grande (incluyendo sus URLs de imagen) exceda el statement timeout.
+  const TAMANO_PAGINA = 100;
+  const filas = [];
+  for (let desde = 0; ; desde += TAMANO_PAGINA) {
+    const { data, error } = await supabase
+      .from("productos")
+      .select(PRODUCT_COLUMNS)
+      .order("id", { ascending: true })
+      .range(desde, desde + TAMANO_PAGINA - 1);
 
-  if (error) {
-    console.error("Error cargando productos:", error);
-    const productosOffline = cache?.productos || [];
-    setProductos(productosOffline);
-    return productosOffline;
+    if (error) {
+      console.error("Error cargando productos:", error);
+      const productosOffline = cache?.productos || [];
+      setProductos(productosOffline);
+      return productosOffline;
+    }
+
+    filas.push(...(data || []));
+    if (!data || data.length < TAMANO_PAGINA) break;
   }
 
-  const adaptados = (data || []).map(adaptarProducto);
+  const adaptados = filas.map(adaptarProducto);
   setProductos(adaptados);
   guardarCacheProductos(adaptados, Date.now());
   return adaptados;
@@ -983,12 +997,19 @@ const cargarProductos = async () => {
       productoInsert.precio = precioBase != null ? Number(precioBase) : null;
     }
 
-    if (imagenes.length > 0) {
-      productoInsert.imagen_url = imagenes[0] || null;
-      productoInsert.imagen_url2 = imagenes[1] || null;
-      productoInsert.imagen_url3 = imagenes[2] || null;
-      productoInsert.imagen_url4 = imagenes[3] || null;
-      productoInsert.imagen_url5 = imagenes[4] || null;
+    let imagenesGuardadas = imagenes;
+    try {
+      imagenesGuardadas = await subirImagenesProducto(supabase, imagenes, "productos");
+    } catch (error) {
+      return { error: error.message || "No se pudieron subir las imágenes del producto." };
+    }
+
+    if (imagenesGuardadas.length > 0) {
+      productoInsert.imagen_url = imagenesGuardadas[0] || null;
+      productoInsert.imagen_url2 = imagenesGuardadas[1] || null;
+      productoInsert.imagen_url3 = imagenesGuardadas[2] || null;
+      productoInsert.imagen_url4 = imagenesGuardadas[3] || null;
+      productoInsert.imagen_url5 = imagenesGuardadas[4] || null;
     }
 
     const { data, error } = await supabase
@@ -1003,10 +1024,6 @@ const cargarProductos = async () => {
     }
 
     let nuevoProducto = adaptarProducto({ ...data, precio_costo: productoInsert.precio_costo });
-    if (imagenes.length > 0) {
-      nuevoProducto = { ...nuevoProducto, imagenes };
-    }
-
     setProductos((prev) => [...prev, nuevoProducto]);
     return { success: true, producto: nuevoProducto };
   };
@@ -1093,11 +1110,16 @@ const cargarProductos = async () => {
       datosActualizacion.minimos_compra = datos.minimos_compra;
     }
     if (datos.imagenes != null) {
-      datosActualizacion.imagen_url = datos.imagenes[0] || null;
-      datosActualizacion.imagen_url2 = datos.imagenes[1] || null;
-      datosActualizacion.imagen_url3 = datos.imagenes[2] || null;
-      datosActualizacion.imagen_url4 = datos.imagenes[3] || null;
-      datosActualizacion.imagen_url5 = datos.imagenes[4] || null;
+      try {
+        const imagenesGuardadas = await subirImagenesProducto(supabase, datos.imagenes, `productos/${productoId}`);
+        datosActualizacion.imagen_url = imagenesGuardadas[0] || null;
+        datosActualizacion.imagen_url2 = imagenesGuardadas[1] || null;
+        datosActualizacion.imagen_url3 = imagenesGuardadas[2] || null;
+        datosActualizacion.imagen_url4 = imagenesGuardadas[3] || null;
+        datosActualizacion.imagen_url5 = imagenesGuardadas[4] || null;
+      } catch (error) {
+        return { error: error.message || "No se pudieron subir las imágenes del producto." };
+      }
     }
 
     const { data, error } = await supabase
@@ -1124,13 +1146,6 @@ const cargarProductos = async () => {
         categoria: categorias.find((categoria) => String(categoria.id) === String(datos.categoria_id))?.nombre || producto.categoria,
       };
     }
-    if (datos.imagenes != null && datos.imagenes.length > 0) {
-      productoActualizado = {
-        ...productoActualizado,
-        imagenes: datos.imagenes,
-      };
-    }
-
     setProductos((prev) =>
       prev.map((p) => (p.id === productoId ? productoActualizado : p))
     );

@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useStore } from "../context/StoreContext";
 import { supabase } from "../context/supabaseClient";
+import { subirImagenesProducto } from "../utils/productImageStorage";
 import * as XLSX from "xlsx";
 import HorizontalScroll from "../components/HorizontalScroll";
 import "../styles/admin-productos.css";
@@ -733,6 +734,11 @@ export default function AdminProductos() {
     };
     setGuardandoVariante(true);
     try {
+      payload.imagenes = await subirImagenesProducto(
+        supabase,
+        payload.imagenes,
+        `productos/${productoVarianteActivo.id}/variantes`
+      );
       const consulta = varianteActiva
         ? supabase.from("producto_variantes").update(payload).eq("id", varianteActiva.id).eq("producto_id", Number(productoVarianteActivo.id))
         : supabase.from("producto_variantes").insert([{ ...payload, producto_id: Number(productoVarianteActivo.id) }]);

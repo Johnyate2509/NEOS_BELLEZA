@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { supabase } from "../context/supabaseClient";
 import { validarDatosPedido, validarCarrito } from "../utils/validaciones";
 import { asegurarPerfilCliente } from "../utils/asegurarPerfilCliente";
+import { subirImagenesProducto } from "../utils/productImageStorage";
 import "./producto.css";
 import editarIcon from "../components/img/editar.png";
 import eliminarIcon from "../components/img/eliminar.png";
@@ -959,7 +960,8 @@ export default function Producto() {
               atributosValue = v.atributos;
             }
           }
-          await supabase.from("producto_variantes").insert([{ producto_id: Number(nuevoProducto.id), nombre: v.nombre || null, atributos: atributosValue, precio: v.precio ? Number(v.precio) : null, precio_emprendedor: v.precio_emprendedor ? Number(v.precio_emprendedor) : null, precio_mayorista: v.precio_mayorista ? Number(v.precio_mayorista) : null, stock: v.stock ? Number(v.stock) : 0, imagenes: (v.imagenes || []).slice(0, 1) }]);
+          const imagenes = await subirImagenesProducto(supabase, (v.imagenes || []).slice(0, 1), `productos/${nuevoProducto.id}/variantes`);
+          await supabase.from("producto_variantes").insert([{ producto_id: Number(nuevoProducto.id), nombre: v.nombre || null, atributos: atributosValue, precio: v.precio ? Number(v.precio) : null, precio_emprendedor: v.precio_emprendedor ? Number(v.precio_emprendedor) : null, precio_mayorista: v.precio_mayorista ? Number(v.precio_mayorista) : null, stock: v.stock ? Number(v.stock) : 0, imagenes }]);
         } catch (err) {
           console.error("Error guardando variante temporal:", err);
         }
@@ -1084,7 +1086,7 @@ export default function Producto() {
         precio_emprendedor: variante.precio_emprendedor ? Number(variante.precio_emprendedor) : null,
         precio_mayorista: variante.precio_mayorista ? Number(variante.precio_mayorista) : null,
         stock: variante.stock ? Number(variante.stock) : 0,
-        imagenes: (variante.imagenes || []).slice(0, 1),
+        imagenes: await subirImagenesProducto(supabase, (variante.imagenes || []).slice(0, 1), `productos/${productoId}/variantes`),
       };
       const { data, error } = await supabase.from("producto_variantes").insert([payload])
         .select("id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,created_at,updated_at")
@@ -1114,7 +1116,7 @@ export default function Producto() {
         precio_emprendedor: variante.precio_emprendedor ? Number(variante.precio_emprendedor) : null,
         precio_mayorista: variante.precio_mayorista ? Number(variante.precio_mayorista) : null,
         stock: variante.stock ? Number(variante.stock) : 0,
-        imagenes: (variante.imagenes || []).slice(0, 1),
+        imagenes: await subirImagenesProducto(supabase, (variante.imagenes || []).slice(0, 1), `productos/${productoVarianteEditActivo?.id || "variantes"}/variantes`),
       };
       const { data, error } = await supabase.from("producto_variantes").update(payload).eq("id", varianteId)
         .select("id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,created_at,updated_at")

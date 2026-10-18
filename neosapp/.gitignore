@@ -11,6 +11,7 @@ node_modules
 dist
 dist-ssr
 *.local
+!scripts/crear_bucket_productos.sql
 
 # Editor directories and files
 .vscode/*
