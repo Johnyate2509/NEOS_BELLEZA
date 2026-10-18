@@ -54,7 +54,9 @@ const leerBorrador = () => {
       formulario: {
         ...FORMULARIO_VACIO,
         ...borrador.formulario,
-        imagenes: Array.isArray(borrador.formulario.imagenes) ? borrador.formulario.imagenes : [],
+        imagenes: Array.isArray(borrador.formulario.imagenes)
+          ? borrador.formulario.imagenes.filter((imagen) => typeof imagen === "string" && !imagen.startsWith("data:image/") && !imagen.startsWith("blob:"))
+          : [],
         catalogos_ocultos: Array.isArray(borrador.formulario.catalogos_ocultos)
           ? borrador.formulario.catalogos_ocultos
           : [],
@@ -563,7 +565,11 @@ export default function AdminProductos() {
       return;
     }
     try {
-      window.localStorage.setItem(BORRADOR_STORAGE_KEY, JSON.stringify({ productoActivo, formulario }));
+      const formularioPersistible = {
+        ...formulario,
+        imagenes: (formulario.imagenes || []).filter((imagen) => typeof imagen === "string" && !imagen.startsWith("data:image/") && !imagen.startsWith("blob:")),
+      };
+      window.localStorage.setItem(BORRADOR_STORAGE_KEY, JSON.stringify({ productoActivo, formulario: formularioPersistible }));
     } catch {
       return;
     }
@@ -691,12 +697,7 @@ export default function AdminProductos() {
     const seleccionados = archivos.slice(0, disponibles);
     if (archivos.length > disponibles) setErrorVariante("Se permite solo 1 imagen por variante.");
     try {
-      const imagenesNuevas = await Promise.all(seleccionados.map((archivo) => new Promise((resolve, reject) => {
-        const lector = new FileReader();
-        lector.onload = () => resolve(String(lector.result || ""));
-        lector.onerror = reject;
-        lector.readAsDataURL(archivo);
-      })));
+      const imagenesNuevas = seleccionados.map((archivo) => URL.createObjectURL(archivo));
       setFormularioVariante((actual) => ({ ...actual, imagenes: [...actual.imagenes, ...imagenesNuevas] }));
     } catch {
       setErrorVariante("No se pudieron cargar las imágenes seleccionadas.");
@@ -889,12 +890,7 @@ export default function AdminProductos() {
       setError("Se permiten hasta 5 imágenes por producto.");
     }
     const seleccionados = archivos.slice(0, disponibles);
-    const imagenesNuevas = await Promise.all(seleccionados.map((archivo) => new Promise((resolve, reject) => {
-      const lector = new FileReader();
-      lector.onload = () => resolve(String(lector.result || ""));
-      lector.onerror = reject;
-      lector.readAsDataURL(archivo);
-    })));
+    const imagenesNuevas = seleccionados.map((archivo) => URL.createObjectURL(archivo));
     setFormulario((actual) => ({ ...actual, imagenes: [...actual.imagenes, ...imagenesNuevas] }));
   };
 

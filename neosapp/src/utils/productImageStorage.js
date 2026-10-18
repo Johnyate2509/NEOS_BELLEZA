@@ -13,13 +13,13 @@ const extensionPorMime = (mime) => ({
   "image/avif": "avif",
 })[mime] || "img";
 
-/** Reemplaza data URLs por URLs públicas de Supabase Storage antes de persistir filas. */
+/** Sube las imágenes nuevas y devuelve URLs públicas; conserva las URLs existentes. */
 export const subirImagenesProducto = async (supabase, imagenes, carpeta) => {
   const rutasSubidas = [];
   try {
     const imagenesEnStorage = [];
     for (const imagen of imagenes || []) {
-      if (typeof imagen !== "string" || !imagen.startsWith("data:image/")) {
+      if (typeof imagen !== "string" || (!imagen.startsWith("data:image/") && !imagen.startsWith("blob:"))) {
         imagenesEnStorage.push(imagen);
         continue;
       }
@@ -44,4 +44,18 @@ export const subirImagenesProducto = async (supabase, imagenes, carpeta) => {
     }
     throw error;
   }
+};
+
+export const eliminarImagenesProductoSubidas = async (supabase, urls) => {
+  const prefijoPublico = `/storage/v1/object/public/${PRODUCT_IMAGES_BUCKET}/`;
+  const rutas = (urls || []).flatMap((url) => {
+    if (typeof url !== "string") return [];
+    try {
+      const ruta = new URL(url).pathname.split(prefijoPublico)[1];
+      return ruta ? [decodeURIComponent(ruta)] : [];
+    } catch {
+      return [];
+    }
+  });
+  if (rutas.length) await supabase.storage.from(PRODUCT_IMAGES_BUCKET).remove(rutas);
 };

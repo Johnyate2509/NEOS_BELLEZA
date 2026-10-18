@@ -791,11 +791,26 @@ export default function Producto() {
 
   const STORAGE_KEY = "neosapp_producto_state";
 
+  const limpiarImagenesTemporales = (valor) => {
+    if (typeof valor === "string") {
+      return valor.startsWith("data:image/") || valor.startsWith("blob:") ? undefined : valor;
+    }
+    if (Array.isArray(valor)) {
+      return valor.map(limpiarImagenesTemporales).filter((elemento) => elemento !== undefined);
+    }
+    if (valor && typeof valor === "object") {
+      return Object.fromEntries(Object.entries(valor)
+        .map(([clave, elemento]) => [clave, limpiarImagenesTemporales(elemento)])
+        .filter(([, elemento]) => elemento !== undefined));
+    }
+    return valor;
+  };
+
   const cargarEstadoPersistente = () => {
     if (typeof window === "undefined") return null;
     try {
       const data = window.localStorage.getItem(STORAGE_KEY);
-      return data ? JSON.parse(data) : null;
+      return data ? limpiarImagenesTemporales(JSON.parse(data)) : null;
     } catch (error) {
       console.error("Error cargando estado persistente:", error);
       return null;
@@ -805,12 +820,12 @@ export default function Producto() {
   const guardarEstadoPersistente = (estado) => {
     if (typeof window === "undefined") return;
     try {
-      const estadoSeguro = {
+      const estadoSeguro = limpiarImagenesTemporales({
         ...estado,
         datosCliente: estado.datosCliente
           ? { ...estado.datosCliente, password: "" }
           : estado.datosCliente,
-      };
+      });
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify(estadoSeguro));
     } catch (error) {
       console.error("Error guardando estado persistente:", error);
@@ -984,18 +999,9 @@ export default function Producto() {
     }
 
     // Procesar cada archivo
-    archivos.forEach((archivo) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const imagenBase64 = event.target.result;
-        setNuevo((prev) => ({
-          ...prev,
-          imagenes: [...prev.imagenes, imagenBase64],
-        }));
-        setImagenesVista((prev) => [...prev, imagenBase64]);
-      };
-      reader.readAsDataURL(archivo);
-    });
+    const imagenesNuevas = archivos.map((archivo) => URL.createObjectURL(archivo));
+    setNuevo((prev) => ({ ...prev, imagenes: [...prev.imagenes, ...imagenesNuevas] }));
+    setImagenesVista((prev) => [...prev, ...imagenesNuevas]);
   };
 
   const handleImagenVarianteTempSeleccionada = (e) => {
@@ -1008,17 +1014,8 @@ export default function Producto() {
       return;
     }
 
-    archivos.forEach((archivo) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const imagenBase64 = event.target.result;
-        setVarianteTemp((prev) => ({
-          ...prev,
-          imagenes: [...(prev.imagenes || []), imagenBase64],
-        }));
-      };
-      reader.readAsDataURL(archivo);
-    });
+    const imagenesNuevas = archivos.map((archivo) => URL.createObjectURL(archivo));
+    setVarianteTemp((prev) => ({ ...prev, imagenes: [...(prev.imagenes || []), ...imagenesNuevas] }));
   };
 
   const eliminarImagenVarianteTemp = (index) => {
@@ -1038,17 +1035,8 @@ export default function Producto() {
       return;
     }
 
-    archivos.forEach((archivo) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const imagenBase64 = event.target.result;
-        setVarianteEditTemp((prev) => ({
-          ...prev,
-          imagenes: [...(prev.imagenes || []), imagenBase64],
-        }));
-      };
-      reader.readAsDataURL(archivo);
-    });
+    const imagenesNuevas = archivos.map((archivo) => URL.createObjectURL(archivo));
+    setVarianteEditTemp((prev) => ({ ...prev, imagenes: [...(prev.imagenes || []), ...imagenesNuevas] }));
   };
 
   const eliminarImagenVarianteEdit = (index) => {
@@ -1192,17 +1180,8 @@ export default function Producto() {
       return;
     }
 
-    archivos.forEach((archivo) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const imagenBase64 = event.target.result;
-        setProductoEdicion((prev) => ({
-          ...prev,
-          imagenes: [...prev.imagenes, imagenBase64],
-        }));
-      };
-      reader.readAsDataURL(archivo);
-    });
+    const imagenesNuevas = archivos.map((archivo) => URL.createObjectURL(archivo));
+    setProductoEdicion((prev) => ({ ...prev, imagenes: [...prev.imagenes, ...imagenesNuevas] }));
   };
 
   const eliminarImagenEdicion = (index) => {

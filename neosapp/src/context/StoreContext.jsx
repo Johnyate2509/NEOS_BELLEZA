@@ -10,7 +10,7 @@ import {
   leerCacheProductos,
   tieneConsentimientoCacheCatalogo,
 } from "../utils/catalogCache";
-import { subirImagenesProducto } from "../utils/productImageStorage";
+import { eliminarImagenesProductoSubidas, subirImagenesProducto } from "../utils/productImageStorage";
 
 const StoreContext = createContext(null);
 const MINIMOS_COMPRA_CATALOGO_DEFAULT = { General: 1, Emprendedor: 3, Mayorista: 6 };
@@ -997,22 +997,7 @@ const cargarProductos = async () => {
       productoInsert.precio = precioBase != null ? Number(precioBase) : null;
     }
 
-    let imagenesGuardadas = imagenes;
-    try {
-      imagenesGuardadas = await subirImagenesProducto(supabase, imagenes, "productos");
-    } catch (error) {
-      return { error: error.message || "No se pudieron subir las imágenes del producto." };
-    }
-
-    if (imagenesGuardadas.length > 0) {
-      productoInsert.imagen_url = imagenesGuardadas[0] || null;
-      productoInsert.imagen_url2 = imagenesGuardadas[1] || null;
-      productoInsert.imagen_url3 = imagenesGuardadas[2] || null;
-      productoInsert.imagen_url4 = imagenesGuardadas[3] || null;
-      productoInsert.imagen_url5 = imagenesGuardadas[4] || null;
-    }
-
-    const { data, error } = await supabase
+    const { data: productoCreado, error } = await supabase
       .from("productos")
       .insert([productoInsert])
       .select(PRODUCT_COLUMNS)
@@ -1023,7 +1008,36 @@ const cargarProductos = async () => {
       return { error: error.message };
     }
 
-    let nuevoProducto = adaptarProducto({ ...data, precio_costo: productoInsert.precio_costo });
+    let datosProducto = productoCreado;
+    const imagenesSeleccionadas = (imagenes || []).filter(Boolean).slice(0, 5);
+    if (imagenesSeleccionadas.length) {
+      let imagenesSubidas = [];
+      try {
+        // Storage crea el prefijo/carpeta al subir el primer archivo del producto.
+        imagenesSubidas = await subirImagenesProducto(supabase, imagenesSeleccionadas, `productos/${productoCreado.id}`);
+        const cambiosImagenes = {
+          imagen_url: imagenesSubidas[0] || null,
+          imagen_url2: imagenesSubidas[1] || null,
+          imagen_url3: imagenesSubidas[2] || null,
+          imagen_url4: imagenesSubidas[3] || null,
+          imagen_url5: imagenesSubidas[4] || null,
+        };
+        const { data, error: errorImagenes } = await supabase
+          .from("productos")
+          .update(cambiosImagenes)
+          .eq("id", productoCreado.id)
+          .select(PRODUCT_COLUMNS)
+          .single();
+        if (errorImagenes) throw errorImagenes;
+        datosProducto = data;
+      } catch (errorImagenes) {
+        await eliminarImagenesProductoSubidas(supabase, imagenesSubidas).catch(() => undefined);
+        await supabase.from("productos").delete().eq("id", productoCreado.id);
+        return { error: errorImagenes.message || "No se pudieron guardar las imágenes del producto." };
+      }
+    }
+
+    let nuevoProducto = adaptarProducto({ ...datosProducto, precio_costo: productoInsert.precio_costo });
     setProductos((prev) => [...prev, nuevoProducto]);
     return { success: true, producto: nuevoProducto };
   };
