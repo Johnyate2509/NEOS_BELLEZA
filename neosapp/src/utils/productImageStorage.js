@@ -46,16 +46,29 @@ export const subirImagenesProducto = async (supabase, imagenes, carpeta) => {
   }
 };
 
-export const eliminarImagenesProductoSubidas = async (supabase, urls) => {
+export const eliminarImagenesProductoSubidas = async (supabase, urls, carpetaPermitida = "") => {
   const prefijoPublico = `/storage/v1/object/public/${PRODUCT_IMAGES_BUCKET}/`;
+  const prefijoPermitido = carpetaPermitida ? `${carpetaPermitida.replace(/^\/+|\/+$/g, "")}/` : "";
   const rutas = (urls || []).flatMap((url) => {
     if (typeof url !== "string") return [];
     try {
       const ruta = new URL(url).pathname.split(prefijoPublico)[1];
-      return ruta ? [decodeURIComponent(ruta)] : [];
+      const rutaDecodificada = ruta ? decodeURIComponent(ruta) : "";
+      return rutaDecodificada && (!prefijoPermitido || rutaDecodificada.startsWith(prefijoPermitido))
+        ? [rutaDecodificada]
+        : [];
     } catch {
       return [];
     }
   });
-  if (rutas.length) await supabase.storage.from(PRODUCT_IMAGES_BUCKET).remove(rutas);
+  if (rutas.length) {
+    const { error } = await supabase.storage.from(PRODUCT_IMAGES_BUCKET).remove(rutas);
+    if (error) throw error;
+  }
+};
+
+export const eliminarImagenesProductoRetiradas = async (supabase, anteriores, actuales, carpetaPermitida) => {
+  const imagenesActuales = new Set((actuales || []).filter(Boolean));
+  const retiradas = [...new Set((anteriores || []).filter((url) => url && !imagenesActuales.has(url)))];
+  await eliminarImagenesProductoSubidas(supabase, retiradas, carpetaPermitida);
 };

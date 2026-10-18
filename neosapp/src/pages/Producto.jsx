@@ -4,7 +4,11 @@ import { useAuth } from "../context/AuthContext";
 import { supabase } from "../context/supabaseClient";
 import { validarDatosPedido, validarCarrito } from "../utils/validaciones";
 import { asegurarPerfilCliente } from "../utils/asegurarPerfilCliente";
-import { subirImagenesProducto } from "../utils/productImageStorage";
+import {
+  eliminarImagenesProductoRetiradas,
+  eliminarImagenesProductoSubidas,
+  subirImagenesProducto,
+} from "../utils/productImageStorage";
 import "./producto.css";
 import editarIcon from "../components/img/editar.png";
 import eliminarIcon from "../components/img/eliminar.png";
@@ -1057,6 +1061,8 @@ export default function Producto() {
   };
 
   const insertarVarianteEnProducto = async (productoId, variante) => {
+    let imagenesGuardadas = [];
+    const carpetaVariante = `productos/${productoId}/variantes`;
     try {
       let atributosValue = null;
       if (variante.atributos) {
@@ -1074,21 +1080,40 @@ export default function Producto() {
         precio_emprendedor: variante.precio_emprendedor ? Number(variante.precio_emprendedor) : null,
         precio_mayorista: variante.precio_mayorista ? Number(variante.precio_mayorista) : null,
         stock: variante.stock ? Number(variante.stock) : 0,
-        imagenes: await subirImagenesProducto(supabase, (variante.imagenes || []).slice(0, 1), `productos/${productoId}/variantes`),
+        imagenes: [],
       };
+      imagenesGuardadas = await subirImagenesProducto(supabase, (variante.imagenes || []).slice(0, 1), carpetaVariante);
+      payload.imagenes = imagenesGuardadas;
       const { data, error } = await supabase.from("producto_variantes").insert([payload])
         .select("id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,created_at,updated_at")
         .single();
       if (error) throw error;
       return { success: true, variante: data };
     } catch (err) {
+      await eliminarImagenesProductoSubidas(supabase, imagenesGuardadas, carpetaVariante).catch((errorLimpieza) => {
+        console.warn("No se pudieron limpiar las imágenes de la variante nueva:", errorLimpieza);
+      });
       console.error("Error insertando variante:", err);
       return { error: err.message || String(err) };
     }
   };
 
   const actualizarVarianteEnProducto = async (varianteId, variante) => {
+    const productoId = productoVarianteEditActivo?.id;
+    const carpetaVariante = `productos/${productoId}/variantes`;
+    let imagenesGuardadas = [];
+    let imagenesAnteriores = [];
     try {
+      const { data: varianteAnterior, error: errorLectura } = await supabase
+        .from("producto_variantes")
+        .select("imagenes")
+        .eq("id", varianteId)
+        .eq("producto_id", Number(productoId))
+        .maybeSingle();
+      if (errorLectura) throw errorLectura;
+      imagenesAnteriores = Array.isArray(varianteAnterior?.imagenes)
+        ? varianteAnterior.imagenes
+        : varianteAnterior?.imagenes ? [varianteAnterior.imagenes] : [];
       let atributosValue = null;
       if (variante.atributos) {
         try {
@@ -1104,14 +1129,22 @@ export default function Producto() {
         precio_emprendedor: variante.precio_emprendedor ? Number(variante.precio_emprendedor) : null,
         precio_mayorista: variante.precio_mayorista ? Number(variante.precio_mayorista) : null,
         stock: variante.stock ? Number(variante.stock) : 0,
-        imagenes: await subirImagenesProducto(supabase, (variante.imagenes || []).slice(0, 1), `productos/${productoVarianteEditActivo?.id || "variantes"}/variantes`),
+        imagenes: [],
       };
+      imagenesGuardadas = await subirImagenesProducto(supabase, (variante.imagenes || []).slice(0, 1), carpetaVariante);
+      payload.imagenes = imagenesGuardadas;
       const { data, error } = await supabase.from("producto_variantes").update(payload).eq("id", varianteId)
         .select("id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,created_at,updated_at")
         .single();
       if (error) throw error;
+      await eliminarImagenesProductoRetiradas(supabase, imagenesAnteriores, imagenesGuardadas, carpetaVariante).catch((errorLimpieza) => {
+        console.warn("La variante se guardó, pero no se pudieron borrar algunas imágenes anteriores:", errorLimpieza);
+      });
       return { success: true, variante: data };
     } catch (err) {
+      await eliminarImagenesProductoRetiradas(supabase, imagenesGuardadas, imagenesAnteriores, carpetaVariante).catch((errorLimpieza) => {
+        console.warn("No se pudieron limpiar las nuevas imágenes de la variante:", errorLimpieza);
+      });
       console.error("Error actualizando variante:", err);
       return { error: err.message || String(err) };
     }

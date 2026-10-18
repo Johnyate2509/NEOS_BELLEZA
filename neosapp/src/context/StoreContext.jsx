@@ -10,7 +10,11 @@ import {
   leerCacheProductos,
   tieneConsentimientoCacheCatalogo,
 } from "../utils/catalogCache";
-import { eliminarImagenesProductoSubidas, subirImagenesProducto } from "../utils/productImageStorage";
+import {
+  eliminarImagenesProductoRetiradas,
+  eliminarImagenesProductoSubidas,
+  subirImagenesProducto,
+} from "../utils/productImageStorage";
 
 const StoreContext = createContext(null);
 const MINIMOS_COMPRA_CATALOGO_DEFAULT = { General: 1, Emprendedor: 3, Mayorista: 6 };
@@ -1123,9 +1127,10 @@ const cargarProductos = async () => {
     if (datos.minimos_compra !== undefined) {
       datosActualizacion.minimos_compra = datos.minimos_compra;
     }
+    let imagenesGuardadas = null;
     if (datos.imagenes != null) {
       try {
-        const imagenesGuardadas = await subirImagenesProducto(supabase, datos.imagenes, `productos/${productoId}`);
+        imagenesGuardadas = await subirImagenesProducto(supabase, datos.imagenes, `productos/${productoId}`);
         datosActualizacion.imagen_url = imagenesGuardadas[0] || null;
         datosActualizacion.imagen_url2 = imagenesGuardadas[1] || null;
         datosActualizacion.imagen_url3 = imagenesGuardadas[2] || null;
@@ -1145,7 +1150,18 @@ const cargarProductos = async () => {
 
     if (error) {
       console.error("Error actualizando producto:", error);
+      if (imagenesGuardadas) {
+        await eliminarImagenesProductoRetiradas(supabase, imagenesGuardadas, producto.imagenes, `productos/${productoId}`).catch((errorLimpieza) => {
+          console.warn("No se pudieron limpiar las nuevas imágenes del producto:", errorLimpieza);
+        });
+      }
       return { error: error.message };
+    }
+
+    if (imagenesGuardadas) {
+      await eliminarImagenesProductoRetiradas(supabase, producto.imagenes, imagenesGuardadas, `productos/${productoId}`).catch((errorLimpieza) => {
+        console.warn("El producto se guardó, pero no se pudieron borrar algunas imágenes anteriores:", errorLimpieza);
+      });
     }
 
     let productoActualizado = adaptarProducto({
@@ -1194,6 +1210,29 @@ const cargarProductos = async () => {
         return { success: true, archived: true };
       }
 
+      const { data: productoConImagenes, error: errorLecturaProducto } = await supabase
+        .from("productos")
+        .select("imagen_url,imagen_url2,imagen_url3,imagen_url4,imagen_url5")
+        .eq("id", productoId)
+        .maybeSingle();
+      if (errorLecturaProducto) throw errorLecturaProducto;
+      const imagenesProducto = [
+        productoConImagenes?.imagen_url,
+        productoConImagenes?.imagen_url2,
+        productoConImagenes?.imagen_url3,
+        productoConImagenes?.imagen_url4,
+        productoConImagenes?.imagen_url5,
+      ].filter(Boolean);
+
+      const { data: variantesConImagenes, error: errorLecturaVariantes } = await supabase
+        .from("producto_variantes")
+        .select("imagenes")
+        .eq("producto_id", productoId);
+      if (errorLecturaVariantes) throw errorLecturaVariantes;
+      const imagenesVariantes = (variantesConImagenes || []).flatMap((variante) =>
+        Array.isArray(variante.imagenes) ? variante.imagenes : variante.imagenes ? [variante.imagenes] : []
+      );
+
       const { error: errorVariantes } = await supabase
         .from("producto_variantes")
         .delete()
@@ -1230,6 +1269,13 @@ const cargarProductos = async () => {
       }
 
       setProductos((prev) => prev.filter((p) => String(p.id) !== String(productoId)));
+      await eliminarImagenesProductoSubidas(
+        supabase,
+        [...imagenesProducto, ...imagenesVariantes],
+        `productos/${productoId}`
+      ).catch((errorLimpieza) => {
+        console.warn("El producto se eliminó, pero no se pudieron borrar algunas imágenes de Storage:", errorLimpieza);
+      });
       return { success: true, data };
     } catch (err) {
       console.error("Excepción eliminando producto:", err);

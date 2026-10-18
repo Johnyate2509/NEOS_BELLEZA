@@ -3,7 +3,11 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useStore } from "../context/StoreContext";
 import { supabase } from "../context/supabaseClient";
-import { subirImagenesProducto } from "../utils/productImageStorage";
+import {
+  eliminarImagenesProductoRetiradas,
+  eliminarImagenesProductoSubidas,
+  subirImagenesProducto,
+} from "../utils/productImageStorage";
 import * as XLSX from "xlsx";
 import HorizontalScroll from "../components/HorizontalScroll";
 import "../styles/admin-productos.css";
@@ -734,12 +738,18 @@ export default function AdminProductos() {
       imagenes: formularioVariante.imagenes.slice(0, 1),
     };
     setGuardandoVariante(true);
+    let imagenesGuardadas = [];
+    const imagenesAnteriores = Array.isArray(varianteActiva?.imagenes)
+      ? varianteActiva.imagenes
+      : varianteActiva?.imagenes ? [varianteActiva.imagenes] : [];
+    const carpetaVariante = `productos/${productoVarianteActivo.id}/variantes`;
     try {
-      payload.imagenes = await subirImagenesProducto(
+      imagenesGuardadas = await subirImagenesProducto(
         supabase,
         payload.imagenes,
-        `productos/${productoVarianteActivo.id}/variantes`
+        carpetaVariante
       );
+      payload.imagenes = imagenesGuardadas;
       const consulta = varianteActiva
         ? supabase.from("producto_variantes").update(payload).eq("id", varianteActiva.id).eq("producto_id", Number(productoVarianteActivo.id))
         : supabase.from("producto_variantes").insert([{ ...payload, producto_id: Number(productoVarianteActivo.id) }]);
@@ -747,6 +757,9 @@ export default function AdminProductos() {
         .select("id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,archivada,created_at,updated_at")
         .single();
       if (errorGuardado) throw errorGuardado;
+      await eliminarImagenesProductoRetiradas(supabase, imagenesAnteriores, imagenesGuardadas, carpetaVariante).catch((errorLimpieza) => {
+        console.warn("La variante se guardó, pero no se pudieron borrar algunas imágenes anteriores:", errorLimpieza);
+      });
       setVariantesPorProducto((actuales) => {
         const variantes = actuales[productoVarianteActivo.id] || [];
         return {
@@ -758,6 +771,9 @@ export default function AdminProductos() {
       });
       cerrarVariante();
     } catch (errorGuardado) {
+      await eliminarImagenesProductoRetiradas(supabase, imagenesGuardadas, imagenesAnteriores, carpetaVariante).catch((errorLimpieza) => {
+        console.warn("No se pudieron limpiar las nuevas imágenes de la variante:", errorLimpieza);
+      });
       setErrorVariante(errorGuardado.message || "No se pudo guardar la variante.");
     } finally {
       setGuardandoVariante(false);
@@ -821,6 +837,12 @@ export default function AdminProductos() {
       setErroresVariantes((actuales) => ({ ...actuales, [producto.id]: errorEliminacion.message }));
       return;
     }
+    const imagenesVariante = Array.isArray(variante.imagenes)
+      ? variante.imagenes
+      : variante.imagenes ? [variante.imagenes] : [];
+    await eliminarImagenesProductoSubidas(supabase, imagenesVariante, `productos/${producto.id}/variantes`).catch((errorLimpieza) => {
+      console.warn("La variante se eliminó, pero no se pudieron borrar sus imágenes de Storage:", errorLimpieza);
+    });
     setVariantesPorProducto((actuales) => ({
       ...actuales,
       [producto.id]: (actuales[producto.id] || []).filter((actual) => actual.id !== variante.id),
