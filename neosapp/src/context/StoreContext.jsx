@@ -29,7 +29,6 @@ export function StoreProvider({ children }) {
   const [tablaPedidosTieneColumnaRepartidor, setTablaPedidosTieneColumnaRepartidor] = useState(true);
   const [vendedores, setVendedores] = useState([]);
   const [usuariosVendedores, setUsuariosVendedores] = useState([]);
-  const [tablaVendedoresExiste, setTablaVendedoresExiste] = useState(true);
   const [categorias, setCategorias] = useState([]);
   const [cargandoCategorias, setCargandoCategorias] = useState(true);
   const [bannerUrl, setBannerUrl] = useState("");
@@ -766,38 +765,6 @@ const cargarProductos = async () => {
     setRepartidores(data || []);
   };
 
-  const cargarVendedores = async () => {
-    try {
-      const { data, error } = await supabase.from("vendedores").select("*");
-
-      if (error) {
-        if (
-          error.code === "42P01" ||
-          error.message?.toLowerCase().includes("relation \"vendedores\" does not exist")
-        ) {
-          console.warn("Tabla 'vendedores' no existe: se usará solo usuarios con rol vendedor.");
-          setTablaVendedoresExiste(false);
-          setVendedores([]);
-          return;
-        }
-        console.error("Error cargando vendedores:", error);
-        return;
-      }
-      setVendedores(data || []);
-      setTablaVendedoresExiste(true);
-    } catch (err) {
-      // Algunos errores de Supabase relacionados con la caché del esquema pueden lanzar excepciones
-      if (String(err?.message || "").toLowerCase().includes("relation \"vendedores\" does not exist") ||
-          String(err?.message || "").toLowerCase().includes("could not find the table 'public.vendedores'")) {
-        console.warn("Excepción: tabla 'vendedores' no encontrada en el cache del esquema. Usando usuarios con rol 'vendedor'.");
-        setTablaVendedoresExiste(false);
-        setVendedores([]);
-        return;
-      }
-      console.error("Excepción cargando vendedores:", err);
-    }
-  };
-
   const cargarUsuariosVendedores = async () => {
     const { data, error } = await supabase
       .from("usuarios")
@@ -815,18 +782,17 @@ const cargarProductos = async () => {
     return usuariosVendedores
       .filter((usuario) => usuario.rol === "vendedor")
       .map((usuario) => {
-        const registro = vendedores.find((v) => String(v.usuario_id) === String(usuario.id));
         return {
           id: usuario.id,
           usuario_id: usuario.id,
           nombre: usuario.nombre,
           email: usuario.email,
-          zona: registro?.zona || usuario.zona || "",
-          estado: registro?.estado || "Activo",
-          registroVendedor: registro || null,
+          zona: usuario.zona || "",
+          estado: "Activo",
+          registroVendedor: null,
         };
       });
-  }, [usuariosVendedores, vendedores]);
+  }, [usuariosVendedores]);
 
   const cargarCategorias = async () => {
     setCargandoCategorias(true);
@@ -929,7 +895,6 @@ const cargarProductos = async () => {
       const pedidosCargados = await cargarPedidos(productosCargados, clientesCargados);
       await Promise.all([
         cargarRepartidores(),
-        cargarVendedores(),
         cargarUsuariosVendedores(),
       ]);
       reconciliarSaldosIniciales(clientesCargados, pedidosCargados || []);
@@ -1548,42 +1513,8 @@ const crearVendedor = async (nombre, zona, email, password) => {
       return { error: errorUsuario.message };
     }
 
-    // 4. Insertar en vendedores si existe
-    let vendedorData = usuarioData;
-    if (tablaVendedoresExiste) {
-      const { data: vendedorInsertado, error: errorVendedor } =
-        await supabase
-          .from("vendedores")
-          .insert([
-            {
-              zona,
-              estado: "Activo",
-              usuario_id: userId,
-            },
-          ])
-          .select()
-          .single();
-
-      if (errorVendedor) {
-        if (
-          errorVendedor.code === "42P01" ||
-          errorVendedor.message?.toLowerCase().includes("relation \"vendedores\" does not exist")
-        ) {
-          console.warn("Tabla 'vendedores' no existe: el vendedor se creó solo en usuarios.");
-          setTablaVendedoresExiste(false);
-        } else {
-          console.error("Error creando vendedor:", errorVendedor);
-          return { error: errorVendedor.message };
-        }
-      } else {
-        vendedorData = vendedorInsertado;
-        setVendedores((prev) => [...prev, vendedorInsertado]);
-      }
-    }
-
-    // 5. Sincronizar estado local con la base de datos
+    // La fuente de vendedores es `usuarios` con rol `vendedor`.
     await cargarUsuariosVendedores();
-    await cargarVendedores();
 
     if (previousSession) {
       const { error: restoreError } = await supabase.auth.setSession({
@@ -1597,7 +1528,7 @@ const crearVendedor = async (nombre, zona, email, password) => {
 
     return {
       success: true,
-      vendedor: vendedorData,
+      vendedor: usuarioData,
     };
   } catch (err) {
     console.error(err);
@@ -2886,7 +2817,6 @@ return (
       eliminarVendedor,
       cargandoCategorias,
       vendedoresConUsuarios,
-      tablaVendedoresExiste,
       bannerUrl,
       bannerImages,
       guardarImagenesBanner,
