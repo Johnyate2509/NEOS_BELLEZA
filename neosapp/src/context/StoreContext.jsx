@@ -3,11 +3,17 @@ import { supabase } from "./supabaseClient";
 import { validarDatosPedido, validarCarrito } from "../utils/validaciones";
 import { enviarConfirmacionPedido, enviarNotificacionVendedor } from "../services/emailService";
 import { asegurarPerfilCliente } from "../utils/asegurarPerfilCliente";
+import {
+  CATALOG_CACHE_CONSENT_EVENT,
+  PRODUCT_CATALOG_CACHE_TTL_MS,
+  guardarCacheProductos,
+  leerCacheProductos,
+  tieneConsentimientoCacheCatalogo,
+} from "../utils/catalogCache";
 
 const StoreContext = createContext(null);
 const MINIMOS_COMPRA_CATALOGO_DEFAULT = { General: 1, Emprendedor: 3, Mayorista: 6 };
 const MONTOS_MINIMOS_CATALOGO_DEFAULT = { General: 0, Emprendedor: 0, Mayorista: 0 };
-const PRODUCTOS_OFFLINE_KEY = "neosapp_productos_offline_v1";
 const CATEGORIAS_OFFLINE_KEY = "neosapp_categorias_offline_v1";
 const PRODUCT_COLUMNS = "id,nombre,precio,stock,descripcion,categoria_id,imagen_url,precio_mayorista,precio_emprendedor,imagen_url2,imagen_url3,imagen_url4,imagen_url5,oculto_catalogo,catalogos_ocultos,minimos_compra";
 const VARIANT_COLUMNS = "id,producto_id,nombre,atributos,precio,precio_emprendedor,precio_mayorista,stock,imagenes,archivada,created_at,updated_at";
@@ -23,6 +29,7 @@ const eliminarUsuarioAuthSeguro = async (userId) => {
 
 export function StoreProvider({ children }) {
   const [productos, setProductos] = useState([]);
+  const [revisionConsentimientoCatalogo, setRevisionConsentimientoCatalogo] = useState(0);
   const [clientes, setClientes] = useState([]);
   const [pedidos, setPedidos] = useState([]);
   const [repartidores, setRepartidores] = useState([]);
@@ -37,6 +44,19 @@ export function StoreProvider({ children }) {
   const [catalogosOcultos, setCatalogosOcultos] = useState([]);
   const [minimosCompraCatalogo, setMinimosCompraCatalogo] = useState(MINIMOS_COMPRA_CATALOGO_DEFAULT);
   const [montosMinimosCompraCatalogo, setMontosMinimosCompraCatalogo] = useState(MONTOS_MINIMOS_CATALOGO_DEFAULT);
+
+  useEffect(() => {
+    const actualizarConsentimiento = () => setRevisionConsentimientoCatalogo((revision) => revision + 1);
+    window.addEventListener(CATALOG_CACHE_CONSENT_EVENT, actualizarConsentimiento);
+    return () => window.removeEventListener(CATALOG_CACHE_CONSENT_EVENT, actualizarConsentimiento);
+  }, []);
+
+  useEffect(() => {
+    if (!productos.length || !tieneConsentimientoCacheCatalogo()) return;
+    // Conserva la fecha de la última lectura remota; editar localmente el catálogo
+    // no debe extender indefinidamente la vigencia de una copia desactualizada.
+    guardarCacheProductos(productos);
+  }, [productos, revisionConsentimientoCatalogo]);
 
   const notificarEventoApp = async (tipo, entidadId) => {
     try {
@@ -451,34 +471,25 @@ const adaptarProducto = (p) => {
   };
 
 const cargarProductos = async () => {
+  const cache = leerCacheProductos();
+  const cacheReciente = cache && Date.now() - cache.actualizadoEn < PRODUCT_CATALOG_CACHE_TTL_MS;
+  if (cacheReciente) {
+    setProductos(cache.productos);
+    return cache.productos;
+  }
+
   const { data, error } = await supabase.from("productos").select(PRODUCT_COLUMNS);
 
   if (error) {
     console.error("Error cargando productos:", error);
-    try {
-      const guardados = JSON.parse(window.localStorage.getItem(PRODUCTOS_OFFLINE_KEY) || "[]");
-      const productosOffline = Array.isArray(guardados) ? guardados : [];
-      setProductos(productosOffline);
-      return productosOffline;
-    } catch (errorCache) {
-      console.warn("No se pudo recuperar el catálogo guardado para uso offline:", errorCache);
-      return [];
-    }
+    const productosOffline = cache?.productos || [];
+    setProductos(productosOffline);
+    return productosOffline;
   }
 
   const adaptados = (data || []).map(adaptarProducto);
   setProductos(adaptados);
-  try {
-    // Las imágenes base64 pueden ocupar todo el almacenamiento local. Se conserva
-    // el catálogo y sus URLs públicas, pero se omiten las imágenes incrustadas.
-    const productosParaOffline = adaptados.map((producto) => ({
-      ...producto,
-      imagenes: (producto.imagenes || []).filter((imagen) => typeof imagen === "string" && !imagen.startsWith("data:")),
-    }));
-    window.localStorage.setItem(PRODUCTOS_OFFLINE_KEY, JSON.stringify(productosParaOffline));
-  } catch (errorCache) {
-    console.warn("No se pudo actualizar el catálogo offline del dispositivo:", errorCache);
-  }
+  guardarCacheProductos(adaptados, Date.now());
   return adaptados;
 };
 

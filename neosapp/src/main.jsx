@@ -7,6 +7,7 @@ import { StoreProvider } from "./context/StoreContext";
 import { AuthProvider } from "./context/AuthContext";
 import NetworkStatus from "./components/NetworkStatus";
 import InstallPWA from "./components/InstallPWA";
+import CatalogCacheConsent from "./components/CatalogCacheConsent";
 
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
   window.addEventListener("load", () => {
@@ -23,6 +24,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <App />
         <NetworkStatus />
         <InstallPWA />
+        <CatalogCacheConsent />
       </BrowserRouter>
     </StoreProvider>
   </AuthProvider>
