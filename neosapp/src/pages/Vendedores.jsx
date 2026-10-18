@@ -8,7 +8,6 @@ export default function Vendedores() {
     obtenerClientesPorVendedor,
     calcularVentasPorVendedor,
     crearVendedor,
-    eliminarVendedor,
     pedidos,
   } = useStore();
   
@@ -21,23 +20,6 @@ export default function Vendedores() {
 
   const handleSeleccionarVendedor = (vendedorId) => {
     setVendedorSeleccionado(vendedorSeleccionado === vendedorId ? null : vendedorId);
-  };
-
-  const handleEliminarVendedor = async (vendedorId) => {
-    if (!vendedorId) return;
-    const confirmar = window.confirm(
-      "¿Estás seguro de que deseas eliminar este vendedor? Esta acción desasignará sus clientes."
-    );
-    if (!confirmar) return;
-
-    const resultado = await eliminarVendedor(vendedorId);
-    if (resultado.error) {
-      setMensaje(`❌ ${resultado.error}`);
-      return;
-    }
-    setMensaje("✅ Vendedor eliminado correctamente");
-    setVendedorSeleccionado(null);
-    setTimeout(() => setMensaje(""), 3000);
   };
 
   return (
@@ -132,17 +114,6 @@ export default function Vendedores() {
                         ${totalVentas.toLocaleString("es-CO")}
                       </span>
                     </div>
-                  </div>
-                  <div className="vendedor-actions">
-                    <button
-                      className="btn-accion-vendedor btn-eliminar-vendedor admin-action-control admin-action-control--danger"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEliminarVendedor(vendedor.usuario_id);
-                      }}
-                    >
-                      Eliminar
-                    </button>
                   </div>
                   <span className={`expand-icon ${isSeleccionado ? "expanded" : ""}`}>
                     ▼

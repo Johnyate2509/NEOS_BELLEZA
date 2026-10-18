@@ -5,7 +5,7 @@ import "../styles/repartidores.css";
 
 
 export default function Repartidores() {
-  const { repartidores, crearRepartidor, eliminarRepartidor } = useStore();
+  const { repartidores, crearRepartidor } = useStore();
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
   const [zona, setZona] = useState("");
@@ -36,27 +36,6 @@ export default function Repartidores() {
     } catch (err) {
       console.error("Excepción en agregarRepartidor:", err);
       setMensaje("Error creando repartidor (ver consola)");
-    }
-  };
-
-  const handleEliminarRepartidor = async (id) => {
-    if (!id) return;
-    const confirmar = window.confirm("¿Eliminar este repartidor? Esta acción es irreversible.");
-    if (!confirmar) return;
-
-    try {
-      const resultado = await eliminarRepartidor(id);
-      if (!resultado || resultado.error) {
-        const msg = (resultado && resultado.error) || "Error al eliminar repartidor (revisar consola)";
-        setMensaje(msg);
-        console.error("eliminarRepartidor error for id:", id, resultado);
-        return;
-      }
-      setMensaje("Repartidor eliminado correctamente");
-      setTimeout(() => setMensaje(""), 3000);
-    } catch (err) {
-      console.error("Excepción al eliminar repartidor:", err);
-      setMensaje("Error eliminando repartidor (excepción)");
     }
   };
 
@@ -120,12 +99,6 @@ export default function Repartidores() {
             <p>Email: {repartidor.email}</p>
             <p>Zona: {repartidor.zona}</p>
 
-            <button
-              className="btn-eliminar admin-action-control admin-action-control--danger"
-              onClick={() => handleEliminarRepartidor(repartidor.id)}
-            >
-              Eliminar
-            </button>
           </div>
         ))}
       </div>

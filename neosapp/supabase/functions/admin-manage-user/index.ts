@@ -105,7 +105,7 @@ Deno.serve(async (request) => {
   // Desvincula referencias operativas y conserva los registros usados por el historial.
   const { error: errorClienteUsuario } = await adminClient
     .from("clientes")
-    .update({ usuario_id: null })
+    .update({ usuario_id: null, cuenta_eliminada: true })
     .eq("usuario_id", userId);
   if (errorClienteUsuario) return response(400, { error: `No se pudo desvincular su ficha de cliente: ${errorClienteUsuario.message}` });
 

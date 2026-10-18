@@ -2825,12 +2825,17 @@ const datosCliente = {
     return await updatePedidoItems(pedidoId, items);
   };
 
+const clientesVisibles = useMemo(
+  () => clientes.filter((cliente) => !cliente.cuenta_eliminada),
+  [clientes]
+);
+
 return (
   <StoreContext.Provider
     value={{
       productos,
       setProductos,
-      clientes,
+      clientes: clientesVisibles,
       pedidos,
       repartidores,
       vendedores,
